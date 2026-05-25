@@ -1,0 +1,96 @@
+site_name: iac-cartographer
+site_description: Fleet-level documentation for your Terraform / IaC estate.
+site_url: https://vakaobr.github.io/iac-cartographer/
+repo_name: vakaobr/iac-cartographer
+repo_url: https://github.com/vakaobr/iac-cartographer
+edit_uri: edit/main/docs/
+
+# All docs live under docs/. The README + CONTRIBUTING in the repo root
+# stay as-is — they're the canonical entry points on GitHub. The docs
+# site is a navigable companion, not a replacement.
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.instant     # SPA-style nav without full page reloads
+    - navigation.tracking    # update URL with current section anchor
+    - navigation.sections    # top-level sections render as expandable groups
+    - navigation.indexes     # section can have its own index page
+    - navigation.top         # back-to-top button
+    - search.highlight
+    - search.suggest
+    - content.code.copy      # copy-button on every fenced code block
+    - content.action.edit    # "edit on github" pencil per page
+  palette:
+    # Light mode by default, with a toggle to dark mode that follows the
+    # OS preference. Same colour ergonomics as the HTML publisher.
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition              # !!! note / warning callouts
+  - attr_list               # {.classes #ids} on Markdown elements
+  - md_in_html              # nested Markdown inside <div> wrappers
+  - footnotes
+  - tables
+  - toc:
+      permalink: true       # § anchor next to every heading
+  - pymdownx.details        # collapsible <details> blocks
+  - pymdownx.superfences    # fenced code with language hints
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets:
+      base_path:
+        - .                 # allow snippets to pull from repo root (CHANGELOG etc.)
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Quick start: quickstart.md
+  - Backends:
+      - Overview: backends/index.md
+      - Discovery sources: backends/discovery.md
+      - LLM providers: backends/llm.md
+      - Publishers: backends/publishers.md
+      - Secrets providers: backends/secrets.md
+  - Operations:
+      - Running on a schedule: operations/runtime.md
+      - Cutting a release: operations/releases.md
+  - Reference:
+      - Architecture: reference/architecture.md
+      - Configuration schema: reference/configuration.md
+  - Contributing: contributing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/vakaobr/iac-cartographer
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/iac-cartographer/
+
+# Build-time strictness — fail on broken internal links, undefined
+# nav entries, etc. Keeps the docs honest as the project moves.
+strict: true

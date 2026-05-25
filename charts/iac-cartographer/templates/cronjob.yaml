@@ -1,0 +1,85 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "iac-cartographer.fullname" . }}
+  labels:
+    {{- include "iac-cartographer.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronjob.schedule | quote }}
+  concurrencyPolicy: {{ .Values.cronjob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronjob.failedJobsHistoryLimit }}
+  startingDeadlineSeconds: {{ .Values.cronjob.startingDeadlineSeconds }}
+  {{- with .Values.cronjob.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cronjob.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "iac-cartographer.selectorLabels" . | nindent 12 }}
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: {{ include "iac-cartographer.serviceAccountName" . }}
+          restartPolicy: Never
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: {{ include "iac-cartographer.name" . }}
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                - --once
+                - --config
+                - /etc/iac-cartographer/config.yaml
+                {{- with .Values.extraArgs }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              envFrom:
+                - secretRef:
+                    name: {{ include "iac-cartographer.secretName" . }}
+              {{- with .Values.extraEnv }}
+              env:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/iac-cartographer
+                  readOnly: true
+                # tmpfs scratch dir — the fetcher writes shallow clones here.
+                # Off the rootfs so the pod can run with a read-only root if
+                # the operator chooses to harden further.
+                - name: scratch
+                  mountPath: /tmp
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              securityContext:
+                {{- toYaml .Values.containerSecurityContext | nindent 16 }}
+          volumes:
+            - name: config
+              configMap:
+                name: {{ include "iac-cartographer.configMapName" . }}
+            - name: scratch
+              emptyDir:
+                medium: Memory
+                # Cap the tmpfs so a runaway clone can't OOM the node.
+                # Bumps may be needed for large monorepos; default fits
+                # ~50 typical IaC repos with shallow clones.
+                sizeLimit: 1Gi
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

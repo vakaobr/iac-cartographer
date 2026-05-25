@@ -192,7 +192,8 @@ lives under [`examples/runtime/`](examples/runtime/):
 
 | File | Scheduler | When to use |
 |---|---|---|
-| [`kubernetes-cronjob.yaml`](examples/runtime/kubernetes-cronjob.yaml) | Kubernetes `CronJob` | k8s clusters with a workload identity solution (IRSA, Workload Identity, Pod Identity) or with the `env` secrets backend. |
+| [Helm chart](charts/iac-cartographer/) | Kubernetes `CronJob` (templated) | The recommended path for k8s. Values for schedule, namespace, image tag, secrets backend, resources, workload-identity binding. |
+| [`kubernetes-cronjob.yaml`](examples/runtime/kubernetes-cronjob.yaml) | Kubernetes `CronJob` (raw manifest) | Read-and-copy reference for the raw shape — useful for learning what the Helm chart renders to, or for clusters where Helm isn't available. |
 | [`github-actions.yml`](examples/runtime/github-actions.yml) | GitHub Actions `schedule` | Lightweight setup with no infrastructure to own; secrets live in the GitHub repo settings. |
 | [`cron.sh`](examples/runtime/cron.sh) | Plain `cron` / `systemd-timer` | A single VM you already own. Docker-based, so no Python install needed on the host. |
 

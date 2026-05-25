@@ -1,0 +1,183 @@
+# Default values for the iac-cartographer Helm chart.
+# Override with `helm install ... --values my-values.yaml` or `--set key=value`.
+
+# ─── Image ─────────────────────────────────────────────────────────────────
+
+image:
+  # The container image is published from this repo's release-ghcr.yml
+  # workflow on every tag push. Pin to a semver tag (`v0.x.y`) in
+  # production — `latest` is a convenience tag that moves over time.
+  repository: ghcr.io/vakaobr/iac-cartographer
+  # Empty defaults to the chart's `appVersion`. Override for a specific
+  # release: `--set image.tag=v0.2.0`.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# imagePullSecrets to use when pulling from a private registry. Each entry
+# is a reference: `[{name: my-pull-secret}]`. Leave empty for public GHCR.
+imagePullSecrets: []
+
+# ─── Naming + labels ────────────────────────────────────────────────────────
+
+# Override the default name (defaults to the chart name).
+nameOverride: ""
+# Override the fully-qualified resource name (defaults to release-name + chart-name).
+fullnameOverride: ""
+
+# Extra labels applied to every resource the chart creates.
+commonLabels: {}
+
+# ─── Scheduling ─────────────────────────────────────────────────────────────
+
+cronjob:
+  # Cron expression in the cluster's timezone. Default: 06:00 every Monday.
+  # See https://crontab.guru/ for help.
+  schedule: "0 6 * * 1"
+  # Don't pile up runs if a previous one is still in flight. The pipeline
+  # is idempotent but concurrent Bedrock spend isn't free.
+  concurrencyPolicy: Forbid
+  # How long ago a missed start time is acceptable (seconds). Above this,
+  # the controller skips the run entirely.
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  # Per-Job backoff. 0 = no auto-retry on failure; the operator inspects
+  # logs and re-runs manually. Bump to 1-2 if you have transient API flakiness.
+  backoffLimit: 0
+  # Optional: timezone for the schedule (Kubernetes 1.27+).
+  # timeZone: "Europe/Berlin"
+
+# Optional extra arguments to append to `iac-cartographer --once`, e.g.
+# ["--dry-run"] for a validation cluster, ["--repos", "acme/main"] for a pin.
+extraArgs: []
+
+# ─── Resources + scheduling constraints ─────────────────────────────────────
+
+resources:
+  # Sized for ~50 repos. Bump CPU for larger fleets — most of the wall
+  # time is git clone + terraform-docs, both parallelisable.
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ─── Pod security ───────────────────────────────────────────────────────────
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  # terraform-docs writes temp files under /tmp, so we can't run with a
+  # fully read-only rootfs. The Dockerfile is non-root anyway.
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+# ─── ServiceAccount ─────────────────────────────────────────────────────────
+
+serviceAccount:
+  # Create a dedicated ServiceAccount. Set to false to reuse an existing
+  # one (e.g. one with workload-identity annotations already configured).
+  create: true
+  # Name to use. When empty, the chart generates one from the release name.
+  name: ""
+  # Annotations on the SA. Drop your workload-identity binding here:
+  #   * IRSA (EKS):                  eks.amazonaws.com/role-arn: arn:aws:iam::...
+  #   * GKE Workload Identity:       iam.gke.io/gcp-service-account: foo@...
+  #   * Azure Workload Identity:     azure.workload.identity/client-id: ...
+  annotations: {}
+
+# ─── Application config ─────────────────────────────────────────────────────
+
+# The full iac-cartographer config.yaml. Rendered into a ConfigMap and
+# mounted at /etc/iac-cartographer/config.yaml inside the container.
+#
+# This default targets the `env` secrets backend + `markdown` publisher,
+# so the chart works out-of-the-box without any cloud account. Swap
+# `secrets.backend` to `aws` / `vault` and `publisher.kind` to
+# `confluence` / `html` for production deployments.
+#
+# Set `config.existingConfigMap: <name>` to reference an already-managed
+# ConfigMap instead — then everything under `config.appConfig` is ignored.
+config:
+  # Reference an existing ConfigMap (must contain a `config.yaml` key).
+  # When set, the chart-managed ConfigMap is NOT created.
+  existingConfigMap: ""
+
+  # Inline config. See examples/config.example.yaml for the full annotated
+  # reference of every available field.
+  appConfig:
+    discovery:
+      gitlab_group_ids: []
+      github_orgs: []
+      bitbucket_workspaces: []
+      deny_repos: []
+
+    secrets:
+      backend: env
+
+    llm:
+      backend: anthropic
+      model_id: claude-sonnet-4-5-20250929
+      max_tokens: 4096
+
+    publisher:
+      kind: markdown
+
+    markdown:
+      output_dir: /var/run/iac-cartographer/output
+
+    slack:
+      channel: "#alerts"
+
+# ─── Credentials ────────────────────────────────────────────────────────────
+
+# How to feed the IAC_CARTOGRAPHER_SECRET_* / IAC_CARTOGRAPHER_PARAM_*
+# env vars to the pod.
+#
+# Two modes:
+#   1. `existingSecret: <name>` — reference a Secret you manage outside
+#      the chart (preferred for production; lets you wire it up to
+#      External Secrets Operator, Sealed Secrets, SOPS, etc.).
+#   2. Inline `stringData` — chart creates + manages the Secret. Convenient
+#      for getting started; less convenient for credential rotation.
+secrets:
+  # Reference an existing Secret. When set, the chart-managed Secret is
+  # NOT created and inline `stringData` is ignored.
+  existingSecret: ""
+
+  # Inline secrets (only used when existingSecret is empty). Each value
+  # is a JSON-encoded string (for SECRET_*) or a plain string (for PARAM_*).
+  # See the README §"Secrets backends" for the mapping rules.
+  #
+  # SECURITY: storing real secrets in Helm values is convenient for demos
+  # but unsuitable for production. Use `existingSecret` + ExternalSecrets
+  # / SealedSecrets / SOPS in real deployments.
+  stringData: {}
+    # IAC_CARTOGRAPHER_SECRET_CONFLUENCE: '{"email":"bot@x","api_token":"ATATT..."}'
+    # IAC_CARTOGRAPHER_SECRET_GITLAB:     '{"token":"glpat-..."}'
+    # IAC_CARTOGRAPHER_SECRET_GITHUB:     '{"token":"ghp_..."}'
+    # IAC_CARTOGRAPHER_SECRET_SLACK:      '{"bot_token":"xoxb-..."}'
+    # IAC_CARTOGRAPHER_SECRET_ANTHROPIC:  '{"api_key":"sk-ant-..."}'
+    # IAC_CARTOGRAPHER_PARAM_CONFLUENCE_PARENT_ID: "123456789"
+
+# ─── Extra env vars (non-secret) ────────────────────────────────────────────
+
+# Plain key/value env vars merged into the container's environment. Useful
+# for `VAULT_TOKEN` (when the Vault secrets backend is in use and a
+# sidecar injects the token), `AWS_REGION`, etc.
+extraEnv: []
+  # - name: VAULT_TOKEN
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: vault-token
+  #       key: token

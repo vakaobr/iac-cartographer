@@ -159,6 +159,56 @@ jobs:
           git commit -m "ci: update coverage badge (${GITHUB_SHA::8})"
           git push origin badges
 
+  helm:
+    name: helm lint + template
+    runs-on: ubuntu-latest
+    # Runs on every PR + push so chart syntax breakage is caught before merge.
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.0
+
+      - name: helm lint
+        run: helm lint charts/iac-cartographer
+
+      - name: helm template — defaults
+        # Render with stock values. Fails CI on template errors that don't
+        # surface from `helm lint` alone (it doesn't fully render).
+        run: helm template iac-cartographer charts/iac-cartographer > /dev/null
+
+      - name: helm template — existingSecret + existingConfigMap path
+        # Override path: chart must NOT create its own Secret/ConfigMap.
+        # This catches typos in the `if not .existingSecret` guards.
+        run: |
+          helm template iac-cartographer charts/iac-cartographer \
+            --set secrets.existingSecret=external-secret \
+            --set config.existingConfigMap=external-cm \
+            > /tmp/rendered.yaml
+          # The chart must not emit either resource when externals are set.
+          if grep -E '^kind: (Secret|ConfigMap)$' /tmp/rendered.yaml; then
+            echo "::error::chart emitted a Secret or ConfigMap despite existing* overrides"
+            exit 1
+          fi
+
+      - name: kubeconform schema validation
+        # Offline Kubernetes-API schema validation. `kubectl --dry-run=client`
+        # was attempted here but it tries to fetch OpenAPI from a live API
+        # server in 1.32+, which CI doesn't have. `kubeconform` ships the
+        # schema with the binary and doesn't need a cluster — better fit.
+        run: |
+          KUBECONFORM_VERSION="v0.7.0"
+          curl -fsSL \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            -o /tmp/kubeconform.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+          chmod +x /usr/local/bin/kubeconform
+          kubeconform -v
+          helm template iac-cartographer charts/iac-cartographer \
+            | kubeconform -strict -summary -schema-location default
+
   docker:
     name: docker build smoke
     runs-on: ubuntu-latest

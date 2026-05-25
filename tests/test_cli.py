@@ -365,7 +365,7 @@ def test_run_once_with_dry_run_and_stubbed_discovery_exits_0(
             0,
         )
 
-    monkeypatch.setattr(_cli, "discover", fake_discover)
+    monkeypatch.setattr(_cli, "discover_from_sources", fake_discover)
     monkeypatch.setattr(_cli, "_process_repo", fake_process_repo)
 
     rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-bedrock"])
@@ -473,7 +473,7 @@ def test_run_once_model_flag_overrides_bedrock_model_id(
             0,
         )
 
-    monkeypatch.setattr(_cli, "discover", fake_discover)
+    monkeypatch.setattr(_cli, "discover_from_sources", fake_discover)
     monkeypatch.setattr(_cli, "_process_repo", fake_process_repo)
 
     rc = main(
@@ -541,7 +541,7 @@ def test_run_once_no_model_flag_uses_config_default(
             0,
         )
 
-    monkeypatch.setattr(_cli, "discover", fake_discover)
+    monkeypatch.setattr(_cli, "discover_from_sources", fake_discover)
     monkeypatch.setattr(_cli, "_process_repo", fake_process_repo)
 
     rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-bedrock"])
@@ -589,7 +589,7 @@ def test_run_once_preflight_404_returns_2_before_discovery(
 
     from iac_cartographer import cli as _cli
 
-    monkeypatch.setattr(_cli, "discover", fake_discover_should_not_run)
+    monkeypatch.setattr(_cli, "discover_from_sources", fake_discover_should_not_run)
 
     # 404 on the parent page lookup
     with respx.mock(base_url="https://acme.atlassian.net/wiki/api/v2"):
@@ -642,7 +642,7 @@ def test_run_once_preflight_skipped_in_dry_run(
     async def fake_process_repo(meta: RepoMetadata, *_a: object, **_kw: object):
         return (RepoInventory(meta=meta, summary=TerraformSummary(), narrative=None), None, 0, 0)
 
-    monkeypatch.setattr(_cli, "discover", fake_discover)
+    monkeypatch.setattr(_cli, "discover_from_sources", fake_discover)
     monkeypatch.setattr(_cli, "_process_repo", fake_process_repo)
 
     # If preflight ran in dry-run, this would hit an unmocked Confluence URL.

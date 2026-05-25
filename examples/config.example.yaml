@@ -25,6 +25,26 @@ discovery:
   github_orgs:
     - "acme-org"
 
+  # Bitbucket Cloud workspaces to enumerate. Empty list = skip Bitbucket.
+  # Unlike GitLab/GitHub, the Bitbucket Cloud public API has no
+  # `extension:tf`-style code search on free plans — this source lists
+  # every repo in the workspace and lets the per-repo extractor filter
+  # out the ones with no .tf files. For large mixed-workload workspaces,
+  # narrow the scope with `deny_repos` patterns below, or use
+  # `repos_file` instead for a hand-curated list.
+  # Credentials come from the `iac-cartographer/bitbucket` secret —
+  # set EITHER `access_token` (recommended; workspace access token)
+  # OR `username` + `app_password` in that secret's JSON payload.
+  bitbucket_workspaces:
+    - "acme"
+
+  # Optional path to a YAML/JSON file containing pre-curated repo
+  # metadata. Use for air-gapped runs, self-hosted VCS without API
+  # support (Gitea, Forgejo, Codeberg, …), or to pin a focused subset
+  # of repos. See iac_cartographer/discovery/file.py for the schema.
+  # Path is interpreted relative to the CWD of the running container.
+  # repos_file: "./repos.yaml"
+
   # Glob patterns (against `full_name`) to exclude from publishing.
   deny_repos:
     - "acme-org/*-archived"

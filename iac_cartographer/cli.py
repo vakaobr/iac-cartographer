@@ -49,11 +49,14 @@ from iac_cartographer.constants import CartographerError, ConfigError, MissingSe
 from iac_cartographer.discovery import discover
 from iac_cartographer.extractor import run_terraform_docs
 from iac_cartographer.fetcher import cleanup, clone
+from iac_cartographer.llm import AnthropicBackend, BedrockBackend, LLMBackend
 from iac_cartographer.models import (
+    AnthropicCredentials,
     AppConfig,
     ConfluenceCredentials,
     GithubCredentials,
     GitlabCredentials,
+    LLMConfig,
     RepoInventory,
     RepoMetadata,
     RunOutcome,
@@ -142,17 +145,20 @@ def _setup_logging(verbose: bool = False) -> None:
 
 @dataclass(frozen=True)
 class LoadedSecrets:
-    """Bundle of all four Secrets Manager entries loaded at startup.
+    """Bundle of Secrets Manager entries loaded at startup.
 
-    Frozen so downstream phases can't mutate credentials by accident. Also
-    keeps the type of `_load_secrets` simple — one return value, not a tuple
-    that grows when we add more secrets.
+    `anthropic` is only populated when `llm.backend == "anthropic"` —
+    Bedrock deployments don't need an API key. Everything else is
+    required on every run.
+
+    Frozen so downstream phases can't mutate credentials by accident.
     """
 
     confluence: ConfluenceCredentials
     gitlab: GitlabCredentials
     github: GithubCredentials
     slack: SlackCredentials
+    anthropic: AnthropicCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -163,6 +169,7 @@ CONFLUENCE_SECRET_NAME = "iac-cartographer/confluence"  # noqa: S105
 GITLAB_SECRET_NAME = "iac-cartographer/gitlab"  # noqa: S105
 GITHUB_SECRET_NAME = "iac-cartographer/github"  # noqa: S105
 SLACK_SECRET_NAME = "iac-cartographer/slack"  # noqa: S105
+ANTHROPIC_SECRET_NAME = "iac-cartographer/anthropic"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -191,12 +198,16 @@ def _load_config(config_source: str) -> AppConfig:
         raise ConfigError(f"config validation failed: {exc}") from exc
 
 
-def _load_secrets() -> LoadedSecrets:
-    """Fetch all 4 Secrets Manager entries and validate them.
+def _load_secrets(llm_backend_name: str = "bedrock") -> LoadedSecrets:
+    """Fetch the Secrets Manager entries the run needs and validate them.
 
-    Raises `MissingSecretError` if any secret is missing or fails Pydantic
-    validation. Always reads real credentials — `--dry-run` only suppresses
-    *writes*, never reads.
+    `llm_backend_name` decides whether the Anthropic API key is required:
+    for the default `bedrock` backend it's skipped entirely; for the
+    `anthropic` backend it's loaded from `iac-cartographer/anthropic`.
+
+    Raises `MissingSecretError` if any required secret is missing or
+    fails Pydantic validation. Always reads real credentials —
+    `--dry-run` only suppresses *writes*, never reads.
     """
     try:
         confluence_raw = get_secret(CONFLUENCE_SECRET_NAME)
@@ -206,15 +217,54 @@ def _load_secrets() -> LoadedSecrets:
     except Exception as exc:
         raise MissingSecretError(f"failed to fetch a required secret: {exc}") from exc
 
+    anthropic_creds: AnthropicCredentials | None = None
+    if llm_backend_name == "anthropic":
+        try:
+            anthropic_raw = get_secret(ANTHROPIC_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"llm.backend=anthropic but the {ANTHROPIC_SECRET_NAME} secret is missing: {exc}"
+            ) from exc
+        try:
+            anthropic_creds = AnthropicCredentials.model_validate(anthropic_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"anthropic secret payload failed schema validation: {exc}") from exc
+
     try:
         return LoadedSecrets(
             confluence=ConfluenceCredentials.model_validate(confluence_raw),
             gitlab=GitlabCredentials.model_validate(gitlab_raw),
             github=GithubCredentials.model_validate(github_raw),
             slack=SlackCredentials.model_validate(slack_raw),
+            anthropic=anthropic_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
+
+
+def _build_llm_backend(llm_config: LLMConfig, secrets: LoadedSecrets) -> LLMBackend:
+    """Instantiate the right `LLMBackend` for `llm_config.backend`.
+
+    Adding a new backend means: extend the `Literal` in `LLMConfig.backend`,
+    implement the subclass in `llm.py`, and add a new elif here. Keep the
+    decision tree centralised so credentials + region wiring lives in one
+    spot."""
+    name = llm_config.backend
+    if name == "bedrock":
+        return BedrockBackend(region=llm_config.bedrock_region)
+    if name == "anthropic":
+        if secrets.anthropic is None:
+            # Shouldn't happen — _load_secrets above gates on the same
+            # condition — but guard for clarity / future-refactor safety.
+            raise ConfigError(
+                "llm.backend=anthropic but no AnthropicCredentials were loaded "
+                "(check the iac-cartographer/anthropic secret)"
+            )
+        return AnthropicBackend(
+            api_key=secrets.anthropic.api_key,
+            base_url=llm_config.anthropic_base_url,
+        )
+    raise ConfigError(f"unknown llm.backend: {name!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +337,8 @@ async def _process_repo(
     meta: RepoMetadata,
     gitlab_token: str,
     github_token: str,
-    bedrock_config: Any,
+    llm_config: LLMConfig,
+    llm_backend: LLMBackend,
     *,
     no_bedrock: bool,
     semaphore: asyncio.Semaphore,
@@ -295,9 +346,9 @@ async def _process_repo(
     """Clone → extract → narrate one repo. Returns (inventory, error, tokens_in, tokens_out).
 
     `error` is non-None when the per-repo pipeline failed; the orchestrator
-    records it but doesn't abort. Token counts come from Bedrock usage data
-    (may be 0 when narration was skipped via --no-bedrock or fell through
-    after retry exhaustion).
+    records it but doesn't abort. Token counts come from the LLM backend's
+    usage data (may be 0 when narration was skipped via `--no-bedrock` or
+    when the backend doesn't supply usage counts).
     """
     path: Path | None = None
     try:
@@ -312,7 +363,7 @@ async def _process_repo(
         else:
             async with semaphore:
                 narrative, tokens_in, tokens_out = await asyncio.to_thread(
-                    summarize, meta, summary, readme, hcl_concat, bedrock_config
+                    summarize, meta, summary, readme, hcl_concat, llm_config, llm_backend
                 )
 
         return (
@@ -386,13 +437,14 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         put_metric_data("IacCartographer", "RunCount", 1.0)
 
     config = _load_config(args.config)
-    # Per-run model override (e.g. validation runs on Haiku, scheduled runs on
-    # Sonnet). When `--model` is omitted, config default applies.
+    # Per-run model override (e.g. validation runs on Haiku, scheduled runs
+    # on Sonnet). When `--model` is omitted, config default applies.
     if args.model:
-        config = config.model_copy(update={"bedrock": config.bedrock.model_copy(update={"model_id": args.model})})
-        logger.info("iac-cartographer: bedrock model overridden to %s", args.model)
-    secrets = _load_secrets()
+        config = config.model_copy(update={"llm": config.llm.model_copy(update={"model_id": args.model})})
+        logger.info("iac-cartographer: LLM model overridden to %s", args.model)
+    secrets = _load_secrets(config.llm.backend)
     slack = SlackNotifier(secrets.slack, channel=config.slack.channel)
+    llm_backend = _build_llm_backend(config.llm, secrets)
 
     outcome = RunOutcome()
     # Resolved once at preflight and reused at publish time to avoid a
@@ -459,7 +511,8 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 r,
                 secrets.gitlab.token,
                 secrets.github.token,
-                config.bedrock,
+                config.llm,
+                llm_backend,
                 no_bedrock=args.no_bedrock,
                 semaphore=semaphore,
             )

@@ -35,15 +35,33 @@ discovery:
   owner_overrides:
     "acme-org/platform-shared": "Platform"
 
-bedrock:
-  # Claude inference-profile ID. Default in code is the EU Sonnet 4.5 profile.
-  # Override to Haiku for cheap validation runs, Sonnet 4.6 once your account
-  # has the AWS Marketplace subscription, etc.
+llm:
+  # Which LLM provider to use.
+  #   "bedrock"   → AWS Bedrock InvokeModel (auth via the AWS credential
+  #                 chain — env vars, instance profile, IRSA). Default.
+  #   "anthropic" → Anthropic API direct (auth via the API key in the
+  #                 iac-cartographer/anthropic secret). Use when you don't
+  #                 have Bedrock access or want lower latency from the EU.
+  backend: "bedrock"
+
+  # Model identifier. Backend-specific:
+  #   bedrock:   inference-profile ID (e.g.
+  #              "eu.anthropic.claude-sonnet-4-5-20250929-v1:0").
+  #   anthropic: model name (e.g. "claude-sonnet-4-5-20250929").
+  # Override to Haiku for cheap validation runs.
   model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
   max_tokens: 4096
-  # Bump this string when you change the system prompt — forces a republish of
-  # every child page on the next run (otherwise banner-SHA short-circuits).
+
+  # Bump this string when you change the system prompt — forces a republish
+  # of every child page on the next run (otherwise banner-SHA short-circuits).
   system_prompt_version: "v1"
+
+  # Bedrock-only: AWS region for the boto3 client. Ignored for backend=anthropic.
+  bedrock_region: "eu-central-1"
+
+  # Anthropic-only: API base URL. Override to point at an internal proxy /
+  # gateway. Ignored for backend=bedrock.
+  anthropic_base_url: "https://api.anthropic.com"
 
 confluence:
   # Atlassian Cloud site (no protocol, no trailing slash).

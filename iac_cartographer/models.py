@@ -194,16 +194,51 @@ class DiscoveryConfig(_Strict):
     gitlab_base_url: str = "https://gitlab.com"
 
 
-class BedrockConfig(_Strict):
-    # Default to a Claude Sonnet model in the EU cross-region inference profile.
-    # Override via SSM/YAML to flip between Sonnet (production) and Haiku (cheap
-    # validation runs) without a rebuild. IAM allow-list controls which model
-    # IDs are actually invocable.
+class LLMConfig(_Strict):
+    """Configuration for the LLM that writes the per-repo narrative.
+
+    `backend` picks the provider; the rest of the fields are interpreted in
+    that backend's namespace. Adding a new backend means:
+      * Add a literal to the `backend` discriminator below.
+      * Add an `LLMBackend` subclass in `llm.py`.
+      * Wire the cli's secrets-loading + backend instantiation in `cli.py`.
+
+    `BedrockConfig` is preserved as an alias of this class for back-compat
+    with code that referenced the old name during the internal phase.
+    """
+
+    # Which LLM provider to use. "bedrock" → AWS Bedrock InvokeModel (auth
+    # via the standard AWS credential chain — env vars, instance profile,
+    # IRSA, etc.). "anthropic" → Anthropic API direct (auth via an API key
+    # loaded from the `iac-cartographer/anthropic` secret).
+    backend: Literal["bedrock", "anthropic"] = "bedrock"
+
+    # Model identifier — meaning is backend-specific.
+    #   bedrock: an inference-profile ID (e.g. `eu.anthropic.claude-sonnet-4-5-20250929-v1:0`)
+    #   anthropic: a model name (e.g. `claude-sonnet-4-5-20250929`)
+    # The default here is a Bedrock inference-profile that works on the
+    # default backend; override when you flip backends.
     model_id: str = "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+    # Max output tokens per invocation. Same meaning across backends.
     max_tokens: int = 4096
-    # Increments when the system prompt changes — invalidates banner-SHA history
-    # so all pages get a forced republish on the next run.
+
+    # Increments when the system prompt changes — invalidates banner-SHA
+    # history so all pages get a forced republish on the next run.
     system_prompt_version: str = "v1"
+
+    # Bedrock-only: AWS region for the boto3 client.
+    bedrock_region: str = "eu-central-1"
+
+    # Anthropic-only: API base URL. Override to point at a proxy (e.g.
+    # `https://api.anthropic.example/v1` if you front the Anthropic API
+    # with an internal gateway).
+    anthropic_base_url: str = "https://api.anthropic.com"
+
+
+# Back-compat alias. The original internal code used `BedrockConfig`; new
+# code should use `LLMConfig`. Remove this alias after a release cycle.
+BedrockConfig = LLMConfig
 
 
 class ConfluenceConfig(_Strict):
@@ -228,7 +263,10 @@ class SlackConfig(_Strict):
 
 class AppConfig(_Strict):
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
-    bedrock: BedrockConfig = Field(default_factory=BedrockConfig)
+    # The YAML section is named `llm:`. The previous internal name was
+    # `bedrock:` — operators migrating from a pre-1.0 deployment must
+    # rename that section. The schema is otherwise unchanged.
+    llm: LLMConfig = Field(default_factory=LLMConfig)
     confluence: ConfluenceConfig = Field(default_factory=ConfluenceConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)
 
@@ -239,6 +277,13 @@ class AppConfig(_Strict):
 class ConfluenceCredentials(_Strict):
     email: str
     api_token: str
+
+
+class AnthropicCredentials(_Strict):
+    """Anthropic API key for the `anthropic` LLM backend. Loaded only when
+    `llm.backend == "anthropic"` — Bedrock deployments don't need it."""
+
+    api_key: str
 
 
 class GitlabCredentials(_Strict):

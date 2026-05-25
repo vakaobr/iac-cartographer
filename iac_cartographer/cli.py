@@ -76,7 +76,13 @@ from iac_cartographer.models import (
     SlackCredentials,
 )
 from iac_cartographer.narrator import detect_suspicious_phrases, placeholder_narrative, summarize
-from iac_cartographer.publishers import ConfluencePublisher, LocalHtmlPublisher, LocalMarkdownPublisher, Publisher
+from iac_cartographer.publishers import (
+    ConfluencePublisher,
+    LocalHtmlPublisher,
+    LocalJsonPublisher,
+    LocalMarkdownPublisher,
+    Publisher,
+)
 from iac_cartographer.renderer import OVERVIEW_TITLE, compute_sha
 from iac_cartographer.secrets import SecretsProvider, build_provider
 from iac_cartographer.slack import SlackNotifier
@@ -333,6 +339,8 @@ def _build_publisher(
         return LocalMarkdownPublisher(output_dir=config.markdown.output_dir)
     if kind == "html":
         return LocalHtmlPublisher(output_dir=config.html.output_dir)
+    if kind == "json":
+        return LocalJsonPublisher(output_dir=config.json_output.output_dir)
     raise ConfigError(f"unknown publisher.kind: {kind!r}")
 
 

@@ -97,6 +97,10 @@ publisher:
   #                  Embedded CSS, no JS, no external dependencies. Use
   #                  for stakeholder snapshots (email the index.html),
   #                  S3 / GitHub Pages hosting, or audit-PDF print.
+  #   "json"       → Machine-readable JSON files under `json.output_dir`.
+  #                  Designed as a feed for Backstage catalog imports,
+  #                  internal CMDBs, dashboards, and custom tooling that
+  #                  consumes the inventory programmatically.
   kind: "confluence"
 
 secrets:
@@ -162,6 +166,20 @@ html:
   # uploaded to S3 / GitHub Pages. Banner-SHA idempotency lives in a
   # `<meta name="iac-cartographer-sha">` tag in each file's head.
   output_dir: "./iac-inventory-html"
+
+json:
+  # Only used when `publisher.kind == "json"`. Same layout as the
+  # markdown / html publishers (index.json + repos/<slug>.json) but the
+  # output is structured JSON for machine consumption:
+  #   * `index.json` carries one row per repo with summary fields plus
+  #     `aggregates.{repo_count,total_resources,top_providers}` — a
+  #     ready-to-import feed for Backstage catalog imports, dashboards,
+  #     or internal CMDB ingestion.
+  #   * Per-repo files carry the full RepoInventory (providers, modules,
+  #     resources, inputs, outputs, narrative).
+  # Top-level `iac_cartographer.sha` field carries the banner SHA for
+  # the idempotent-republish short-circuit.
+  output_dir: "./iac-inventory-json"
 
 slack:
   # #channel-name or a Slack channel ID (C0...). The bot token from

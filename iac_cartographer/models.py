@@ -306,7 +306,11 @@ class PublisherConfig(_Strict):
     #                  external dependencies) to a local directory. Uses
     #                  the `html:` config. No credentials needed. Designed
     #                  for snapshots, S3/CloudFront hosting, audit PDFs.
-    kind: Literal["confluence", "markdown", "html"] = "confluence"
+    #   "json"       → write machine-readable JSON files to a local
+    #                  directory. Uses the `json:` config. Designed as a
+    #                  feed for Backstage catalogs, internal CMDBs,
+    #                  dashboards, and custom drift-detection tooling.
+    kind: Literal["confluence", "markdown", "html", "json"] = "confluence"
 
 
 class MarkdownConfig(_Strict):
@@ -339,6 +343,30 @@ class HtmlConfig(_Strict):
     """
 
     output_dir: str = "./iac-inventory-html"
+
+
+class JsonConfig(_Strict):
+    """`publisher.kind == "json"` settings.
+
+    Output layout under `output_dir`:
+
+        output_dir/
+        ├── index.json
+        └── repos/
+            └── <full_name_slugged>.json
+
+    The overview (`index.json`) is suitable as a feed for Backstage
+    catalog imports, internal CMDBs, or dashboards — it includes a row
+    per repo with key metadata + aggregate counts. The per-repo files
+    carry the full `RepoInventory` payload (providers, modules,
+    resources, inputs, outputs, narrative).
+
+    Top-level `iac_cartographer.sha` field carries the banner-SHA so
+    the publisher's idempotent-republish short-circuit works the same
+    way as the Markdown / HTML / Confluence publishers.
+    """
+
+    output_dir: str = "./iac-inventory-json"
 
 
 class SecretsConfig(_Strict):
@@ -385,6 +413,11 @@ class SecretsConfig(_Strict):
 
 
 class AppConfig(_Strict):
+    # `populate_by_name=True` lets the YAML key stay `json:` while the
+    # Python attribute is renamed to `json_output` (avoiding the
+    # shadow-warning on Pydantic's deprecated `.json()` method).
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     # The YAML section is named `llm:`. The previous internal name was
     # `bedrock:` — operators migrating from a pre-1.0 deployment must
@@ -403,6 +436,9 @@ class AppConfig(_Strict):
     confluence: ConfluenceConfig = Field(default_factory=ConfluenceConfig)
     markdown: MarkdownConfig = Field(default_factory=MarkdownConfig)
     html: HtmlConfig = Field(default_factory=HtmlConfig)
+    # YAML key is `json:` — Python attribute is `json_output` to avoid
+    # shadowing Pydantic v2's deprecated `BaseModel.json()` shim.
+    json_output: JsonConfig = Field(default_factory=JsonConfig, alias="json")
     slack: SlackConfig = Field(default_factory=SlackConfig)
 
 

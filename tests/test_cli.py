@@ -213,13 +213,13 @@ def test_load_config_from_local_file(tmp_path: Path) -> None:
         "discovery:\n"
         "  gitlab_group_ids: [42]\n"
         "  github_orgs: [acme-org]\n"
-        "bedrock:\n"
+        "llm:\n"
         "  model_id: eu.anthropic.claude-sonnet-4-6\n",
         encoding="utf-8",
     )
     config = _load_config(str(cfg))
     assert config.discovery.gitlab_group_ids == [42]
-    assert config.bedrock.model_id == "eu.anthropic.claude-sonnet-4-6"
+    assert config.llm.model_id == "eu.anthropic.claude-sonnet-4-6"
 
 
 def test_load_config_from_empty_file_uses_defaults(tmp_path: Path) -> None:

@@ -141,8 +141,8 @@ def test_app_config_defaults_load_with_placeholders() -> None:
     in tests / dry-runs. Production use MUST override `confluence.site` and
     `confluence.space_key` (the placeholder host won't resolve)."""
     c = AppConfig()
-    assert c.bedrock.model_id == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
-    assert c.bedrock.max_tokens == 4096
+    assert c.llm.model_id == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    assert c.llm.max_tokens == 4096
     assert c.confluence.site == "your-org.atlassian.net"
     assert c.confluence.space_key == "DOCS"
     assert c.slack.channel == "#alerts"
@@ -161,7 +161,7 @@ def test_app_config_accepts_partial_yaml() -> None:
     c = AppConfig.model_validate(raw)
     assert c.discovery.gitlab_group_ids == [1, 2]
     assert c.discovery.deny_repos == ["acme/*-archived"]
-    assert c.bedrock.model_id == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    assert c.llm.model_id == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 
 def test_app_config_rejects_unknown_top_level_section() -> None:

@@ -1,15 +1,18 @@
-"""Bedrock Sonnet narrator — turn a (meta, summary, README, HCL) tuple into
-a Pydantic-validated `BedrockNarrative`.
+"""Narrator — turn a (meta, summary, README, HCL) tuple into a
+Pydantic-validated `BedrockNarrative`.
 
-The hybrid extraction strategy (ADR-005) gives Sonnet a deterministic
-skeleton so it can't hallucinate resources. We additionally enforce that
-constraint at the call site by filtering `key_resources_explained` to
-resource types that actually appear in the `TerraformSummary` — defense in
-depth.
+The hybrid extraction strategy gives the model a deterministic skeleton
+so it can't hallucinate resources. We additionally enforce that constraint
+at the call site by filtering `key_resources_explained` to resource types
+that actually appear in the `TerraformSummary` — defense in depth.
 
 JSON-parse failures get exactly one retry with a stricter prompt. A second
 failure returns `(None, in_tokens, out_tokens)` so the orchestrator can
 publish a structurally-complete page with a `narrative=None` placeholder.
+
+LLM provider selection lives behind the `LLMBackend` ABC in `llm.py` —
+this module only knows about prompts and Pydantic validation. Swap
+backends at construction time, not in the narrator.
 """
 
 from __future__ import annotations
@@ -17,43 +20,42 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
-from iac_cartographer.aws import invoke_bedrock_model
 from iac_cartographer.models import BedrockNarrative, ResourceExplanation
 from iac_cartographer.prompts import RETRY_INSTRUCTION, SYSTEM_PROMPT
 
 if TYPE_CHECKING:
+    from iac_cartographer.llm import LLMBackend
     from iac_cartographer.models import BedrockConfig, RepoMetadata, TerraformSummary
 
 logger = logging.getLogger("iac_cartographer.narrator")
 
-# Per-input size caps. Sonnet 4.6 can handle a 1M context but cost scales
-# linearly; capping inputs is the primary lever for predictable spend.
+# Per-input size caps. Modern Claude models can handle ~1M context but cost
+# scales linearly; capping inputs is the primary lever for predictable spend.
 README_CAP_CHARS = 8000
 HCL_CAP_CHARS = 30_000
 
 
-def build_request(
+def build_user_blocks(
     meta: RepoMetadata,
     summary: TerraformSummary,
     readme: str,
     hcl_concat: str,
-    config: BedrockConfig,
     *,
     retry: bool = False,
-) -> dict[str, Any]:
-    """Assemble the Bedrock invoke_model body.
+) -> list[dict[str, str]]:
+    """Assemble the user-content blocks for one invocation.
 
-    The system block is marked `cache_control: {"type": "ephemeral"}` so Sonnet
-    caches it across the ~15 per-repo invocations in a single run (~90% of
-    system-prompt input tokens charged at cache-read rates, per Anthropic).
-    """
+    Returns a list of `{"type": "text", "text": "..."}` dicts in Anthropic
+    Messages API shape. Backends pass this through to the provider; the
+    cache-control behaviour on the system block belongs to the backend,
+    not here."""
     tf_docs_json = json.dumps(summary.model_dump(), separators=(",", ":"))
     # `<module-paths>` is technically redundant with `summary.module_paths`
-    # inside `<tf-docs-json>`, but Sonnet picks up explicit, named blocks
+    # inside `<tf-docs-json>`, but the model picks up explicit, named blocks
     # far more reliably than fields buried in a JSON blob. Cheap to repeat;
     # the cache-control on the system prompt eats most of the token cost.
     module_paths_block = ", ".join(summary.module_paths) if summary.module_paths else "(single root-level module)"
@@ -69,12 +71,7 @@ def build_request(
     ]
     if retry:
         user_content.append({"type": "text", "text": RETRY_INSTRUCTION})
-    return {
-        "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": config.max_tokens,
-        "system": [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
-        "messages": [{"role": "user", "content": user_content}],
-    }
+    return user_content
 
 
 def summarize(
@@ -83,26 +80,27 @@ def summarize(
     readme: str,
     hcl_concat: str,
     config: BedrockConfig,
+    backend: LLMBackend,
 ) -> tuple[BedrockNarrative | None, int, int]:
-    """Invoke Bedrock; return (narrative-or-None, tokens_in, tokens_out).
+    """Invoke the configured LLM backend; return (narrative-or-None,
+    tokens_in, tokens_out).
 
-    Never raises — Bedrock client errors (throttling, auth) are caught and
-    surfaced as `(None, 0, 0)` so the orchestrator continues with the next
-    repo. The error is logged with full context.
-    """
+    Never raises — backend errors (throttling, auth, network) are caught
+    and surfaced as `(None, 0, 0)` so the orchestrator continues with the
+    next repo. The error is logged with full context."""
     tokens_in = 0
     tokens_out = 0
 
     # First attempt
-    narrative, tin, tout = _invoke_once(meta, summary, readme, hcl_concat, config, retry=False)
+    narrative, tin, tout = _invoke_once(meta, summary, readme, hcl_concat, config, backend, retry=False)
     tokens_in += tin
     tokens_out += tout
     if narrative is not None:
         return _enforce_resource_type_grounding(narrative, summary), tokens_in, tokens_out
 
-    # One retry with a stricter "ONLY JSON" instruction
+    # One retry with a stricter "ONLY JSON" instruction.
     logger.warning("narrator: %s — first attempt failed, retrying with stricter prompt", meta.full_name)
-    narrative, tin, tout = _invoke_once(meta, summary, readme, hcl_concat, config, retry=True)
+    narrative, tin, tout = _invoke_once(meta, summary, readme, hcl_concat, config, backend, retry=True)
     tokens_in += tin
     tokens_out += tout
     if narrative is not None:
@@ -118,27 +116,28 @@ def _invoke_once(
     readme: str,
     hcl_concat: str,
     config: BedrockConfig,
+    backend: LLMBackend,
     *,
     retry: bool,
 ) -> tuple[BedrockNarrative | None, int, int]:
     """One invocation. Returns (narrative-or-None, tokens_in, tokens_out)."""
-    body = build_request(meta, summary, readme, hcl_concat, config, retry=retry)
+    user_blocks = build_user_blocks(meta, summary, readme, hcl_concat, retry=retry)
     try:
-        response = invoke_bedrock_model(config.model_id, body)
+        response = backend.invoke(
+            model_id=config.model_id,
+            system_prompt=SYSTEM_PROMPT,
+            user_blocks=user_blocks,
+            max_tokens=config.max_tokens,
+        )
     except Exception:
-        logger.exception("narrator: %s — bedrock invoke failed", meta.full_name)
+        logger.exception("narrator: %s — LLM invoke failed", meta.full_name)
         return None, 0, 0
 
-    usage = response.get("usage", {}) if isinstance(response, dict) else {}
-    tokens_in = int(usage.get("input_tokens", 0) or 0)
-    tokens_out = int(usage.get("output_tokens", 0) or 0)
+    if not response.text:
+        logger.error("narrator: %s — LLM returned no text content", meta.full_name)
+        return None, response.input_tokens, response.output_tokens
 
-    text = _extract_text(response)
-    if text is None:
-        logger.error("narrator: %s — bedrock returned no text content", meta.full_name)
-        return None, tokens_in, tokens_out
-
-    text = _strip_markdown_fences(text)
+    text = _strip_markdown_fences(response.text)
 
     try:
         narrative = BedrockNarrative.model_validate_json(text)
@@ -148,9 +147,9 @@ def _invoke_once(
             meta.full_name,
             str(exc)[:300],
         )
-        return None, tokens_in, tokens_out
+        return None, response.input_tokens, response.output_tokens
 
-    return narrative, tokens_in, tokens_out
+    return narrative, response.input_tokens, response.output_tokens
 
 
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*\n?(.*?)\n?\s*```\s*$", re.DOTALL)
@@ -159,34 +158,14 @@ _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*\n?(.*?)\n?\s*```\s*$", re.DOTALL)
 def _strip_markdown_fences(text: str) -> str:
     """Strip surrounding ```json ... ``` (or plain ```) fences if present.
 
-    Sonnet 4.5 routinely wraps JSON output in markdown code fences even when
-    the system prompt explicitly asks for raw JSON; Sonnet 4.6 didn't. The
-    fenced form is ````json\\n{...}\\n````. We
-    only strip when both bookends are present; otherwise return text
-    untouched so a partial fence doesn't get mangled into invalid JSON.
+    Sonnet 4.5 routinely wraps JSON output in markdown code fences even
+    when the system prompt explicitly asks for raw JSON; Sonnet 4.6
+    didn't. We only strip when both bookends are present; otherwise
+    return text untouched so a partial fence doesn't get mangled into
+    invalid JSON.
     """
     match = _FENCE_RE.match(text)
     return match.group(1) if match else text
-
-
-def _extract_text(response: dict[str, Any]) -> str | None:
-    """Pull the text content out of the Bedrock Claude response envelope.
-
-    Claude on Bedrock returns `{"content": [{"type": "text", "text": "..."}, ...]}`.
-    Concatenate text blocks (usually only one for a JSON-output task).
-    """
-    if not isinstance(response, dict):
-        return None
-    content = response.get("content", [])
-    if not isinstance(content, list):
-        return None
-    parts: list[str] = []
-    for block in content:
-        if isinstance(block, dict) and block.get("type") == "text":
-            t = block.get("text")
-            if isinstance(t, str):
-                parts.append(t)
-    return "".join(parts) if parts else None
 
 
 def _enforce_resource_type_grounding(narrative: BedrockNarrative, summary: TerraformSummary) -> BedrockNarrative:
@@ -203,10 +182,10 @@ def _enforce_resource_type_grounding(narrative: BedrockNarrative, summary: Terra
 
 
 def placeholder_narrative() -> BedrockNarrative:
-    """For `--no-bedrock` mode: produce a deterministic placeholder so the
-    renderer still has a `narrative` to consume."""
+    """Returned by the orchestrator when `--no-bedrock` is passed — used
+    for local development to skip LLM costs."""
     return BedrockNarrative(
-        purpose=("(Bedrock summarization disabled via --no-bedrock; structural facts below come from terraform-docs.)"),
+        purpose="(Bedrock summarization disabled for this run — placeholder narrative.)",
         key_resources_explained=[],
         environments=[],
         owning_team_guess=None,
@@ -225,15 +204,11 @@ def placeholder_narrative() -> BedrockNarrative:
 # manual review per match. False-negative cost is a misleading Confluence
 # page until the next weekly run.
 #
-# Curation principle (revised 2026-05-25 after the first end-to-end run):
-# pick phrases that are unambiguously prompt-injection sentinels — language
-# that only appears when the model has been told to break out of its task.
-# Generic IaC adjectives like "deprecated", "disabled", "archived",
-# "obsolete" were removed because they legitimately appear in many
-# narratives (deprecated module, versioning_disabled, archived bucket,
-# obsolete provider). The first pass flagged 6 of 33 repos as suspicious
-# purely on those words, suppressing real content; that's worse than a
-# narrower watchlist that catches actual injection language.
+# Curation principle: pick phrases that are unambiguously prompt-injection
+# sentinels — language that only appears when the model has been told to
+# break out of its task. Generic IaC adjectives like "deprecated",
+# "disabled", "archived", "obsolete" were removed because they legitimately
+# appear in many narratives.
 SUSPICIOUS_PHRASES: tuple[str, ...] = (
     # Explicit instruction-override patterns (most common injection forms)
     "ignore previous",
@@ -273,9 +248,11 @@ def detect_suspicious_phrases(narrative: BedrockNarrative) -> list[str]:
 
 
 __all__ = [
+    "HCL_CAP_CHARS",
+    "README_CAP_CHARS",
     "SUSPICIOUS_PHRASES",
     "ResourceExplanation",  # re-export for convenience
-    "build_request",
+    "build_user_blocks",
     "detect_suspicious_phrases",
     "placeholder_narrative",
     "summarize",

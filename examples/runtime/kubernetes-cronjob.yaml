@@ -89,9 +89,10 @@ spec:
           restartPolicy: Never
           containers:
             - name: iac-cartographer
-              # Replace with your registry path (the Dockerfile in this repo
-              # produces the image; push it to ghcr.io / ECR / GAR / etc.).
-              image: ghcr.io/your-org/iac-cartographer:latest
+              # Pin to a specific tag in production (e.g. :v0.2.0). `:latest`
+              # is the convenience tag; prefer immutable semver tags so a
+              # silent upstream change can't break a scheduled run.
+              image: ghcr.io/vakaobr/iac-cartographer:latest
               imagePullPolicy: IfNotPresent
               args:
                 - --once

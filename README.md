@@ -61,6 +61,9 @@ Store for credentials/config). Pluggable backends are on the roadmap.
 pip install iac-cartographer            # from PyPI (recommended)
 # or from a checkout, for hacking on the source:
 pip install -e .
+
+# or as a container image, no Python install needed:
+docker pull ghcr.io/vakaobr/iac-cartographer:latest
 ```
 
 Requirements:

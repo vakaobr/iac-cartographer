@@ -5,7 +5,7 @@
 # Kubernetes CronJob, a GitHub Actions schedule, plain `cron`, ...).
 # amd64 only — multi-arch buildx is an exercise for the reader.
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 # terraform-docs is pinned to a specific release. Bump deliberately —
 # unpinned versions could change the JSON output shape and break the

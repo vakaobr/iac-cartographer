@@ -1,0 +1,145 @@
+name: Release to PyPI
+
+# Build the sdist + wheel on every tag push matching `v*` and upload them
+# to PyPI via Trusted Publishing (OIDC; no token to manage).
+#
+# Maintainer setup (one-time, manual on pypi.org):
+#   1. Create the project on PyPI (or claim the name) → https://pypi.org/manage/projects/
+#   2. Project settings → Publishing → "Add a new pending publisher"
+#         Owner:    vakaobr
+#         Repository: iac-cartographer
+#         Workflow: release-pypi.yml
+#         Environment: release
+#   3. In the GitHub repo settings, create an Environment named `release`
+#      (Settings → Environments → New environment). Optionally add reviewers
+#      so a release requires a human approval gate.
+#
+# Release process:
+#   1. Bump `version = "X.Y.Z"` in `pyproject.toml` on main.
+#   2. `git tag vX.Y.Z && git push origin vX.Y.Z`
+#   3. This workflow runs, builds artefacts, and uploads to PyPI.
+#   4. GitHub Release page gets a `vX.Y.Z` entry with the built artefacts
+#      attached as well, so they're downloadable independently of PyPI.
+
+on:
+  push:
+    tags:
+      - "v*"
+  # Manual trigger for dry-runs against TestPyPI (see `test_pypi_publish` job).
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Where to publish"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - prod
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install build tooling
+        run: pip install build
+
+      - name: Verify pyproject.toml version matches tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # Extract `version = "X.Y.Z"` from pyproject.toml and compare to
+          # the tag suffix. A mismatch is almost always a forgotten bump —
+          # fail loud here rather than ship a misversioned wheel.
+          PYPROJECT_VERSION=$(grep -E '^version\s*=' pyproject.toml | head -n1 | sed -E 's/.*"([^"]+)".*/\1/')
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "pyproject.toml version: $PYPROJECT_VERSION"
+          echo "tag version:            $TAG_VERSION"
+          if [ "$PYPROJECT_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::version mismatch — bump pyproject.toml or retag"
+            exit 1
+          fi
+
+      - name: Build
+        run: python -m build
+
+      - name: Inspect built artefacts
+        run: |
+          ls -la dist/
+          python -m pip install --upgrade twine
+          twine check dist/*
+
+      - name: Upload build artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 14
+
+  publish_testpypi:
+    name: Publish to TestPyPI (workflow_dispatch only)
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'test'
+    environment:
+      name: release-test
+      url: https://test.pypi.org/p/iac-cartographer
+    permissions:
+      id-token: write  # required for trusted publishing
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish_pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Run on tag pushes OR on workflow_dispatch with target=prod.
+    if: |
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod')
+    environment:
+      name: release
+      url: https://pypi.org/p/iac-cartographer
+    permissions:
+      id-token: write  # required for trusted publishing
+      contents: write  # required to attach artefacts to the GitHub Release
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v5
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Attach artefacts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

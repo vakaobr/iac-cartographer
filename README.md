@@ -58,9 +58,9 @@ Store for credentials/config). Pluggable backends are on the roadmap.
 ### 1. Install
 
 ```bash
-pip install -e .          # from a checkout
-# or once published:
-# pip install iac-cartographer
+pip install iac-cartographer            # from PyPI (recommended)
+# or from a checkout, for hacking on the source:
+pip install -e .
 ```
 
 Requirements:

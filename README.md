@@ -55,6 +55,29 @@ Store for credentials/config). Pluggable backends are on the roadmap.
 
 ## Quick start
 
+The fastest path from zero to a running scaffold:
+
+```bash
+pip install iac-cartographer            # or pip install -e . from a checkout
+iac-cartographer --init                 # scaffolds config.yaml + .env
+# edit the two files; replace `REPLACE_ME-...` placeholders
+set -a; . ./iac-cartographer.env; set +a
+iac-cartographer --once --dry-run --config ./iac-cartographer.config.yaml
+```
+
+`iac-cartographer --init` accepts flags to scaffold for any backend combination:
+
+```bash
+iac-cartographer --init \
+  --secrets-backend env \                                # or `aws` | `vault`
+  --publisher markdown \                                 # or `confluence`
+  --llm anthropic \                                      # or `bedrock`
+  --config-path ./iac-cartographer.config.yaml \
+  --env-path    ./iac-cartographer.env
+```
+
+The longer-form quick start below explains each piece — every section maps to one or two flags on `--init`.
+
 ### 1. Install
 
 ```bash

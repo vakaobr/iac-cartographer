@@ -56,6 +56,11 @@ from iac_cartographer.discovery import (
 )
 from iac_cartographer.extractor import run_terraform_docs
 from iac_cartographer.fetcher import cleanup, clone
+from iac_cartographer.init_scaffold import (
+    InitError,
+    print_next_steps,
+    write_scaffold,
+)
 from iac_cartographer.llm import AnthropicBackend, BedrockBackend, LLMBackend
 from iac_cartographer.models import (
     AnthropicCredentials,
@@ -830,6 +835,57 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--verbose", action="store_true", help="DEBUG-level logging.")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--once", action="store_true", help="One full pipeline run.")
+    mode.add_argument(
+        "--init",
+        action="store_true",
+        help=(
+            "First-time scaffolder. Writes a starter config.yaml (and an "
+            "optional .env template for the `env` secrets backend) and prints "
+            "next-steps guidance. Combine with --secrets-backend, --publisher, "
+            "--llm, --config-path, --env-path, --force."
+        ),
+    )
+
+    # --init-specific flags. They're top-level so argparse can validate them
+    # eagerly; the dispatcher ignores them when running `--once`.
+    init_group = parser.add_argument_group(
+        "init scaffolder options (only meaningful with --init)",
+    )
+    init_group.add_argument(
+        "--secrets-backend",
+        choices=["aws", "env", "vault"],
+        default="env",
+        help="Secrets backend to scaffold (default: env).",
+    )
+    init_group.add_argument(
+        "--publisher",
+        choices=["confluence", "markdown"],
+        default="markdown",
+        help="Publisher backend to scaffold (default: markdown).",
+    )
+    init_group.add_argument(
+        "--llm",
+        choices=["bedrock", "anthropic"],
+        default="anthropic",
+        help="LLM backend to scaffold (default: anthropic).",
+    )
+    init_group.add_argument(
+        "--config-path",
+        default="./iac-cartographer.config.yaml",
+        help="Where to write the generated config (default: ./iac-cartographer.config.yaml).",
+    )
+    init_group.add_argument(
+        "--env-path",
+        default="./iac-cartographer.env",
+        help=(
+            "Where to write the .env template (default: ./iac-cartographer.env). Only used when --secrets-backend=env."
+        ),
+    )
+    init_group.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing files at the target paths.",
+    )
     return parser
 
 
@@ -839,6 +895,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.once:
             return run_once(args)
+        if args.init:
+            return _run_init(args)
         return 0  # pragma: no cover — argparse `required=True` prevents this branch
     except CartographerError as exc:
         logger.exception("run aborted: %s", exc)
@@ -846,3 +904,29 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:
         logger.exception("unhandled exception")
         return 3
+
+
+def _run_init(args: argparse.Namespace) -> int:
+    """Dispatcher for `iac-cartographer --init`. Returns exit code."""
+    config_path = Path(args.config_path)
+    # The .env template is only relevant for the env secrets backend; pass
+    # None to write_scaffold for the other backends so it skips the write.
+    env_path = Path(args.env_path) if args.secrets_backend == "env" else None
+    try:
+        written = write_scaffold(
+            config_path=config_path,
+            env_path=env_path,
+            secrets_backend=args.secrets_backend,
+            publisher_kind=args.publisher,
+            llm_backend=args.llm,
+            force=args.force,
+        )
+    except InitError as exc:
+        logger.error("init: %s", exc)
+        return 2
+    print_next_steps(
+        written,
+        secrets_backend=args.secrets_backend,
+        publisher_kind=args.publisher,
+    )
+    return 0

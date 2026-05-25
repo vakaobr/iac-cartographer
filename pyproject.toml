@@ -103,6 +103,9 @@ ignore = [
 "iac_cartographer/constants.py" = [
     "N818",   # exception class names without -Error suffix read better in tracebacks (e.g. `BedrockError: ...` vs `BedrockErrorError`)
 ]
+"iac_cartographer/init_scaffold.py" = [
+    "T201",   # the scaffolder's `print_next_steps` is the user-facing output; logging would route to JSON which is the wrong audience
+]
 
 [tool.ruff.format]
 quote-style = "double"

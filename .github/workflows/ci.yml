@@ -94,7 +94,13 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          # `load: true` is what makes the image visible to the local
+          # docker daemon. Without it, buildx keeps the layers in its
+          # own cache only and the `docker run` smoke test below fails
+          # with "Unable to find image 'iac-cartographer:ci' locally".
+          # See https://github.com/docker/buildx#building-an-image
           push: false
+          load: true
           tags: iac-cartographer:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max

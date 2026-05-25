@@ -6,7 +6,7 @@ the parts you need to change.
 
 | File | Scheduler | When to use |
 |---|---|---|
-| [`kubernetes-cronjob.yaml`](kubernetes-cronjob.yaml) | Kubernetes `CronJob` | k8s clusters with a workload identity solution (IRSA, Workload Identity, Pod Identity) or with the `env` secrets backend. |
+| [`kubernetes-cronjob.yaml`](kubernetes-cronjob.yaml) | Kubernetes `CronJob` (raw) | Read-and-copy reference for the raw shape. For real deployments prefer the [Helm chart](../../charts/iac-cartographer/) — same resources but templated for schedule, namespace, secrets backend, workload identity, etc. |
 | [`github-actions.yml`](github-actions.yml) | GitHub Actions `schedule` | Lightweight setup with no infrastructure to own; secrets live in the GitHub repo settings. |
 | [`cron.sh`](cron.sh) | Plain `cron` / `systemd-timer` | A single VM you already own. Docker-based, so no Python install needed on the host. |
 

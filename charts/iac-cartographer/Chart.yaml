@@ -1,0 +1,29 @@
+apiVersion: v2
+name: iac-cartographer
+description: |-
+  Fleet-level documentation for your Terraform / IaC estate. Schedules
+  `iac-cartographer --once` as a Kubernetes CronJob.
+type: application
+# The chart version is independent of the app version — bump on chart
+# template / values changes, even when the app version doesn't change.
+version: 0.1.0
+# The default container-image tag the chart pins to. Override with
+# `--set image.tag=v0.x.y` for a specific release.
+appVersion: "0.1.0"
+keywords:
+  - terraform
+  - iac
+  - documentation
+  - confluence
+  - bedrock
+  - claude
+home: https://github.com/vakaobr/iac-cartographer
+sources:
+  - https://github.com/vakaobr/iac-cartographer
+icon: https://raw.githubusercontent.com/vakaobr/iac-cartographer/main/.github/icon.png
+maintainers:
+  - name: Anderson Leite
+    email: falecom@andersonleite.me
+annotations:
+  artifacthub.io/category: integration-delivery
+  artifacthub.io/license: MIT

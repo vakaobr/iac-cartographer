@@ -1,0 +1,17 @@
+{{- /*
+ConfigMap holding the iac-cartographer config.yaml. Only created when the
+operator hasn't pointed `config.existingConfigMap` at a managed-elsewhere
+ConfigMap (e.g. one rendered by a parent umbrella chart, or a GitOps
+overlay).
+*/ -}}
+{{- if not .Values.config.existingConfigMap -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "iac-cartographer.configMapName" . }}
+  labels:
+    {{- include "iac-cartographer.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- toYaml .Values.config.appConfig | nindent 4 }}
+{{- end }}

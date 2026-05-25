@@ -1,0 +1,33 @@
+iac-cartographer chart {{ .Chart.Version }} (app version {{ .Chart.AppVersion }}) installed.
+
+Schedule:
+  {{ .Values.cronjob.schedule | quote }} (concurrencyPolicy={{ .Values.cronjob.concurrencyPolicy }})
+
+Image:
+  {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+
+Run the next job manually (skip the schedule for an immediate test run):
+
+  kubectl create job --from=cronjob/{{ include "iac-cartographer.fullname" . }} \
+    iac-cartographer-test-$(date +%s) \
+    --namespace {{ .Release.Namespace }}
+
+Tail the logs:
+
+  kubectl logs --namespace {{ .Release.Namespace }} \
+    --selector app.kubernetes.io/instance={{ .Release.Name }} \
+    --tail=200 --follow
+
+Inspect the resolved config:
+
+  kubectl get configmap --namespace {{ .Release.Namespace }} \
+    {{ include "iac-cartographer.configMapName" . }} -o jsonpath='{.data.config\.yaml}'
+
+{{- if not .Values.secrets.existingSecret }}
+
+WARNING: this release stores credentials inline in a chart-managed Secret.
+That's fine for getting started but unsuitable for production. Migrate to
+`secrets.existingSecret: <name>` and manage the Secret via External Secrets
+Operator / Sealed Secrets / SOPS / your platform's secret-injection
+mechanism of choice.
+{{- end }}

@@ -111,6 +111,48 @@ Before opening a PR:
 - [ ] Commit message explains the WHY, not just the WHAT
 - [ ] No SECRA-specific or other organisation-specific identifiers in code or comments
 
+## Cutting a release (maintainers)
+
+Releases are tag-driven. The
+[`release-pypi.yml`](.github/workflows/release-pypi.yml) workflow uploads
+the built sdist + wheel to PyPI on every tag matching `v*` and attaches them
+to the corresponding GitHub Release.
+
+PyPI authentication uses **trusted publishing** (OIDC) — no token to manage,
+but it requires a one-time setup on the PyPI side:
+
+1. Create the project on PyPI (or claim the name): https://pypi.org/manage/projects/
+2. Project settings → Publishing → "Add a new pending publisher"
+   * Owner: `vakaobr`
+   * Repository: `iac-cartographer`
+   * Workflow: `release-pypi.yml`
+   * Environment: `release`
+3. In the GitHub repo settings, create an Environment named `release` with
+   any reviewers / wait-timer / approval rules you want gating the upload.
+
+To cut a release once setup is done:
+
+```bash
+# 1. Bump the version on main
+sed -i '' 's/^version = .*/version = "0.2.0"/' pyproject.toml
+git commit -am "chore: bump version to 0.2.0"
+git push origin main
+
+# 2. Tag + push
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The workflow then runs:
+1. Builds sdist + wheel.
+2. Verifies the tag suffix matches `pyproject.toml` (catches forgotten bumps).
+3. Uploads to PyPI via OIDC trusted publishing.
+4. Creates a GitHub Release with auto-generated release notes and the dist
+   files attached.
+
+For a dry-run against TestPyPI: trigger the workflow manually
+(`Actions → Release to PyPI → Run workflow → target: test`).
+
 ## Roadmap themes (Phase 2)
 
 If you want to take on something larger, these are the in-flight themes

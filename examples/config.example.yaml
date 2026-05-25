@@ -63,6 +63,18 @@ llm:
   # gateway. Ignored for backend=bedrock.
   anthropic_base_url: "https://api.anthropic.com"
 
+publisher:
+  # Which backend renders + writes the inventory.
+  #   "confluence" → Atlassian Confluence Cloud, ADF body, banner-SHA
+  #                  idempotency. Requires the `confluence:` block below
+  #                  AND credentials in the `iac-cartographer/confluence`
+  #                  secret. Default.
+  #   "markdown"   → Plain Markdown files under `markdown.output_dir`,
+  #                  banner-SHA encoded as an HTML comment. Use for docs
+  #                  repos (mkdocs/Hugo/Docusaurus/Jekyll), CI artefacts,
+  #                  or air-gapped environments.
+  kind: "confluence"
+
 confluence:
   # Atlassian Cloud site (no protocol, no trailing slash).
   site: "acme.atlassian.net"
@@ -72,6 +84,18 @@ confluence:
   # iac-cartographer reads this at startup (preflight check), so a missing /
   # incorrect ID surfaces as a clean error on the first run.
   parent_page_id_ssm_path: "/iac-cartographer/confluence-parent-id"
+
+markdown:
+  # Only used when `publisher.kind == "markdown"`. Layout produced:
+  #
+  #   <output_dir>/index.md            ← overview / index page
+  #   <output_dir>/repos/<slug>.md     ← one file per discovered repo
+  #
+  # `<slug>` is the repo's full_name with `/` replaced by `__`, so links
+  # stay flat and static-site routing doesn't get weird. Each file's first
+  # line is `<!-- iac-cartographer-sha: <sha> -->`; on the next run we
+  # compare against the new SHA and skip the write when unchanged.
+  output_dir: "./iac-inventory"
 
 slack:
   # #channel-name or a Slack channel ID (C0...). The bot token from

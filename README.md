@@ -108,10 +108,18 @@ llm:
   # Inference-profile ID for Bedrock, or model name for the Anthropic API.
   model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
+publisher:
+  # "confluence" (default) or "markdown"
+  kind: "confluence"
+
 confluence:
   site: "acme.atlassian.net"
   space_key: "DOCS"
   parent_page_id_ssm_path: "/iac-cartographer/confluence-parent-id"
+
+# Only used when publisher.kind == "markdown"
+markdown:
+  output_dir: "./iac-inventory"
 
 slack:
   channel: "#alerts"
@@ -161,6 +169,31 @@ and exits. Pair it with any scheduler:
 Terraform examples for the ECS Fargate setup are on the roadmap; for now the
 container image is the canonical artefact.
 
+## Publishing to Markdown instead of Confluence
+
+Set `publisher.kind: "markdown"` and `markdown.output_dir: <path>` in the
+config. The CLI writes:
+
+```
+<output_dir>/
+├── index.md                              # overview / index page
+└── repos/
+    ├── acme-org__main-cluster.md         # one file per discovered repo
+    ├── acme-org__auth-service.md         # full_name slugged with "__"
+    └── ...
+```
+
+Each file's first line is `<!-- iac-cartographer-sha: <sha> -->`. On the next
+run we compare against the freshly-computed SHA and skip the write when they
+match — same idempotency contract as the Confluence publisher.
+
+Typical setups:
+
+* **Docs repo** — point `output_dir` at a `docs/` directory in a separate
+  repo, then let mkdocs / Hugo / Docusaurus / Jekyll build a public site.
+* **CI artefact** — drop it in a job artefact directory.
+* **Air-gapped / offline** — no Atlassian access required.
+
 ## Reading the output
 
 On the Confluence pages you'll see a few placeholders worth knowing:
@@ -175,8 +208,8 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 
 ## Roadmap
 
-* **Pluggable publishers** — Confluence today; Notion, GitHub Wiki,
-  local-Markdown next.
+* **Pluggable publishers** — ✅ Confluence + local Markdown shipped; Notion
+  and GitHub Wiki are next.
 * **Pluggable LLM backend** — ✅ Bedrock + Anthropic-direct shipped; OpenAI
   and Ollama are next.
 * **Pluggable discovery** — GitLab + GitHub today; Bitbucket and a
@@ -189,7 +222,7 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 ## Contributing
 
 Issues and PRs welcome. The codebase is intentionally small and well-tested
-(214 tests, 87% coverage); pick a roadmap item or open an issue describing the
+(239 tests, 87% coverage); pick a roadmap item or open an issue describing the
 shape of the change before sending a PR for anything non-trivial.
 
 ## License

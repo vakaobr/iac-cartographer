@@ -1,0 +1,61 @@
+# iac-cartographer — example configuration.
+#
+# In production, store this in AWS SSM Parameter Store at the path matching
+# `DEFAULT_CONFIG_SOURCE` in cli.py (default: `/iac-cartographer/config`).
+# For local development, point `--config` at this file directly:
+#
+#   iac-cartographer --once --dry-run --no-bedrock --config examples/config.example.yaml
+#
+# Every field has a safe default in `iac_cartographer/models.py`; this file
+# documents the real-world override pattern. Strict mode rejects unknown keys.
+
+discovery:
+  # GitLab group IDs whose subtrees (incl. subgroups) should be scanned for
+  # `*.tf` files. Numeric IDs only — find them on the group's GitLab page.
+  # Empty list = skip GitLab.
+  gitlab_group_ids:
+    - 15
+
+  # Self-hosted GitLab instances: point at the base host (without /api/v4).
+  # Omit / set to https://gitlab.com for the hosted version.
+  gitlab_base_url: "https://gitlab.example.com"
+
+  # GitHub organisations to scan via the GitHub code-search API.
+  # Empty list = skip GitHub.
+  github_orgs:
+    - "acme-org"
+
+  # Glob patterns (against `full_name`) to exclude from publishing.
+  deny_repos:
+    - "acme-org/*-archived"
+    - "acme-org/examples-*"
+
+  # Optional override map: full_name → owning-team string.
+  # Useful when team ownership isn't derivable from the repo path.
+  owner_overrides:
+    "acme-org/platform-shared": "Platform"
+
+bedrock:
+  # Claude inference-profile ID. Default in code is the EU Sonnet 4.5 profile.
+  # Override to Haiku for cheap validation runs, Sonnet 4.6 once your account
+  # has the AWS Marketplace subscription, etc.
+  model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  max_tokens: 4096
+  # Bump this string when you change the system prompt — forces a republish of
+  # every child page on the next run (otherwise banner-SHA short-circuits).
+  system_prompt_version: "v1"
+
+confluence:
+  # Atlassian Cloud site (no protocol, no trailing slash).
+  site: "acme.atlassian.net"
+  # Space key — the parent page must already exist in this space.
+  space_key: "DOCS"
+  # SSM Parameter Store path holding the parent page's numeric ID as a string.
+  # iac-cartographer reads this at startup (preflight check), so a missing /
+  # incorrect ID surfaces as a clean error on the first run.
+  parent_page_id_ssm_path: "/iac-cartographer/confluence-parent-id"
+
+slack:
+  # #channel-name or a Slack channel ID (C0...). The bot token from
+  # `iac-cartographer/slack` secret must be invited to this channel.
+  channel: "#alerts"

@@ -1,0 +1,136 @@
+[project]
+name = "iac-cartographer"
+version = "0.1.0"
+description = "Fleet-level documentation for your Terraform / IaC estate. Discovers repos across GitLab and GitHub, extracts structural facts with terraform-docs (and a fallback HCL parser), narrates each repo's purpose with a Claude model on AWS Bedrock, and publishes a parent + child page hierarchy to Confluence."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Anderson Leite" },
+]
+keywords = ["terraform", "iac", "documentation", "confluence", "bedrock", "llm", "claude"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Documentation",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: System :: Systems Administration",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "boto3",
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "pyyaml",
+]
+
+[project.urls]
+Homepage = "https://github.com/vakaobr/iac-cartographer"
+Repository = "https://github.com/vakaobr/iac-cartographer"
+Issues = "https://github.com/vakaobr/iac-cartographer/issues"
+
+[project.optional-dependencies]
+dev = [
+    "moto>=5.0",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "respx",
+    "ruff",
+]
+
+[project.scripts]
+iac-cartographer = "iac_cartographer.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["iac_cartographer*"]
+exclude = ["tests*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "A",    # builtins shadowing
+    "S",    # bandit (security) — handles 4 secrets + invokes Bedrock
+    "SIM",  # simplify
+    "RUF",  # ruff-specific
+    "PTH",  # pathlib
+    "C4",   # comprehensions
+    "DTZ",  # datetime timezone awareness
+    "PIE",  # misc
+    "RSE",  # raise linting
+    "RET",  # return linting
+    "FLY",  # f-string
+    "PERF", # performance anti-patterns
+    "LOG",  # logging best practices
+    "T20",  # no print() in source
+    "TCH",  # type-checking imports
+    "ASYNC",# async-correctness (httpx + Bedrock orchestrated via asyncio)
+]
+ignore = [
+    "S101",   # assert — allowed in tests
+    "E501",   # line length — handled by formatter
+    "RET504", # unnecessary assignment before return — readability choice
+    "UP015",  # redundant open mode — explicit is fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",   # asserts allowed
+    "S105",   # hardcoded password string in fixtures
+    "S106",   # hardcoded password argument in fixtures
+    "T20",    # print() allowed in test scaffolding
+    "PLR2004",# magic numbers OK in tests
+]
+"iac_cartographer/constants.py" = [
+    "N818",   # exception class names without -Error suffix read better in tracebacks (e.g. `BedrockError: ...` vs `BedrockErrorError`)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers"
+asyncio_mode = "auto"
+markers = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+    "integration: marks integration tests requiring network or external services",
+]
+
+[tool.coverage.run]
+source = ["iac_cartographer"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

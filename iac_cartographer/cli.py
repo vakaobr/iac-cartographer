@@ -63,12 +63,8 @@ from iac_cartographer.models import (
     SlackCredentials,
 )
 from iac_cartographer.narrator import detect_suspicious_phrases, placeholder_narrative, summarize
-from iac_cartographer.renderer import (
-    OVERVIEW_TITLE,
-    build_child,
-    build_overview,
-    compute_sha,
-)
+from iac_cartographer.publishers import ConfluencePublisher, LocalMarkdownPublisher, Publisher
+from iac_cartographer.renderer import OVERVIEW_TITLE, compute_sha
 from iac_cartographer.slack import SlackNotifier
 
 logger = logging.getLogger("iac_cartographer.cli")
@@ -267,6 +263,36 @@ def _build_llm_backend(llm_config: LLMConfig, secrets: LoadedSecrets) -> LLMBack
     raise ConfigError(f"unknown llm.backend: {name!r}")
 
 
+def _build_publisher(
+    config: AppConfig,
+    secrets: LoadedSecrets,
+    *,
+    parent_id: str | None,
+) -> Publisher:
+    """Instantiate the right `Publisher` for `publisher.kind`.
+
+    `parent_id` is the Confluence parent-page ID resolved by the
+    orchestrator's preflight check. Only the Confluence publisher uses
+    it; the Markdown publisher ignores it.
+
+    Adding a new publisher means: extend the `Literal` in
+    `PublisherConfig.kind`, implement the subclass in `publishers/`, and
+    add a new elif here. Centralised so config + credentials wiring
+    lives in one spot."""
+    kind = config.publisher.kind
+    if kind == "confluence":
+        if parent_id is None:
+            # Should never happen — preflight raises ConfigError before
+            # we get here if the parent page can't be resolved — but guard
+            # for type-checker happiness and future-refactor safety.
+            raise ConfigError("publisher.kind=confluence but parent_id was not resolved at preflight")
+        client = ConfluenceClient(config.confluence.site, secrets.confluence)
+        return ConfluencePublisher(client, config.confluence, parent_id)
+    if kind == "markdown":
+        return LocalMarkdownPublisher(output_dir=config.markdown.output_dir)
+    raise ConfigError(f"unknown publisher.kind: {kind!r}")
+
+
 # ---------------------------------------------------------------------------
 # Orchestration helpers
 # ---------------------------------------------------------------------------
@@ -456,10 +482,10 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # burn discovery / clone / Bedrock-narration on a run we can't
         # publish. Catches: bad SSM value, deleted/moved parent page,
         # revoked Atlassian token, Confluence outage. Skipped under
-        # --dry-run since the publish step itself is skipped there
-        # (operators verifying the parent page should browser-check the
-        # URL directly).
-        if not args.dry_run:
+        # --dry-run (the publish step itself is skipped there) AND for
+        # non-Confluence publishers (`markdown` writes to a local dir so
+        # there's no parent page concept).
+        if not args.dry_run and config.publisher.kind == "confluence":
             try:
                 parent_id = get_ssm_parameter(config.confluence.parent_page_id_ssm_path)
                 confluence_preflight = ConfluenceClient(config.confluence.site, secrets.confluence)
@@ -575,33 +601,21 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # ── Publish ──────────────────────────────────────────────────────
         pages_updated: list[str] = []
         skipped_unchanged = 0
-        confluence_failures: dict[str, str] = {}
+        publish_failures: dict[str, str] = {}
         now = datetime.now(UTC)
 
         if args.dry_run:
-            logger.info("dry-run: would have published %d pages — skipping Confluence + Slack", len(inventories) + 1)
+            logger.info("dry-run: would have published %d pages — skipping publisher + Slack", len(inventories) + 1)
         else:
-            confluence = ConfluenceClient(config.confluence.site, secrets.confluence)
-            # parent_id was resolved at preflight (above); reuse to avoid a
-            # second SSM read. Defensive `assert` because the type-checker
-            # otherwise sees it as `str | None` here.
-            assert parent_id is not None, "parent_id should have been set by the preflight"
-            async with confluence.session() as session:
-                space_id = await confluence.get_space_id_by_key(session, config.confluence.space_key)
-
-                # Publish children first, then overview (so the overview can link to them).
+            publisher = _build_publisher(config, secrets, parent_id=parent_id)
+            async with publisher:
+                # Publish children first so the overview can link to them.
                 child_page_ids: dict[str, str] = {}
                 for inv in inventories:
                     child_sha = compute_sha(inv)
-                    child_title, child_adf = build_child(inv, sha=child_sha, updated_at=now, pipeline_url=pipeline_url)
                     try:
-                        result = await confluence.upsert(
-                            session,
-                            space_id=space_id,
-                            parent_id=parent_id,
-                            title=child_title,
-                            adf_body=child_adf,
-                            current_sha=child_sha,
+                        result = await publisher.publish_child(
+                            inv, sha=child_sha, updated_at=now, pipeline_url=pipeline_url
                         )
                         child_page_ids[inv.meta.full_name] = result.page_id
                         if result.action == "unchanged":
@@ -609,46 +623,33 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                         else:
                             pages_updated.append(result.page_id)
                     except CartographerError as exc:
-                        confluence_failures[inv.meta.full_name] = f"confluence: {exc}"
-                        logger.exception("confluence upsert failed for %s", inv.meta.full_name)
+                        publish_failures[inv.meta.full_name] = f"publisher: {exc}"
+                        logger.exception("publisher failed for %s", inv.meta.full_name)
 
-                # Overview, with its SHA dependent on the inventories list + the resolved child IDs.
+                # Overview SHA includes the full inventory list — adding /
+                # removing a repo invalidates the overview banner-SHA.
                 overview_sha = compute_sha([inv.model_dump(mode="json") for inv in inventories])
-                overview_title, overview_adf = build_overview(
-                    inventories,
-                    child_page_ids,
-                    sha=overview_sha,
-                    updated_at=now,
-                    space_key=config.confluence.space_key,
-                    pipeline_url=pipeline_url,
-                )
                 try:
-                    # The DevOps-space parent page itself doubles as the
-                    # overview: its title is OVERVIEW_TITLE by convention,
-                    # which makes a same-title CHILD impossible (Confluence
-                    # rejects with `title already exists in parent`). So we
-                    # update the parent in place instead of upserting a
-                    # child under it.
-                    overview_result = await confluence.upsert_existing_page(
-                        session,
-                        page_id=parent_id,
-                        title=overview_title,
-                        adf_body=overview_adf,
-                        current_sha=overview_sha,
+                    overview_result = await publisher.publish_overview(
+                        inventories,
+                        child_page_ids,
+                        sha=overview_sha,
+                        updated_at=now,
+                        pipeline_url=pipeline_url,
                     )
                     if overview_result.action == "unchanged":
                         skipped_unchanged += 1
                     else:
                         pages_updated.append(overview_result.page_id)
                 except CartographerError as exc:
-                    confluence_failures[OVERVIEW_TITLE] = f"confluence: {exc}"
-                    logger.exception("confluence upsert failed for overview page")
+                    publish_failures[OVERVIEW_TITLE] = f"publisher: {exc}"
+                    logger.exception("publisher failed for overview page")
 
         # ── Outcome + Slack notification ────────────────────────────────
-        all_failures = {**failed, **confluence_failures}
+        all_failures = {**failed, **publish_failures}
         outcome = RunOutcome(
             discovered=len(repos),
-            succeeded=len(inventories) - len(confluence_failures),
+            succeeded=len(inventories) - len(publish_failures),
             skipped_unchanged=skipped_unchanged,
             failed=all_failures,
             pages_updated=pages_updated,

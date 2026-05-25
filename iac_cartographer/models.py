@@ -261,13 +261,52 @@ class SlackConfig(_Strict):
     channel: str = "#alerts"
 
 
+class PublisherConfig(_Strict):
+    """Selects WHERE the inventory gets published.
+
+    Most fields are backend-specific and ignored when `kind` doesn't match.
+    Adding a new publisher means:
+      * Add a literal to the `kind` discriminator.
+      * Add an `Publisher` subclass in `publishers/`.
+      * Wire it in the cli's `_build_publisher` helper.
+    """
+
+    # Which publisher to use.
+    #   "confluence" → publish ADF pages to Atlassian Confluence Cloud.
+    #                  Uses `confluence:` config + the
+    #                  `iac-cartographer/confluence` secret. Default.
+    #   "markdown"   → write Markdown files to a local directory. Uses
+    #                  the `markdown:` config. No credentials needed.
+    kind: Literal["confluence", "markdown"] = "confluence"
+
+
+class MarkdownConfig(_Strict):
+    """`publisher.kind == "markdown"` settings.
+
+    Output layout under `output_dir`:
+
+        output_dir/
+        ├── index.md
+        └── repos/
+            └── <full_name_slugged>.md
+    """
+
+    output_dir: str = "./iac-inventory"
+
+
 class AppConfig(_Strict):
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     # The YAML section is named `llm:`. The previous internal name was
     # `bedrock:` — operators migrating from a pre-1.0 deployment must
     # rename that section. The schema is otherwise unchanged.
     llm: LLMConfig = Field(default_factory=LLMConfig)
+    # `publisher:` picks which backend ("confluence" or "markdown") and
+    # only the matching sub-config matters. `confluence:` and `markdown:`
+    # stay top-level (not nested under `publisher:`) so we can default
+    # them both and let the runtime ignore the irrelevant one.
+    publisher: PublisherConfig = Field(default_factory=PublisherConfig)
     confluence: ConfluenceConfig = Field(default_factory=ConfluenceConfig)
+    markdown: MarkdownConfig = Field(default_factory=MarkdownConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)
 
 

@@ -81,7 +81,7 @@ The longer-form quick start below explains each piece — every section maps to 
 ### 1. Install
 
 ```bash
-pip install iac-cartographer            # from PyPI
+pip install iac-cartographer            # from PyPI (recommended)
 # or from a checkout, for hacking on the source:
 pip install -e .
 

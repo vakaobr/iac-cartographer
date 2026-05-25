@@ -47,12 +47,12 @@ jobs:
         run: ruff format --check .
 
   test:
-    name: pytest (3.12 + 3.13)
+    name: pytest (3.12 / 3.13 / 3.14)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v6
 

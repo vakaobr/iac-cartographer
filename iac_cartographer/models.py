@@ -262,9 +262,22 @@ class ConfluenceConfig(_Strict):
     # Confluence space key (e.g. "DOCS", "Engineering"). The parent page must
     # already exist in this space; iac-cartographer publishes child pages under it.
     space_key: str = "DOCS"
-    # SSM Parameter Store path holding the parent page's numeric ID as a plain
-    # string. The parent page is the overview; child pages live under it.
+    # Logical name of the parameter holding the parent page's numeric ID
+    # as a plain string. Resolved via the configured `SecretsProvider`
+    # (`get_parameter()`):
+    #   * AWS:   SSM Parameter Store path — same as the original
+    #            behaviour (`/iac-cartographer/confluence-parent-id`).
+    #   * env:   env var `IAC_CARTOGRAPHER_PARAM_CONFLUENCE_PARENT_ID`.
+    #   * vault: `{mount}/data/iac-cartographer/confluence-parent-id`
+    #            with the page ID stored under a `value` field.
+    # The parent page is the overview; child pages live under it.
     parent_page_id_ssm_path: str = "/iac-cartographer/confluence-parent-id"
+
+    # Optional direct override. When set, the page ID is taken verbatim
+    # from here and `parent_page_id_ssm_path` is ignored. Use for
+    # deployments where storing a non-secret integer ID in an external
+    # parameter store is overkill (small teams, file-based config, etc.).
+    parent_page_id: str | None = None
 
 
 class SlackConfig(_Strict):
@@ -306,6 +319,49 @@ class MarkdownConfig(_Strict):
     output_dir: str = "./iac-inventory"
 
 
+class SecretsConfig(_Strict):
+    """Selects WHERE credentials + opaque parameters come from.
+
+    Most fields are backend-specific and ignored when `backend` doesn't
+    match. Adding a new backend means: add a literal to the discriminator,
+    implement the subclass in `secrets/`, and add a branch to
+    `secrets.build_provider`.
+    """
+
+    # Which secrets backend to use.
+    #   "aws"   → AWS Secrets Manager + SSM Parameter Store (default; what
+    #             the production deployment iac-cartographer was extracted
+    #             from uses).
+    #   "env"   → Process environment variables. Naming convention:
+    #             `IAC_CARTOGRAPHER_SECRET_<NAME>` for secrets (JSON value),
+    #             `IAC_CARTOGRAPHER_PARAM_<NAME>` for opaque parameters.
+    #             Optional `.env` autoload via `env_dotenv_path`.
+    #   "vault" → HashiCorp Vault KV v2 over HTTP. Auth via VAULT_TOKEN env.
+    backend: Literal["aws", "env", "vault"] = "aws"
+
+    # AWS region for boto3 clients when backend == "aws". Ignored otherwise.
+    aws_region: str = "eu-central-1"
+
+    # Path to a `.env` file to autoload before reading env vars
+    # (backend == "env" only). Pre-existing env vars take precedence.
+    # `None` = don't autoload.
+    env_dotenv_path: str | None = None
+
+    # Vault server URL when backend == "vault" (e.g. `https://vault.example.com`).
+    vault_addr: str = ""
+
+    # KV v2 mount path (Vault terminology — see `vault read -mount`).
+    vault_mount: str = "secret"
+
+    # Logical prefix joined under the mount. Leave default if you mirror the
+    # `iac-cartographer/...` naming convention; override to a flat path if
+    # the operator strips the prefix at the Vault layer.
+    vault_path_prefix: str = "iac-cartographer/"
+
+    # Vault Enterprise namespace header. None = single-tenant Vault.
+    vault_namespace: str | None = None
+
+
 class AppConfig(_Strict):
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     # The YAML section is named `llm:`. The previous internal name was
@@ -317,6 +373,11 @@ class AppConfig(_Strict):
     # stay top-level (not nested under `publisher:`) so we can default
     # them both and let the runtime ignore the irrelevant one.
     publisher: PublisherConfig = Field(default_factory=PublisherConfig)
+    # `secrets:` picks where credentials + opaque parameters (Confluence
+    # parent page ID, etc.) come from. Default is the legacy AWS pair
+    # (Secrets Manager + SSM); override to `env` or `vault` for
+    # non-AWS deployments.
+    secrets: SecretsConfig = Field(default_factory=SecretsConfig)
     confluence: ConfluenceConfig = Field(default_factory=ConfluenceConfig)
     markdown: MarkdownConfig = Field(default_factory=MarkdownConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)

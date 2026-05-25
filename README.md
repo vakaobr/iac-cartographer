@@ -77,9 +77,9 @@ Create an empty Confluence page in your target space (e.g. `DOCS`). It will
 become the overview / index. Note the numeric page ID from the URL
 (`/wiki/spaces/DOCS/pages/123456789/...` → `123456789`).
 
-### 3. Seed credentials in AWS Secrets Manager
+### 3. Seed credentials
 
-Four required secrets, plus two optional depending on which backends you enable:
+Default backend is AWS Secrets Manager — for env-var or HashiCorp Vault deployments see **Secrets backends** further down. Logical secret names (used by every backend):
 
 | Secret name | When required | JSON shape |
 |---|---|---|
@@ -216,6 +216,55 @@ merged result.
 
 Mix and match: configure GitLab + a curated file, or Bitbucket-only, or all four together. At least one source must be configured (the orchestrator fails loud if none are).
 
+## Secrets backends
+
+`secrets.backend` picks where credentials + opaque parameters (the
+Confluence parent page ID, etc.) come from. Three backends ship today:
+
+| Backend | Secrets from | Parameters from | When to use |
+|---|---|---|---|
+| `aws` *(default)* | AWS Secrets Manager | SSM Parameter Store | Production deployments on AWS — what the original deployment uses. |
+| `env` | env var `IAC_CARTOGRAPHER_SECRET_<NAME>` (JSON) | env var `IAC_CARTOGRAPHER_PARAM_<NAME>` (plain) | CI/GitHub Actions, k8s with the secrets injected as env vars, local dev. Optional `.env` autoload. |
+| `vault` | HashiCorp Vault KV v2 at `{mount}/data/{prefix}{name}` | Same path, payload must contain a `value` field | Multi-cloud / on-prem / regulated environments where Vault is already standard. |
+
+Example `env` backend setup:
+
+```bash
+export IAC_CARTOGRAPHER_SECRET_CONFLUENCE='{"email":"bot@x.test","api_token":"ATATT..."}'
+export IAC_CARTOGRAPHER_SECRET_GITLAB='{"token":"glpat-..."}'
+export IAC_CARTOGRAPHER_SECRET_GITHUB='{"token":"ghp_..."}'
+export IAC_CARTOGRAPHER_SECRET_SLACK='{"bot_token":"xoxb-..."}'
+export IAC_CARTOGRAPHER_PARAM_CONFLUENCE_PARENT_ID='123456789'
+iac-cartographer --once --config /etc/iac-cartographer/config.yaml
+```
+
+`config.yaml` then declares the backend:
+
+```yaml
+secrets:
+  backend: "env"
+  env_dotenv_path: "/etc/iac-cartographer/.env"  # optional
+```
+
+Vault example:
+
+```yaml
+secrets:
+  backend: "vault"
+  vault_addr: "https://vault.example.com"
+  vault_mount: "secret"
+  vault_path_prefix: "iac-cartographer/"
+```
+
+```bash
+export VAULT_TOKEN="$(vault login -method=oidc -token-only)"
+vault kv put secret/iac-cartographer/gitlab token=glpat-...
+vault kv put secret/iac-cartographer/confluence-parent-id value=123456789
+iac-cartographer --once --config /etc/iac-cartographer/config.yaml
+```
+
+For the Confluence parent page ID specifically: when storing a non-secret integer in an external parameter store feels like overkill, set `confluence.parent_page_id` directly in the YAML and the parameter-store lookup is skipped entirely.
+
 ## Reading the output
 
 On the Confluence pages you'll see a few placeholders worth knowing:
@@ -237,8 +286,9 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 * **Pluggable discovery** — ✅ GitLab + GitHub + Bitbucket + curated file
   shipped; Gitea / Forgejo native APIs are next (use the file source in
   the meantime).
-* **Pluggable secrets/config** — AWS Secrets Manager + SSM today; environment
-  variables, HashiCorp Vault, plain dotenv.
+* **Pluggable secrets/config** — ✅ AWS Secrets Manager + SSM, process env
+  vars (with `.env` autoload), and HashiCorp Vault KV v2 shipped; add a
+  new backend by subclassing `SecretsProvider`.
 * **Terraform module** — for the ECS Fargate deployment path.
 * **PyPI release** — once the pluggable interfaces stabilise.
 

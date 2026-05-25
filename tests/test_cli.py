@@ -23,6 +23,7 @@ from iac_cartographer.cli import (
     main,
 )
 from iac_cartographer.constants import ConfigError, MissingSecretError
+from iac_cartographer.secrets import AwsSecretsProvider
 
 
 def test_main_no_args_exits_2() -> None:
@@ -270,7 +271,7 @@ def test_load_secrets_happy_path(_aws_region: None) -> None:
         Name="iac-cartographer/slack",
         SecretString=json.dumps({"bot_token": "xoxb", "channel_id": "C0X"}),
     )
-    loaded = _load_secrets()
+    loaded = _load_secrets(AwsSecretsProvider())
     assert loaded.confluence.email == "bot@acme.example.com"
     assert loaded.gitlab.token == "glpat"
     assert loaded.github.token == "ghp"
@@ -291,7 +292,7 @@ def test_load_secrets_missing_raises_missing_secret_error(_aws_region: None) -> 
         SecretString=json.dumps({"bot_token": "xoxb", "channel_id": "C0X"}),
     )
     with pytest.raises(MissingSecretError):
-        _load_secrets()
+        _load_secrets(AwsSecretsProvider())
 
 
 @mock_aws
@@ -308,7 +309,7 @@ def test_load_secrets_invalid_schema_raises_missing_secret_error(_aws_region: No
         SecretString=json.dumps({"bot_token": "xoxb", "channel_id": "C0X"}),
     )
     with pytest.raises(MissingSecretError, match="schema validation"):
-        _load_secrets()
+        _load_secrets(AwsSecretsProvider())
 
 
 @mock_aws

@@ -95,6 +95,34 @@ publisher:
   #                  or air-gapped environments.
   kind: "confluence"
 
+secrets:
+  # Where credentials (Confluence, GitLab, GitHub, Slack, Anthropic,
+  # Bitbucket) and opaque parameters (the Confluence parent page ID)
+  # come from.
+  #   "aws"   → AWS Secrets Manager for secrets, SSM Parameter Store for
+  #             parameters. Default — what the production deployment
+  #             iac-cartographer was extracted from uses.
+  #   "env"   → Process env vars. Naming convention:
+  #               IAC_CARTOGRAPHER_SECRET_<NAME>    (JSON value)
+  #               IAC_CARTOGRAPHER_PARAM_<NAME>     (plain string)
+  #             Optional .env autoload via `env_dotenv_path`.
+  #   "vault" → HashiCorp Vault KV v2 over HTTP. Auth via VAULT_TOKEN
+  #             env var (set externally — k8s injector, AppRole, etc.).
+  backend: "aws"
+
+  # AWS backend only — boto3 region for Secrets Manager + SSM clients.
+  aws_region: "eu-central-1"
+
+  # env backend only — autoload `KEY=value` pairs from this file before
+  # reading env vars. Pre-existing env vars take precedence.
+  # env_dotenv_path: "/etc/iac-cartographer/.env"
+
+  # vault backend only — server URL + KV v2 layout.
+  # vault_addr: "https://vault.example.com"
+  # vault_mount: "secret"                       # KV v2 mount
+  # vault_path_prefix: "iac-cartographer/"      # logical prefix under mount
+  # vault_namespace: null                       # Vault Enterprise only
+
 confluence:
   # Atlassian Cloud site (no protocol, no trailing slash).
   site: "acme.atlassian.net"
@@ -104,6 +132,11 @@ confluence:
   # iac-cartographer reads this at startup (preflight check), so a missing /
   # incorrect ID surfaces as a clean error on the first run.
   parent_page_id_ssm_path: "/iac-cartographer/confluence-parent-id"
+  # Optional direct override — when set, the page ID is taken verbatim
+  # from here and `parent_page_id_ssm_path` is ignored. Use for small
+  # teams / file-based config where a parameter-store round-trip is
+  # overkill (the parent page ID isn't a secret — it's a stable integer).
+  # parent_page_id: "123456789"
 
 markdown:
   # Only used when `publisher.kind == "markdown"`. Layout produced:

@@ -43,7 +43,7 @@ from typing import Any
 import yaml
 
 from iac_cartographer import __version__
-from iac_cartographer.aws import get_secret, get_ssm_parameter, put_metric_data
+from iac_cartographer.aws import get_ssm_parameter, put_metric_data
 from iac_cartographer.confluence import ConfluenceClient
 from iac_cartographer.constants import CartographerError, ConfigError, MissingSecretError
 from iac_cartographer.discovery import (
@@ -73,6 +73,7 @@ from iac_cartographer.models import (
 from iac_cartographer.narrator import detect_suspicious_phrases, placeholder_narrative, summarize
 from iac_cartographer.publishers import ConfluencePublisher, LocalMarkdownPublisher, Publisher
 from iac_cartographer.renderer import OVERVIEW_TITLE, compute_sha
+from iac_cartographer.secrets import SecretsProvider, build_provider
 from iac_cartographer.slack import SlackNotifier
 
 logger = logging.getLogger("iac_cartographer.cli")
@@ -206,8 +207,13 @@ def _load_config(config_source: str) -> AppConfig:
         raise ConfigError(f"config validation failed: {exc}") from exc
 
 
-def _load_secrets(llm_backend_name: str = "bedrock", *, need_bitbucket: bool = False) -> LoadedSecrets:
-    """Fetch the Secrets Manager entries the run needs and validate them.
+def _load_secrets(
+    provider: SecretsProvider,
+    llm_backend_name: str = "bedrock",
+    *,
+    need_bitbucket: bool = False,
+) -> LoadedSecrets:
+    """Fetch credential bundles via `provider` and validate each one.
 
     `llm_backend_name` decides whether the Anthropic API key is required:
     for the default `bedrock` backend it's skipped entirely; for the
@@ -221,20 +227,20 @@ def _load_secrets(llm_backend_name: str = "bedrock", *, need_bitbucket: bool = F
     `--dry-run` only suppresses *writes*, never reads.
     """
     try:
-        confluence_raw = get_secret(CONFLUENCE_SECRET_NAME)
-        gitlab_raw = get_secret(GITLAB_SECRET_NAME)
-        github_raw = get_secret(GITHUB_SECRET_NAME)
-        slack_raw = get_secret(SLACK_SECRET_NAME)
+        confluence_raw = provider.get_secret(CONFLUENCE_SECRET_NAME)
+        gitlab_raw = provider.get_secret(GITLAB_SECRET_NAME)
+        github_raw = provider.get_secret(GITHUB_SECRET_NAME)
+        slack_raw = provider.get_secret(SLACK_SECRET_NAME)
     except Exception as exc:
-        raise MissingSecretError(f"failed to fetch a required secret: {exc}") from exc
+        raise MissingSecretError(f"failed to fetch a required secret via {provider.name}: {exc}") from exc
 
     anthropic_creds: AnthropicCredentials | None = None
     if llm_backend_name == "anthropic":
         try:
-            anthropic_raw = get_secret(ANTHROPIC_SECRET_NAME)
+            anthropic_raw = provider.get_secret(ANTHROPIC_SECRET_NAME)
         except Exception as exc:
             raise MissingSecretError(
-                f"llm.backend=anthropic but the {ANTHROPIC_SECRET_NAME} secret is missing: {exc}"
+                f"llm.backend=anthropic but the {ANTHROPIC_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
             ) from exc
         try:
             anthropic_creds = AnthropicCredentials.model_validate(anthropic_raw)
@@ -244,10 +250,11 @@ def _load_secrets(llm_backend_name: str = "bedrock", *, need_bitbucket: bool = F
     bitbucket_creds: BitbucketCredentials | None = None
     if need_bitbucket:
         try:
-            bitbucket_raw = get_secret(BITBUCKET_SECRET_NAME)
+            bitbucket_raw = provider.get_secret(BITBUCKET_SECRET_NAME)
         except Exception as exc:
             raise MissingSecretError(
-                f"discovery.bitbucket_workspaces is set but the {BITBUCKET_SECRET_NAME} secret is missing: {exc}"
+                f"discovery.bitbucket_workspaces is set but the {BITBUCKET_SECRET_NAME} "
+                f"secret is missing (via {provider.name}): {exc}"
             ) from exc
         try:
             bitbucket_creds = BitbucketCredentials.model_validate(bitbucket_raw)
@@ -536,7 +543,10 @@ async def _run_once_async(args: argparse.Namespace) -> int:
     if args.model:
         config = config.model_copy(update={"llm": config.llm.model_copy(update={"model_id": args.model})})
         logger.info("iac-cartographer: LLM model overridden to %s", args.model)
+    secrets_provider = build_provider(config.secrets)
+    logger.info("secrets: backend=%s", secrets_provider.name)
     secrets = _load_secrets(
+        secrets_provider,
         config.llm.backend,
         need_bitbucket=bool(config.discovery.bitbucket_workspaces),
     )
@@ -558,7 +568,14 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # there's no parent page concept).
         if not args.dry_run and config.publisher.kind == "confluence":
             try:
-                parent_id = get_ssm_parameter(config.confluence.parent_page_id_ssm_path)
+                # Resolve the parent page ID. Direct config value wins over
+                # the parameter-store lookup so file-based deployments
+                # don't need a parameter store at all.
+                if config.confluence.parent_page_id:
+                    parent_id = config.confluence.parent_page_id
+                    logger.info("preflight: using direct config.confluence.parent_page_id")
+                else:
+                    parent_id = secrets_provider.get_parameter(config.confluence.parent_page_id_ssm_path)
                 confluence_preflight = ConfluenceClient(config.confluence.site, secrets.confluence)
                 async with confluence_preflight.session() as preflight_session:
                     parent_page = await confluence_preflight.get_page(preflight_session, parent_id)

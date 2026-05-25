@@ -43,6 +43,14 @@ dev = [
     "respx",
     "ruff",
 ]
+# `pip install -e ".[docs]"` to build the mkdocs site locally:
+#   mkdocs serve   # http://127.0.0.1:8000
+#   mkdocs build --strict
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "pymdown-extensions>=10.0",
+]
 
 [project.scripts]
 iac-cartographer = "iac_cartographer.cli:main"

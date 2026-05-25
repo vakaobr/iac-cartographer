@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/vakaobr/iac-cartographer/discussions
+    about: |
+      For "how do I configure X?" questions, architecture conversations, or
+      ideas you'd like to discuss before opening a formal issue.
+  - name: Security disclosure
+    url: mailto:falecom@andersonleite.me
+    about: |
+      Please report security-sensitive issues privately by email rather
+      than via a public issue.

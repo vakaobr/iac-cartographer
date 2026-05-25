@@ -1,0 +1,60 @@
+name: Feature request
+description: A new capability or a change in default behaviour.
+title: "[Feature] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. Before sending a PR for a non-trivial
+        change, please open this issue first so we can agree on the shape.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: |
+        Describe the use case, not the proposed implementation. "We want a
+        Notion publisher because half our docs already live there" beats "Add
+        `NotionPublisher`" — it tells us what success looks like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What do you have in mind?
+      description: |
+        A rough sketch of the API / config / output. Pseudo-code is fine.
+        Don't over-invest here; the goal is to start the conversation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: |
+        What else did you think about? Why did you discard those options?
+        ("None / I'm not sure" is a fine answer.)
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Roughly how big is this?
+      options:
+        - Small — one file, one test, one paragraph in the README
+        - Medium — touches a couple of modules, may need a new dependency
+        - Large — new pluggable interface, breaking config change, or a new top-level module
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: willing-to-pr
+    attributes:
+      label: Would you be willing to send a PR?
+      options:
+        - label: Yes, I want to take this on
+        - label: Yes, with mentorship from a maintainer
+        - label: No, I'm just raising the idea

@@ -5,7 +5,7 @@ description = "Fleet-level documentation for your Terraform / IaC estate. Discov
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "Anderson Leite" },
+    { name = "Anderson Leite", email = "falecom@andersonleite.me" },
 ]
 keywords = ["terraform", "iac", "documentation", "confluence", "bedrock", "llm", "claude"]
 classifiers = [

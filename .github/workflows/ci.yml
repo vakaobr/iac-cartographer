@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Run weekly on Mondays at 09:00 UTC so we catch upstream regressions
+  # in terraform-docs, ruff, pytest, etc. even when nothing has been
+  # pushed for a while.
+  schedule:
+    - cron: "0 9 * * 1"
+
+permissions:
+  # Default to read-only. Individual jobs can opt-in to more.
+  contents: read
+
+# Cancel in-progress runs on the same ref when a new push lands.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  TERRAFORM_DOCS_VERSION: "v0.20.0"
+
+jobs:
+  lint:
+    name: ruff (lint + format)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format --check
+        run: ruff format --check .
+
+  test:
+    name: pytest (3.12 + 3.13)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install terraform-docs ${{ env.TERRAFORM_DOCS_VERSION }}
+        run: |
+          curl -fsSL \
+            "https://terraform-docs.io/dl/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz" \
+            -o /tmp/terraform-docs.tar.gz
+          sudo tar -xzf /tmp/terraform-docs.tar.gz -C /usr/local/bin terraform-docs
+          sudo chmod +x /usr/local/bin/terraform-docs
+          terraform-docs --version
+
+      - name: Install package + dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: pytest (60% coverage gate)
+        run: pytest --cov=iac_cartographer --cov-report=term --cov-fail-under=60
+
+  docker:
+    name: docker build smoke
+    runs-on: ubuntu-latest
+    # Only run on main pushes — building on every PR is wasteful and the
+    # build is largely tested via the `test` job's dependency install.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: iac-cartographer:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test --help
+        run: docker run --rm iac-cartographer:ci --help

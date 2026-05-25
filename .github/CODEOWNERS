@@ -1,0 +1,5 @@
+# Default owner for every path in the repo — auto-requested on every PR.
+# Add granular ownership lines above this one if/when sub-domain experts
+# join. https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @vakaobr

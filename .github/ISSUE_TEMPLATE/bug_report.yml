@@ -1,0 +1,98 @@
+name: Bug report
+description: Something is misbehaving in a way that's clearly not by design.
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! A few notes before you start:
+
+        * **Security-sensitive bugs** — please email falecom@andersonleite.me
+          instead of opening a public issue.
+        * **"How do I configure X?" questions** are better suited to
+          [Discussions](https://github.com/vakaobr/iac-cartographer/discussions)
+          than to the issue tracker.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: |
+        Describe the symptom you observed. Include the exact error message,
+        Slack alert text, or Confluence page state if that's the surface
+        you're working from.
+      placeholder: |
+        On the latest scheduled run, child pages for repos under our
+        `acme/iac/modules/` subtree all came out empty (no providers,
+        no resources). The overview page's "At a glance" totals dropped
+        from 294 resources last week to 12 this week.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: |
+        Module subtree to render with its provider list and resource
+        counts, same as the previous week.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: |
+        Minimal-as-possible reproduction. A failing test is the gold
+        standard; if that's not feasible, give us the CLI flags, config
+        snippet, and (sanitised) sample repo layout that triggers the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / output
+      description: |
+        Paste the smallest log excerpt that captures the failure. The
+        pipeline emits structured JSON logs — `level=ERROR` lines are
+        usually enough. Redact tokens and internal hostnames.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: iac-cartographer version
+      description: "`pip show iac-cartographer | grep Version` or the commit SHA you're running."
+      placeholder: "0.1.0 (or commit abcdef0)"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.5"
+
+  - type: input
+    id: terraform-docs-version
+    attributes:
+      label: terraform-docs version
+      description: "`terraform-docs --version`"
+      placeholder: "v0.20.0"
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How are you running it?
+      options:
+        - ECS Fargate + EventBridge Scheduler
+        - Kubernetes CronJob
+        - GitHub Actions schedule
+        - Plain cron / systemd timer
+        - Local CLI / dev machine
+        - Other (describe in "What happened?")
+    validations:
+      required: true

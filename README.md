@@ -220,15 +220,16 @@ uses, the Terraform module is on the roadmap — for now the container image
 ([`Dockerfile`](Dockerfile)) is the canonical artefact and you wire it up
 with the existing AWS recipes.
 
-## Publishing locally (Markdown or HTML) instead of Confluence
+## Publishing locally instead of Confluence
 
-Three publisher backends ship today — pick with `publisher.kind`:
+Four publisher backends ship today — pick with `publisher.kind`:
 
 | Backend | When to use |
 |---|---|
 | `confluence` *(default)* | You already have Confluence; you want the inventory cross-linked with the rest of your wiki. |
 | `markdown` | You run a static-site generator (mkdocs / Hugo / Docusaurus / Jekyll) and want to feed the rendered Markdown into its build. Or you're committing the output to a docs repo so PRs show diffs. |
 | `html` | You want **self-contained HTML files** with no build step — open them directly in a browser, zip-and-email to a stakeholder, upload to S3 + CloudFront / GitHub Pages, print to PDF for an audit. Embedded CSS, no JS, no external fonts. |
+| `json` | You want a **machine-readable feed** for Backstage catalog imports, internal CMDBs, dashboards, or custom drift-detection tooling. `index.json` carries one row per repo + aggregates; per-repo files carry the full inventory. |
 
 ### Markdown layout
 
@@ -257,8 +258,20 @@ Each file's head contains a `<meta name="iac-cartographer-sha" content="...">`
 tag. Dark mode is automatic (CSS `prefers-color-scheme`); a `@media print`
 block tightens the layout when printed.
 
-Both publishers use the same banner-SHA idempotency contract as Confluence:
-on the next run we compare the embedded SHA against the freshly-computed one
+### JSON layout
+
+```
+<json.output_dir>/
+├── index.json                            # overview + aggregates
+└── repos/
+    ├── acme-org__main-cluster.json       # full RepoInventory per repo
+    └── ...
+```
+
+`index.json` is sized for catalog-import use cases — a single fetch returns one row per repo with summary fields (`full_name`, `host`, `providers`, `environments`, `purpose`, `child_document` pointer, …) plus `aggregates.{repo_count,total_resources,top_providers}` for dashboards. Per-repo files carry the full Pydantic-serialised inventory. Top-level `iac_cartographer.sha` field carries the banner SHA.
+
+All four publishers share the same banner-SHA idempotency contract as Confluence:
+on the next run we compare the embedded SHA against the freshly-computed value
 and skip the write when they match. Repos that change get rewritten; repos
 that don't, don't.
 
@@ -341,7 +354,7 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 
 ## Roadmap
 
-* **Pluggable publishers** — ✅ Confluence + local Markdown + standalone HTML shipped; Notion
+* **Pluggable publishers** — ✅ Confluence + local Markdown + standalone HTML + machine-readable JSON shipped; Notion
   and GitHub Wiki are next.
 * **Pluggable LLM backend** — ✅ Bedrock + Anthropic-direct shipped; OpenAI
   and Ollama are next.

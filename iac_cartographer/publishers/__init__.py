@@ -21,11 +21,13 @@ from __future__ import annotations
 from iac_cartographer.publishers.base import Publisher, PublishResult
 from iac_cartographer.publishers.confluence import ConfluencePublisher
 from iac_cartographer.publishers.html import LocalHtmlPublisher
+from iac_cartographer.publishers.json_publisher import LocalJsonPublisher
 from iac_cartographer.publishers.markdown import LocalMarkdownPublisher
 
 __all__ = [
     "ConfluencePublisher",
     "LocalHtmlPublisher",
+    "LocalJsonPublisher",
     "LocalMarkdownPublisher",
     "PublishResult",
     "Publisher",

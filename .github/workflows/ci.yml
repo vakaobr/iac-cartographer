@@ -193,12 +193,21 @@ jobs:
             exit 1
           fi
 
-      - name: kubectl --dry-run client-side validation
-        # Pipe the rendered output to `kubectl apply --dry-run=client` to
-        # catch schema-level issues the Helm parser doesn't reach.
+      - name: kubeconform schema validation
+        # Offline Kubernetes-API schema validation. `kubectl --dry-run=client`
+        # was attempted here but it tries to fetch OpenAPI from a live API
+        # server in 1.32+, which CI doesn't have. `kubeconform` ships the
+        # schema with the binary and doesn't need a cluster — better fit.
         run: |
+          KUBECONFORM_VERSION="v0.7.0"
+          curl -fsSL \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            -o /tmp/kubeconform.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+          chmod +x /usr/local/bin/kubeconform
+          kubeconform -v
           helm template iac-cartographer charts/iac-cartographer \
-            | kubectl apply --dry-run=client -f -
+            | kubeconform -strict -summary -schema-location default
 
   docker:
     name: docker build smoke

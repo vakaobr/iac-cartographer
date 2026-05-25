@@ -1,0 +1,36 @@
+# Curated list of small, well-known public Terraform repositories that
+# the demo run clones + analyses. Used as input to the file-based
+# discovery source — see `discovery.repos_file` in demo-config.yaml.
+#
+# These are real upstream repos. The `last_commit_sha` and
+# `last_commit_at` values here are static (it's a demo, not a live
+# inventory) — they just need to be syntactically valid for the model
+# validation. The actual page output uses the values from the cloned
+# HEAD via the fetcher.
+
+- host: github
+  full_name: terraform-aws-modules/terraform-aws-vpc
+  clone_url: https://github.com/terraform-aws-modules/terraform-aws-vpc.git
+  web_url: https://github.com/terraform-aws-modules/terraform-aws-vpc
+  default_branch: master
+  last_commit_sha: "0000000000000000000000000000000000000001"
+  last_commit_at: 2026-05-22T12:00:00Z
+  last_commit_author: terraform-aws-modules
+
+- host: github
+  full_name: cloudposse/terraform-null-label
+  clone_url: https://github.com/cloudposse/terraform-null-label.git
+  web_url: https://github.com/cloudposse/terraform-null-label
+  default_branch: main
+  last_commit_sha: "0000000000000000000000000000000000000002"
+  last_commit_at: 2026-05-22T12:00:00Z
+  last_commit_author: cloudposse
+
+- host: github
+  full_name: terraform-aws-modules/terraform-aws-s3-bucket
+  clone_url: https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git
+  web_url: https://github.com/terraform-aws-modules/terraform-aws-s3-bucket
+  default_branch: master
+  last_commit_sha: "0000000000000000000000000000000000000003"
+  last_commit_at: 2026-05-22T12:00:00Z
+  last_commit_author: terraform-aws-modules

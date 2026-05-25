@@ -55,6 +55,24 @@ Store for credentials/config). Pluggable backends are on the roadmap.
 
 ## Quick start
 
+**Just want to see what it produces?** Clone this repo and run the
+zero-credentials demo — it shallow-clones three small public Terraform
+repositories and writes the rendered Markdown inventory under
+`./demo-output/`:
+
+```bash
+git clone https://github.com/vakaobr/iac-cartographer.git
+cd iac-cartographer
+pip install -e .
+./examples/demo/run.sh
+# Open demo-output/index.md
+```
+
+See [`examples/demo/README.md`](examples/demo/README.md) for the demo
+walkthrough + variations (swap publisher to HTML, plug in a real LLM, …).
+
+---
+
 The fastest path from zero to a running scaffold:
 
 ```bash

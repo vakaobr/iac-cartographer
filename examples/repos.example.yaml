@@ -1,0 +1,43 @@
+# Hand-curated repo list for iac-cartographer's file-based discovery source.
+#
+# Activate by setting `discovery.repos_file: ./repos.yaml` in the main
+# config. Each entry must match the `RepoMetadata` schema in
+# `iac_cartographer/models.py`:
+#
+#   host             one of "gitlab" | "github" | "bitbucket" | "other"
+#   full_name        e.g. "acme/main-cluster"
+#   clone_url        https URL the fetcher will `git clone --depth=1`
+#   web_url          rendered as a link on the published page
+#   default_branch   used by the fetcher
+#   last_commit_sha  rendered (first 8 chars) and folded into banner-SHA;
+#                    you can put whatever opaque token represents
+#                    "current version" if you don't have a real git SHA
+#   last_commit_at   ISO-8601 timestamp; controls the rendered "Last
+#                    commit" date and feeds banner-SHA idempotency
+#   last_commit_author  optional human name
+#
+# Use cases:
+#   * Air-gapped runs where VCS API access is unavailable.
+#   * Self-hosted VCS without an API this tool supports yet
+#     (Gitea, Forgejo, Codeberg, …) — bring the metadata yourself.
+#   * Focused publish of a curated subset.
+#
+# Combine with the VCS sources or run standalone. The orchestrator
+# dedupes across sources by `full_name`, first-seen wins.
+
+- host: github
+  full_name: acme/main-cluster
+  clone_url: https://github.com/acme/main-cluster.git
+  web_url: https://github.com/acme/main-cluster
+  default_branch: main
+  last_commit_sha: a1b2c3d4e5f60718192a2b3c4d5e6f7081929aab
+  last_commit_at: 2026-05-22T12:34:56Z
+  last_commit_author: Alice <alice@example.com>
+
+- host: other
+  full_name: gitea-self/platform-bootstrap
+  clone_url: https://git.example.com/gitea-self/platform-bootstrap.git
+  web_url: https://git.example.com/gitea-self/platform-bootstrap
+  default_branch: main
+  last_commit_sha: ff00ff00ff00ff00ff00ff00ff00ff00ff00ff00
+  last_commit_at: 2026-05-20T08:00:00Z

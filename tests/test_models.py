@@ -48,8 +48,10 @@ def test_repo_metadata_minimum() -> None:
 
 
 def test_repo_metadata_host_must_be_known() -> None:
+    # Sanity check that an outright invalid host literal is rejected;
+    # `bitbucket` is now a supported host so use a clearly-unknown value.
     with pytest.raises(ValidationError):
-        _make_meta(host="bitbucket")  # type: ignore[arg-type]
+        _make_meta(host="codeberg")  # type: ignore[arg-type]
 
 
 def test_strict_models_reject_unknown_field() -> None:

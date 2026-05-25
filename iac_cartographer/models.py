@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime  # noqa: TC003 — Pydantic resolves field types at validation time
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Strict(BaseModel):
@@ -36,7 +36,9 @@ class _Strict(BaseModel):
 
 
 class RepoMetadata(_Strict):
-    host: Literal["gitlab", "github"]
+    # Supported VCS hosts. `"other"` covers repos loaded via the file
+    # source whose origin isn't one of the first-party-supported hosts.
+    host: Literal["gitlab", "github", "bitbucket", "other"]
     full_name: str
     clone_url: str
     web_url: str
@@ -183,6 +185,16 @@ class DiscoveryConfig(_Strict):
     gitlab_group_ids: list[int] = Field(default_factory=list)
     # GitHub organisations to scan via `code search`. Empty list = skip GitHub.
     github_orgs: list[str] = Field(default_factory=list)
+    # Bitbucket Cloud workspaces to enumerate. Empty list = skip Bitbucket.
+    # The source lists every repo in the workspace (Bitbucket's public API
+    # has no `extension:tf`-style filter on free plans) — combine with
+    # `deny_repos` to narrow the scope.
+    bitbucket_workspaces: list[str] = Field(default_factory=list)
+    # Optional path to a YAML/JSON file containing a hand-curated list of
+    # `RepoMetadata` records. Loaded as an additional `DiscoverySource`;
+    # combine with the VCS-host fields or use standalone for air-gapped
+    # runs. See `iac_cartographer/discovery/file.py` for the schema.
+    repos_file: str | None = None
     # Glob patterns (against full_name) to exclude from publishing — e.g.
     # `*-archived`, `examples/*`, `vendor-*`.
     deny_repos: list[str] = Field(default_factory=list)
@@ -331,6 +343,32 @@ class GitlabCredentials(_Strict):
 
 class GithubCredentials(_Strict):
     token: str
+
+
+class BitbucketCredentials(_Strict):
+    """Bitbucket Cloud credentials. Set EITHER `access_token` (recommended —
+    workspace access tokens are scoped to one workspace) OR `username` +
+    `app_password` (legacy form, still widely used).
+
+    The model_validator below enforces the XOR so misconfigured secrets
+    surface at load time instead of as a 401 mid-pipeline."""
+
+    access_token: str | None = None
+    username: str | None = None
+    app_password: str | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_auth_mode(self) -> BitbucketCredentials:
+        has_token = self.access_token is not None
+        has_basic = self.username is not None and self.app_password is not None
+        if has_token == has_basic:
+            raise ValueError(
+                "BitbucketCredentials: set EITHER access_token OR (username + app_password), not both/neither"
+            )
+        # If basic is partially set (only one of the two), surface it clearly.
+        if not has_token and (self.username is None) != (self.app_password is None):
+            raise ValueError("BitbucketCredentials: username and app_password must be set together")
+        return self
 
 
 class SlackCredentials(_Strict):

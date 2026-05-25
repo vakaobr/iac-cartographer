@@ -79,7 +79,7 @@ become the overview / index. Note the numeric page ID from the URL
 
 ### 3. Seed credentials in AWS Secrets Manager
 
-Four required secrets, plus one optional depending on the LLM backend:
+Four required secrets, plus two optional depending on which backends you enable:
 
 | Secret name | When required | JSON shape |
 |---|---|---|
@@ -88,6 +88,7 @@ Four required secrets, plus one optional depending on the LLM backend:
 | `iac-cartographer/github` | always | `{"token": "ghp_..."}` |
 | `iac-cartographer/slack` | always | `{"bot_token": "xoxb-..."}` |
 | `iac-cartographer/anthropic` | only when `llm.backend == "anthropic"` | `{"api_key": "sk-ant-..."}` |
+| `iac-cartographer/bitbucket` | only when `discovery.bitbucket_workspaces` is non-empty | `{"access_token": "bbat-..."}` *(or `{"username": "...", "app_password": "..."}` for the legacy form)* |
 
 The Confluence token must be a **legacy unscoped** API token (the plain
 "Create API token" form at id.atlassian.com, not "Create API token with
@@ -101,6 +102,8 @@ discovery:
   gitlab_group_ids: [15]                          # GitLab group IDs to scan
   gitlab_base_url: "https://gitlab.example.com"   # omit for gitlab.com
   github_orgs: ["acme-org"]                       # GitHub orgs to scan
+  bitbucket_workspaces: ["acme"]                  # Bitbucket workspaces (optional)
+  # repos_file: "./repos.yaml"                    # extra curated source (optional)
   deny_repos:                                     # glob patterns to skip
     - "acme-org/*-archived"
     - "acme-org/examples-*"
@@ -197,6 +200,22 @@ Typical setups:
 * **CI artefact** — drop it in a job artefact directory.
 * **Air-gapped / offline** — no Atlassian access required.
 
+## Discovery sources
+
+Each non-empty field under `discovery:` activates one repository source.
+They all run concurrently, the orchestrator dedupes by `full_name`
+(first-seen wins), then `deny_repos` glob patterns are applied to the
+merged result.
+
+| Source | Activates when | What it does |
+|---|---|---|
+| GitLab | `gitlab_group_ids` non-empty | Blob-search `extension:tf` across each group (incl. subgroups). |
+| GitHub | `github_orgs` non-empty | Code-search `extension:tf` across each org. |
+| Bitbucket Cloud | `bitbucket_workspaces` non-empty | Enumerate every repo in each workspace. *(Bitbucket Cloud has no public code-search on free plans — narrow large workspaces with `deny_repos`.)* |
+| Curated file | `repos_file` set | Load a YAML/JSON list of `RepoMetadata` records from disk. Useful for air-gapped runs, self-hosted VCS without an API this tool supports yet (Gitea, Forgejo, Codeberg, …), or to pin a focused subset. See [`examples/repos.example.yaml`](examples/repos.example.yaml) for the schema. |
+
+Mix and match: configure GitLab + a curated file, or Bitbucket-only, or all four together. At least one source must be configured (the orchestrator fails loud if none are).
+
 ## Reading the output
 
 On the Confluence pages you'll see a few placeholders worth knowing:
@@ -215,8 +234,9 @@ On the Confluence pages you'll see a few placeholders worth knowing:
   and GitHub Wiki are next.
 * **Pluggable LLM backend** — ✅ Bedrock + Anthropic-direct shipped; OpenAI
   and Ollama are next.
-* **Pluggable discovery** — GitLab + GitHub today; Bitbucket and a
-  `--repos-from-file` source.
+* **Pluggable discovery** — ✅ GitLab + GitHub + Bitbucket + curated file
+  shipped; Gitea / Forgejo native APIs are next (use the file source in
+  the meantime).
 * **Pluggable secrets/config** — AWS Secrets Manager + SSM today; environment
   variables, HashiCorp Vault, plain dotenv.
 * **Terraform module** — for the ECS Fargate deployment path.

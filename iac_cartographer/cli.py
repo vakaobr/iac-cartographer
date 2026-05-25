@@ -46,13 +46,21 @@ from iac_cartographer import __version__
 from iac_cartographer.aws import get_secret, get_ssm_parameter, put_metric_data
 from iac_cartographer.confluence import ConfluenceClient
 from iac_cartographer.constants import CartographerError, ConfigError, MissingSecretError
-from iac_cartographer.discovery import discover
+from iac_cartographer.discovery import (
+    BitbucketDiscovery,
+    DiscoverySource,
+    FileDiscovery,
+    GithubDiscovery,
+    GitlabDiscovery,
+    discover_from_sources,
+)
 from iac_cartographer.extractor import run_terraform_docs
 from iac_cartographer.fetcher import cleanup, clone
 from iac_cartographer.llm import AnthropicBackend, BedrockBackend, LLMBackend
 from iac_cartographer.models import (
     AnthropicCredentials,
     AppConfig,
+    BitbucketCredentials,
     ConfluenceCredentials,
     GithubCredentials,
     GitlabCredentials,
@@ -155,6 +163,9 @@ class LoadedSecrets:
     github: GithubCredentials
     slack: SlackCredentials
     anthropic: AnthropicCredentials | None = None
+    # `bitbucket` is only populated when `discovery.bitbucket_workspaces`
+    # is non-empty — runs without Bitbucket discovery don't need the secret.
+    bitbucket: BitbucketCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -166,6 +177,7 @@ GITLAB_SECRET_NAME = "iac-cartographer/gitlab"  # noqa: S105
 GITHUB_SECRET_NAME = "iac-cartographer/github"  # noqa: S105
 SLACK_SECRET_NAME = "iac-cartographer/slack"  # noqa: S105
 ANTHROPIC_SECRET_NAME = "iac-cartographer/anthropic"  # noqa: S105
+BITBUCKET_SECRET_NAME = "iac-cartographer/bitbucket"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -194,12 +206,15 @@ def _load_config(config_source: str) -> AppConfig:
         raise ConfigError(f"config validation failed: {exc}") from exc
 
 
-def _load_secrets(llm_backend_name: str = "bedrock") -> LoadedSecrets:
+def _load_secrets(llm_backend_name: str = "bedrock", *, need_bitbucket: bool = False) -> LoadedSecrets:
     """Fetch the Secrets Manager entries the run needs and validate them.
 
     `llm_backend_name` decides whether the Anthropic API key is required:
     for the default `bedrock` backend it's skipped entirely; for the
     `anthropic` backend it's loaded from `iac-cartographer/anthropic`.
+
+    `need_bitbucket` decides whether the Bitbucket credential is required:
+    True when `discovery.bitbucket_workspaces` is non-empty.
 
     Raises `MissingSecretError` if any required secret is missing or
     fails Pydantic validation. Always reads real credentials —
@@ -226,6 +241,19 @@ def _load_secrets(llm_backend_name: str = "bedrock") -> LoadedSecrets:
         except Exception as exc:
             raise MissingSecretError(f"anthropic secret payload failed schema validation: {exc}") from exc
 
+    bitbucket_creds: BitbucketCredentials | None = None
+    if need_bitbucket:
+        try:
+            bitbucket_raw = get_secret(BITBUCKET_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"discovery.bitbucket_workspaces is set but the {BITBUCKET_SECRET_NAME} secret is missing: {exc}"
+            ) from exc
+        try:
+            bitbucket_creds = BitbucketCredentials.model_validate(bitbucket_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"bitbucket secret payload failed schema validation: {exc}") from exc
+
     try:
         return LoadedSecrets(
             confluence=ConfluenceCredentials.model_validate(confluence_raw),
@@ -233,6 +261,7 @@ def _load_secrets(llm_backend_name: str = "bedrock") -> LoadedSecrets:
             github=GithubCredentials.model_validate(github_raw),
             slack=SlackCredentials.model_validate(slack_raw),
             anthropic=anthropic_creds,
+            bitbucket=bitbucket_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -291,6 +320,45 @@ def _build_publisher(
     if kind == "markdown":
         return LocalMarkdownPublisher(output_dir=config.markdown.output_dir)
     raise ConfigError(f"unknown publisher.kind: {kind!r}")
+
+
+def _build_sources(config: AppConfig, secrets: LoadedSecrets) -> list[DiscoverySource]:
+    """Instantiate one `DiscoverySource` per configured backend.
+
+    Every field that's non-empty / non-None contributes a source. The
+    orchestrator's dedup + deny-list runs on the merged result, so the
+    order here only matters for tie-breaking when the same `full_name`
+    appears in multiple sources (first-seen wins).
+
+    Adding a new source: append another `if config.discovery.<field>: ...`
+    block here, then implement the source class in `discovery/`.
+    """
+    sources: list[DiscoverySource] = []
+    # VCS-host sources are always instantiated (they no-op on empty input)
+    # so the orchestrator gets at least the legacy two-source behaviour
+    # when only one host is configured.
+    if config.discovery.gitlab_group_ids:
+        sources.append(
+            GitlabDiscovery(
+                secrets.gitlab,
+                config.discovery.gitlab_group_ids,
+                base_url=config.discovery.gitlab_base_url,
+            )
+        )
+    if config.discovery.github_orgs:
+        sources.append(GithubDiscovery(secrets.github, config.discovery.github_orgs))
+    if config.discovery.bitbucket_workspaces:
+        if secrets.bitbucket is None:
+            # Shouldn't happen — _load_secrets gates on the same condition —
+            # but guard for type-checker happiness and future-refactor safety.
+            raise ConfigError(
+                "discovery.bitbucket_workspaces is set but no BitbucketCredentials "
+                "were loaded (check the iac-cartographer/bitbucket secret)"
+            )
+        sources.append(BitbucketDiscovery(secrets.bitbucket, config.discovery.bitbucket_workspaces))
+    if config.discovery.repos_file:
+        sources.append(FileDiscovery(config.discovery.repos_file))
+    return sources
 
 
 # ---------------------------------------------------------------------------
@@ -468,7 +536,10 @@ async def _run_once_async(args: argparse.Namespace) -> int:
     if args.model:
         config = config.model_copy(update={"llm": config.llm.model_copy(update={"model_id": args.model})})
         logger.info("iac-cartographer: LLM model overridden to %s", args.model)
-    secrets = _load_secrets(config.llm.backend)
+    secrets = _load_secrets(
+        config.llm.backend,
+        need_bitbucket=bool(config.discovery.bitbucket_workspaces),
+    )
     slack = SlackNotifier(secrets.slack, channel=config.slack.channel)
     llm_backend = _build_llm_backend(config.llm, secrets)
 
@@ -515,7 +586,8 @@ async def _run_once_async(args: argparse.Namespace) -> int:
 
         # ── Discovery ────────────────────────────────────────────────────
         try:
-            repos = await discover(config.discovery, secrets.gitlab, secrets.github)
+            sources = _build_sources(config, secrets)
+            repos = await discover_from_sources(sources, config.discovery.deny_repos)
         except CartographerError as exc:
             logger.exception("discovery failed")
             if not args.dry_run:

@@ -128,6 +128,12 @@ jobs:
           # without losing the file (orphan checkout wipes the worktree).
           mkdir -p /tmp/badge-staging
           cp coverage.svg /tmp/badge-staging/coverage.svg
+          # `genbadge` left an untracked coverage.svg in the working tree.
+          # When the `badges` branch is checked out below, git refuses
+          # the checkout if a file with the same name exists on both
+          # sides — so remove the working-tree copy now. We restage it
+          # from /tmp after the checkout completes.
+          rm -f coverage.svg
 
           # Check out (or create) the orphan `badges` branch. Orphan means
           # it shares no history with main, so its only commits are the

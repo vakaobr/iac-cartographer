@@ -201,13 +201,20 @@ uses, the Terraform module is on the roadmap — for now the container image
 ([`Dockerfile`](Dockerfile)) is the canonical artefact and you wire it up
 with the existing AWS recipes.
 
-## Publishing to Markdown instead of Confluence
+## Publishing locally (Markdown or HTML) instead of Confluence
 
-Set `publisher.kind: "markdown"` and `markdown.output_dir: <path>` in the
-config. The CLI writes:
+Three publisher backends ship today — pick with `publisher.kind`:
+
+| Backend | When to use |
+|---|---|
+| `confluence` *(default)* | You already have Confluence; you want the inventory cross-linked with the rest of your wiki. |
+| `markdown` | You run a static-site generator (mkdocs / Hugo / Docusaurus / Jekyll) and want to feed the rendered Markdown into its build. Or you're committing the output to a docs repo so PRs show diffs. |
+| `html` | You want **self-contained HTML files** with no build step — open them directly in a browser, zip-and-email to a stakeholder, upload to S3 + CloudFront / GitHub Pages, print to PDF for an audit. Embedded CSS, no JS, no external fonts. |
+
+### Markdown layout
 
 ```
-<output_dir>/
+<markdown.output_dir>/
 ├── index.md                              # overview / index page
 └── repos/
     ├── acme-org__main-cluster.md         # one file per discovered repo
@@ -215,16 +222,26 @@ config. The CLI writes:
     └── ...
 ```
 
-Each file's first line is `<!-- iac-cartographer-sha: <sha> -->`. On the next
-run we compare against the freshly-computed SHA and skip the write when they
-match — same idempotency contract as the Confluence publisher.
+Each file's first line is `<!-- iac-cartographer-sha: <sha> -->`.
 
-Typical setups:
+### HTML layout
 
-* **Docs repo** — point `output_dir` at a `docs/` directory in a separate
-  repo, then let mkdocs / Hugo / Docusaurus / Jekyll build a public site.
-* **CI artefact** — drop it in a job artefact directory.
-* **Air-gapped / offline** — no Atlassian access required.
+```
+<html.output_dir>/
+├── index.html
+└── repos/
+    ├── acme-org__main-cluster.html
+    └── ...
+```
+
+Each file's head contains a `<meta name="iac-cartographer-sha" content="...">`
+tag. Dark mode is automatic (CSS `prefers-color-scheme`); a `@media print`
+block tightens the layout when printed.
+
+Both publishers use the same banner-SHA idempotency contract as Confluence:
+on the next run we compare the embedded SHA against the freshly-computed one
+and skip the write when they match. Repos that change get rewritten; repos
+that don't, don't.
 
 ## Discovery sources
 
@@ -305,7 +322,7 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 
 ## Roadmap
 
-* **Pluggable publishers** — ✅ Confluence + local Markdown shipped; Notion
+* **Pluggable publishers** — ✅ Confluence + local Markdown + standalone HTML shipped; Notion
   and GitHub Wiki are next.
 * **Pluggable LLM backend** — ✅ Bedrock + Anthropic-direct shipped; OpenAI
   and Ollama are next.

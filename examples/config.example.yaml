@@ -93,6 +93,10 @@ publisher:
   #                  banner-SHA encoded as an HTML comment. Use for docs
   #                  repos (mkdocs/Hugo/Docusaurus/Jekyll), CI artefacts,
   #                  or air-gapped environments.
+  #   "html"       → Self-contained HTML files under `html.output_dir`.
+  #                  Embedded CSS, no JS, no external dependencies. Use
+  #                  for stakeholder snapshots (email the index.html),
+  #                  S3 / GitHub Pages hosting, or audit-PDF print.
   kind: "confluence"
 
 secrets:
@@ -149,6 +153,15 @@ markdown:
   # line is `<!-- iac-cartographer-sha: <sha> -->`; on the next run we
   # compare against the new SHA and skip the write when unchanged.
   output_dir: "./iac-inventory"
+
+html:
+  # Only used when `publisher.kind == "html"`. Same layout as markdown
+  # (index.html + repos/<slug>.html). Each file is fully self-contained:
+  # CSS is embedded in a <style> block, no external fonts or JavaScript.
+  # The output works opened directly from disk, zipped + emailed, or
+  # uploaded to S3 / GitHub Pages. Banner-SHA idempotency lives in a
+  # `<meta name="iac-cartographer-sha">` tag in each file's head.
+  output_dir: "./iac-inventory-html"
 
 slack:
   # #channel-name or a Slack channel ID (C0...). The bot token from

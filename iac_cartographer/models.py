@@ -302,7 +302,11 @@ class PublisherConfig(_Strict):
     #                  `iac-cartographer/confluence` secret. Default.
     #   "markdown"   → write Markdown files to a local directory. Uses
     #                  the `markdown:` config. No credentials needed.
-    kind: Literal["confluence", "markdown"] = "confluence"
+    #   "html"       → write self-contained HTML files (embedded CSS, no
+    #                  external dependencies) to a local directory. Uses
+    #                  the `html:` config. No credentials needed. Designed
+    #                  for snapshots, S3/CloudFront hosting, audit PDFs.
+    kind: Literal["confluence", "markdown", "html"] = "confluence"
 
 
 class MarkdownConfig(_Strict):
@@ -317,6 +321,24 @@ class MarkdownConfig(_Strict):
     """
 
     output_dir: str = "./iac-inventory"
+
+
+class HtmlConfig(_Strict):
+    """`publisher.kind == "html"` settings.
+
+    Output layout under `output_dir`:
+
+        output_dir/
+        ├── index.html
+        └── repos/
+            └── <full_name_slugged>.html
+
+    Each file is self-contained (embedded CSS, no JS, no external fonts)
+    so it works opened directly from disk, mailed as an attachment, or
+    uploaded to S3 + CloudFront / GitHub Pages without a build step.
+    """
+
+    output_dir: str = "./iac-inventory-html"
 
 
 class SecretsConfig(_Strict):
@@ -380,6 +402,7 @@ class AppConfig(_Strict):
     secrets: SecretsConfig = Field(default_factory=SecretsConfig)
     confluence: ConfluenceConfig = Field(default_factory=ConfluenceConfig)
     markdown: MarkdownConfig = Field(default_factory=MarkdownConfig)
+    html: HtmlConfig = Field(default_factory=HtmlConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)
 
 

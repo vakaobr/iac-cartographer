@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# iac-cartographer demo artefacts (examples/demo/run.sh)
+/demo-output/
+/demo-output-html/

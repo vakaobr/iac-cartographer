@@ -161,19 +161,19 @@ iac-cartographer --once --model eu.anthropic.claude-haiku-4-5-20251001-v1:0
 ## How to run it on a schedule
 
 The CLI is a one-shot — `iac-cartographer --once` runs the whole pipeline once
-and exits. Pair it with any scheduler:
+and exits. Drop-in deployment scaffolding for the three most common schedulers
+lives under [`examples/runtime/`](examples/runtime/):
 
-* **ECS Fargate + EventBridge Scheduler** — what the original deployment uses.
-  Container image is in this repo's `Dockerfile`.
-* **Kubernetes CronJob** — the same image, a CronJob manifest with the
-  appropriate IAM annotations (IRSA / Pod Identity).
-* **GitHub Actions schedule** — `schedule:` workflow that installs the package
-  and runs it.
-* **Plain `cron`** — Docker + a `0 6 * * 1 docker run iac-cartographer --once`
-  line.
+| File | Scheduler | When to use |
+|---|---|---|
+| [`kubernetes-cronjob.yaml`](examples/runtime/kubernetes-cronjob.yaml) | Kubernetes `CronJob` | k8s clusters with a workload identity solution (IRSA, Workload Identity, Pod Identity) or with the `env` secrets backend. |
+| [`github-actions.yml`](examples/runtime/github-actions.yml) | GitHub Actions `schedule` | Lightweight setup with no infrastructure to own; secrets live in the GitHub repo settings. |
+| [`cron.sh`](examples/runtime/cron.sh) | Plain `cron` / `systemd-timer` | A single VM you already own. Docker-based, so no Python install needed on the host. |
 
-Terraform examples for the ECS Fargate setup are on the roadmap; for now the
-container image is the canonical artefact.
+For the **ECS Fargate + EventBridge Scheduler** path the original deployment
+uses, the Terraform module is on the roadmap — for now the container image
+([`Dockerfile`](Dockerfile)) is the canonical artefact and you wire it up
+with the existing AWS recipes.
 
 ## Publishing to Markdown instead of Confluence
 

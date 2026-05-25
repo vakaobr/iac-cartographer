@@ -1,0 +1,127 @@
+# Kubernetes CronJob deploying iac-cartographer on a weekly schedule.
+#
+# Apply with:
+#   kubectl apply -f examples/runtime/kubernetes-cronjob.yaml
+#
+# This manifest assumes the `env` secrets backend (no AWS account required).
+# For the AWS / Vault backends, swap the Secret + ConfigMap accordingly.
+#
+# What you need to adjust before applying:
+#   * `IMAGE`            — replace with your container registry path. The
+#                          Dockerfile at the repo root produces this image.
+#   * `<NAMESPACE>`      — kubectl namespace. Defaults to `iac-cartographer`.
+#   * `cronjob.schedule` — see https://crontab.guru/. Default: 06:00 every
+#                          Monday in the cluster's local timezone.
+#   * Secret contents    — the placeholder values are obviously fake.
+#   * ConfigMap config.yaml — discovery scope, publisher choice, etc.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iac-cartographer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: iac-cartographer-config
+  namespace: iac-cartographer
+data:
+  config.yaml: |
+    secrets:
+      backend: "env"
+
+    discovery:
+      gitlab_group_ids: [15]
+      github_orgs: ["acme-org"]
+
+    llm:
+      backend: "anthropic"
+      model_id: "claude-sonnet-4-5-20250929"
+
+    publisher:
+      kind: "confluence"
+
+    confluence:
+      site: "acme.atlassian.net"
+      space_key: "DOCS"
+      # Direct page-ID avoids needing a separate parameter store entry.
+      parent_page_id: "123456789"
+
+    slack:
+      channel: "#alerts"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: iac-cartographer-secrets
+  namespace: iac-cartographer
+type: Opaque
+stringData:
+  # Each env var holds a JSON object (or plain string for PARAM_*). The
+  # EnvSecretsProvider mangling: `iac-cartographer/<name>` → uppercase + `_`.
+  # See README §"Secrets backends" for the full mapping.
+  IAC_CARTOGRAPHER_SECRET_CONFLUENCE: '{"email":"bot@acme.example","api_token":"ATATT-replace-me"}'
+  IAC_CARTOGRAPHER_SECRET_GITLAB: '{"token":"glpat-replace-me"}'
+  IAC_CARTOGRAPHER_SECRET_GITHUB: '{"token":"ghp_replace-me"}'
+  IAC_CARTOGRAPHER_SECRET_SLACK: '{"bot_token":"xoxb-replace-me"}'
+  IAC_CARTOGRAPHER_SECRET_ANTHROPIC: '{"api_key":"sk-ant-replace-me"}'
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: iac-cartographer
+  namespace: iac-cartographer
+spec:
+  # 06:00 every Monday in the cluster's timezone. Tune to your release cadence.
+  schedule: "0 6 * * 1"
+  # Don't pile up runs if a previous one is still in flight (the pipeline
+  # is idempotent but concurrent Bedrock spend isn't free).
+  concurrencyPolicy: Forbid
+  # Keep history for postmortems but not forever.
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+  jobTemplate:
+    spec:
+      backoffLimit: 0  # don't auto-retry — fix the failure and re-run manually
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: iac-cartographer
+              # Replace with your registry path (the Dockerfile in this repo
+              # produces the image; push it to ghcr.io / ECR / GAR / etc.).
+              image: ghcr.io/your-org/iac-cartographer:latest
+              imagePullPolicy: IfNotPresent
+              args:
+                - --once
+                - --config
+                - /etc/iac-cartographer/config.yaml
+              envFrom:
+                - secretRef:
+                    name: iac-cartographer-secrets
+              volumeMounts:
+                - name: config
+                  mountPath: /etc/iac-cartographer
+                  readOnly: true
+              resources:
+                # Sized for ~50 repos. Bump CPU for larger fleets — most of
+                # the wall-time is git clone + terraform-docs, both
+                # parallelisable.
+                requests:
+                  cpu: "200m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "1"
+                  memory: "1Gi"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: false  # terraform-docs writes temp files
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop: ["ALL"]
+          volumes:
+            - name: config
+              configMap:
+                name: iac-cartographer-config

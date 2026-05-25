@@ -1,0 +1,104 @@
+# GitHub Actions schedule for running iac-cartographer on cron.
+#
+# Drop this file at `.github/workflows/iac-cartographer.yml` in the repo
+# where you want to host the schedule (this can be the iac-cartographer
+# fork itself, or any other repo — the workflow doesn't need access to
+# the source code beyond the pip-installed package).
+#
+# Secrets to set in the repository's "Settings → Secrets and variables →
+# Actions" page (one per logical credential bundle):
+#
+#   IAC_CARTOGRAPHER_SECRET_CONFLUENCE  = {"email":"...","api_token":"..."}
+#   IAC_CARTOGRAPHER_SECRET_GITLAB       = {"token":"glpat-..."}
+#   IAC_CARTOGRAPHER_SECRET_GITHUB       = {"token":"ghp_..."}
+#   IAC_CARTOGRAPHER_SECRET_SLACK        = {"bot_token":"xoxb-..."}
+#   IAC_CARTOGRAPHER_SECRET_ANTHROPIC    = {"api_key":"sk-ant-..."}  # if llm.backend=anthropic
+#
+# Plus a non-secret "Variables" entry (optional):
+#   IAC_CARTOGRAPHER_PARAM_CONFLUENCE_PARENT_ID = "123456789"
+
+name: iac-cartographer
+
+on:
+  schedule:
+    # 06:00 UTC every Monday. Use crontab.guru to pick a different slot.
+    - cron: "0 6 * * 1"
+  # Manual trigger for ad-hoc reruns / config validation.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Skip Confluence writes (validation run)"
+        required: false
+        default: "false"
+
+permissions:
+  # The workflow reads nothing from the repo and writes nothing to GitHub.
+  # Lock everything down — credentials for Confluence/GitLab/GitHub come
+  # from Actions secrets, not the workflow token.
+  contents: read
+
+concurrency:
+  group: iac-cartographer
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install terraform-docs
+        run: |
+          curl -fsSL \
+            "https://terraform-docs.io/dl/v0.20.0/terraform-docs-v0.20.0-linux-amd64.tar.gz" \
+            -o /tmp/terraform-docs.tar.gz
+          sudo tar -xzf /tmp/terraform-docs.tar.gz -C /usr/local/bin terraform-docs
+          sudo chmod +x /usr/local/bin/terraform-docs
+
+      - name: Install iac-cartographer
+        # Once published to PyPI: `pip install iac-cartographer`.
+        # Until then, install from the public git repo.
+        run: pip install git+https://github.com/vakaobr/iac-cartographer.git@main
+
+      - name: Write config
+        # Inline config — adjust to your fleet. Keep this in the workflow
+        # for transparency (it's not secret), or read it from a separate
+        # file in the repo and `cp` it instead.
+        run: |
+          mkdir -p /tmp/iac-cartographer
+          cat > /tmp/iac-cartographer/config.yaml <<'YAML'
+          secrets:
+            backend: "env"
+          discovery:
+            gitlab_group_ids: [15]
+            github_orgs: ["acme-org"]
+          llm:
+            backend: "anthropic"
+            model_id: "claude-sonnet-4-5-20250929"
+          publisher:
+            kind: "confluence"
+          confluence:
+            site: "acme.atlassian.net"
+            space_key: "DOCS"
+          slack:
+            channel: "#alerts"
+          YAML
+
+      - name: Run iac-cartographer
+        env:
+          IAC_CARTOGRAPHER_SECRET_CONFLUENCE: ${{ secrets.IAC_CARTOGRAPHER_SECRET_CONFLUENCE }}
+          IAC_CARTOGRAPHER_SECRET_GITLAB: ${{ secrets.IAC_CARTOGRAPHER_SECRET_GITLAB }}
+          IAC_CARTOGRAPHER_SECRET_GITHUB: ${{ secrets.IAC_CARTOGRAPHER_SECRET_GITHUB }}
+          IAC_CARTOGRAPHER_SECRET_SLACK: ${{ secrets.IAC_CARTOGRAPHER_SECRET_SLACK }}
+          IAC_CARTOGRAPHER_SECRET_ANTHROPIC: ${{ secrets.IAC_CARTOGRAPHER_SECRET_ANTHROPIC }}
+          IAC_CARTOGRAPHER_PARAM_CONFLUENCE_PARENT_ID: ${{ vars.IAC_CARTOGRAPHER_PARAM_CONFLUENCE_PARENT_ID }}
+        run: |
+          ARGS=(--once --config /tmp/iac-cartographer/config.yaml)
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS+=(--dry-run)
+          fi
+          iac-cartographer "${ARGS[@]}"

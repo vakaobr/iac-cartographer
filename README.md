@@ -1,5 +1,8 @@
 # iac-cartographer
 
+[![CI](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml)
+[![coverage](https://raw.githubusercontent.com/vakaobr/iac-cartographer/badges/coverage.svg)](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml)
+
 > Fleet-level documentation for your Terraform / IaC estate.
 
 `iac-cartographer` discovers every Terraform repository across your GitLab
@@ -189,7 +192,7 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 ## Contributing
 
 Issues and PRs welcome. The codebase is intentionally small and well-tested
-(214 tests, 87% coverage); pick a roadmap item or open an issue describing the
+(see the coverage badge above); pick a roadmap item or open an issue describing the
 shape of the change before sending a PR for anything non-trivial.
 
 ## License

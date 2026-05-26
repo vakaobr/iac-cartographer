@@ -15,13 +15,14 @@
 > Fleet-level documentation for your Terraform / IaC estate.
 
 `iac-cartographer` discovers every Terraform repository across your
-configured sources (GitLab groups, GitHub orgs, Bitbucket workspaces, or a
-curated file), extracts structural facts with
-[`terraform-docs`](https://terraform-docs.io) (plus an HCL parser fallback for
-fields `terraform-docs` strips), asks an LLM to write a short purpose
-summary for each repo, and publishes a parent + child page hierarchy to
-your chosen output (Confluence Cloud, Markdown, HTML, or JSON). Pages
-republish only when the underlying content changes (banner-SHA
+configured sources (GitLab groups, GitHub orgs, Bitbucket workspaces,
+self-hosted Gitea / Forgejo orgs, or a curated file), extracts
+structural facts with [`terraform-docs`](https://terraform-docs.io)
+(plus an HCL parser fallback for fields `terraform-docs` strips),
+asks an LLM to write a short purpose summary for each repo, and
+publishes a parent + child page hierarchy to your chosen output
+(Confluence Cloud, Notion, GitHub Wiki, Markdown, HTML, or JSON).
+Pages republish only when the underlying content changes (banner-SHA
 short-circuit), so it's safe to run as often as you like.
 
 ```
@@ -60,8 +61,8 @@ short-circuit), so it's safe to run as often as you like.
 Every component on the right of each box is **pluggable**: pick the
 discovery sources, LLM backend, publisher, secrets backend, and
 notification destinations that fit your environment. Mix and match —
-GitHub + Bitbucket discovery, Vertex AI for narratives, Markdown output
-to a docs repo, Vault for secrets, Slack info + (future) PagerDuty
+GitHub + Bitbucket discovery, Vertex AI for narratives, Markdown
+output to a docs repo, Vault for secrets, Slack info + PagerDuty
 errors.
 
 ## Why
@@ -83,10 +84,10 @@ errors.
 
 `v0.1.0` — extracted from a working production deployment at a single
 organisation, then rebuilt around pluggable backends for the public
-release. Discovery, LLM, publisher, and secrets are all swappable today
-(see [Shipped](#shipped) below for the full matrix). API surface is
-"1.0-track but pre-1.0" — minor renames and YAML field tweaks are still
-possible before tagging `v1.0`.
+release. Discovery, LLM, publisher, secrets, and notifications are
+all swappable today (see [Shipped](#shipped) below for the full
+matrix). API surface is "1.0-track but pre-1.0" — minor renames and
+YAML field tweaks are still possible before tagging `v1.0`.
 
 ## Quick start
 
@@ -205,6 +206,8 @@ discovery:
   gitlab_base_url: "https://gitlab.example.com"   # omit for gitlab.com
   github_orgs: ["acme-org"]                       # GitHub orgs to scan
   bitbucket_workspaces: ["acme"]                  # Bitbucket workspaces (optional)
+  gitea_orgs: ["acme"]                            # Gitea / Forgejo orgs (optional)
+  gitea_base_url: "https://gitea.example.com"     # required when gitea_orgs is non-empty
   # repos_file: "./repos.yaml"                    # extra curated source (optional)
   deny_repos:                                     # glob patterns to skip
     - "acme-org/*-archived"
@@ -218,7 +221,7 @@ llm:
   model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 publisher:
-  # "confluence" (default), "markdown", "html", or "json"
+  # "confluence" (default), "notion", "github_wiki", "markdown", "html", or "json"
   kind: "confluence"
 
 confluence:
@@ -329,10 +332,12 @@ block tightens the layout when printed.
 
 `index.json` is sized for catalog-import use cases — a single fetch returns one row per repo with summary fields (`full_name`, `host`, `providers`, `environments`, `purpose`, `child_document` pointer, …) plus `aggregates.{repo_count,total_resources,top_providers}` for dashboards. Per-repo files carry the full Pydantic-serialised inventory. Top-level `iac_cartographer.sha` field carries the banner SHA.
 
-All four publishers share the same banner-SHA idempotency contract as Confluence:
-on the next run we compare the embedded SHA against the freshly-computed value
-and skip the write when they match. Repos that change get rewritten; repos
-that don't, don't.
+All six publishers share the same banner-SHA idempotency contract: on
+the next run we compare the embedded SHA against the freshly-computed
+value and skip the write when they match. Repos that change get
+rewritten; repos that don't, don't. Each publisher carries the SHA in
+a backend-native location — HTML comment, ADF version-string, JSON
+field, Notion callout block — but the comparison logic is shared.
 
 ## Discovery sources
 
@@ -346,9 +351,10 @@ merged result.
 | GitLab | `gitlab_group_ids` non-empty | Blob-search `extension:tf` across each group (incl. subgroups). |
 | GitHub | `github_orgs` non-empty | Code-search `extension:tf` across each org. |
 | Bitbucket Cloud | `bitbucket_workspaces` non-empty | Enumerate every repo in each workspace. *(Bitbucket Cloud has no public code-search on free plans — narrow large workspaces with `deny_repos`.)* |
-| Curated file | `repos_file` set | Load a YAML/JSON list of `RepoMetadata` records from disk. Useful for air-gapped runs, self-hosted VCS without an API this tool supports yet (Gitea, Forgejo, Codeberg, …), or to pin a focused subset. See [`examples/repos.example.yaml`](examples/repos.example.yaml) for the schema. |
+| Gitea / Forgejo | `gitea_orgs` non-empty | Enumerate every repo in each org via `/api/v1/orgs/{org}/repos`. One source covers both platforms (Forgejo preserves Gitea API compat). `gitea_base_url` is required — every deployment is self-hosted. |
+| Curated file | `repos_file` set | Load a YAML/JSON list of `RepoMetadata` records from disk. Useful for air-gapped runs, self-hosted VCS without a first-party source (Codeberg uses the Gitea API so `gitea_orgs` works too; Sourcehut / others go via file), or to pin a focused subset. See [`examples/repos.example.yaml`](examples/repos.example.yaml) for the schema. |
 
-Mix and match: configure GitLab + a curated file, or Bitbucket-only, or all four together. At least one source must be configured (the orchestrator fails loud if none are).
+Mix and match: configure GitLab + a curated file, or Bitbucket-only, or all five together. At least one source must be configured (the orchestrator fails loud if none are).
 
 ## Secrets backends
 
@@ -401,7 +407,8 @@ For the Confluence parent page ID specifically: when storing a non-secret intege
 
 ## Reading the output
 
-On the Confluence pages you'll see a few placeholders worth knowing:
+On the published pages (regardless of publisher) you'll see a few
+placeholders worth knowing:
 
 | Marker | Meaning |
 |---|---|

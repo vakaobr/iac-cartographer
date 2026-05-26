@@ -15,15 +15,21 @@ turn for production.
 
 ## Cloud-specific deployments
 
-Coming up as separate walkthroughs (see the [roadmap on GitHub](https://github.com/vakaobr/iac-cartographer#coming-next)):
+Terraform modules for the three major clouds — all live as
+runnable code with READMEs covering the apply flow, secret seeding,
+manual trigger commands, and customisation hooks (extra IAM, VPC
+endpoints, etc.):
 
-- **AWS** — ECS Fargate + EventBridge Scheduler (the path the project was extracted from). Pending the Terraform module.
-- **GCP** — Cloud Run Jobs + Cloud Scheduler.
-- **Azure** — Container Apps Jobs + Logic Apps schedule.
+| Cloud | Module | Highlights |
+|---|---|---|
+| **AWS** | [`examples/runtime/aws-ecs-fargate/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/aws-ecs-fargate) | ECS Fargate + EventBridge Scheduler. The reference deployment — what the project was extracted from. Managed services, IAM identity, ~€1/month for a 50-repo weekly fleet. |
+| **GCP** | [`examples/runtime/gcp-cloud-run-job/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/gcp-cloud-run-job) | Cloud Run Jobs + Cloud Scheduler. Workload-identity for both the Job and the Scheduler. Per-second billing. |
+| **Azure** | [`examples/runtime/azure-container-apps-job/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/azure-container-apps-job) | Container Apps Jobs. AAD / Managed Identity wiring; Key Vault for secrets when the `aws` backend isn't applicable. |
 
-Each will live as its own page under `docs/examples/` with a matching
-`examples/runtime/<cloud>/` directory for the runnable Terraform / gcloud /
-az manifests.
+Each module follows the same 6-file shape: `versions.tf` (provider
+pins), `variables.tf`, `main.tf`, `outputs.tf`,
+`terraform.tfvars.example`, `README.md`. Copy the example tfvars,
+edit, `terraform apply`.
 
 ## Picking the right one
 

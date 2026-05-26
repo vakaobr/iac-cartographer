@@ -1,13 +1,28 @@
 [project]
 name = "iac-cartographer"
 version = "0.1.0"
-description = "Fleet-level documentation for your Terraform / IaC estate. Discovers repos across GitLab and GitHub, extracts structural facts with terraform-docs (and a fallback HCL parser), narrates each repo's purpose with a Claude model on AWS Bedrock, and publishes a parent + child page hierarchy to Confluence."
+description = "Fleet-level documentation for your Terraform / IaC estate. Discovers repos across GitLab, GitHub, Bitbucket, Gitea/Forgejo, or a curated file; extracts structural facts with terraform-docs (plus an HCL parser fallback); narrates each repo's purpose with a pluggable LLM backend (Bedrock / Anthropic / Vertex AI / Azure OpenAI / OpenAI / Ollama); and publishes a parent + child page hierarchy to Confluence, Notion, GitHub Wiki, local Markdown, standalone HTML, or machine-readable JSON. Pluggable notifications (Slack, Teams, email, SNS, PagerDuty, Opsgenie, Discord, generic webhook, and more)."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
     { name = "Anderson Leite", email = "falecom@andersonleite.me" },
 ]
-keywords = ["terraform", "iac", "documentation", "confluence", "bedrock", "llm", "claude"]
+keywords = [
+    "terraform",
+    "terraform-docs",
+    "iac",
+    "documentation",
+    "confluence",
+    "notion",
+    "github-wiki",
+    "bedrock",
+    "llm",
+    "claude",
+    "gpt",
+    "ollama",
+    "slack",
+    "teams",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -17,6 +32,8 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation",
     "Topic :: Software Development :: Documentation",
     "Topic :: System :: Systems Administration",

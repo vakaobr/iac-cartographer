@@ -41,7 +41,10 @@ These are load-bearing patterns. Follow them when adding new features.
   partial parse.
 - **One module per concern.** `cli.py` orchestrates; `aws.py` wraps
   boto3; `confluence.py` is the only file that knows ADF;
-  `narrator.py` is the only one that talks to Bedrock/Anthropic.
+  `narrator.py` assembles prompts and validates responses; `llm.py`
+  is the only file that talks to the six LLM SDKs. Each notification
+  channel + each publisher backend lives in its own file under the
+  matching package.
 - **Pure functions where possible.** The renderers are pure ADF /
   Markdown / HTML / JSON assembly. Tests don't need mock-heavy
   scaffolding because the seams are at module boundaries.

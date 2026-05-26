@@ -48,8 +48,11 @@ Requirements:
 
 - Python 3.12+
 - [`terraform-docs`](https://terraform-docs.io) on your PATH
-- Credentials for at least one [LLM provider](backends/llm.md)
-- A [publisher target](backends/publishers.md) (Confluence space, output dir, …)
+- Credentials for at least one [LLM provider](backends/llm.md) — Bedrock,
+  Anthropic API, Vertex AI, Azure OpenAI, OpenAI, or a local Ollama
+- A [publisher target](backends/publishers.md) — Confluence space, Notion
+  parent page, GitHub repo with the wiki enabled, or a writable
+  directory for Markdown / HTML / JSON
 
 ## Scaffold a config
 

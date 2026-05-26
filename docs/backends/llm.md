@@ -45,11 +45,51 @@ Requires the `iac-cartographer/anthropic` secret:
 to point at an internal proxy / gateway when your network policy
 requires egress to be funnelled.
 
+## Vertex AI (Claude on Google Cloud)
+
+```yaml
+llm:
+  backend: vertex
+  model_id: "claude-sonnet-4-5@20240620"   # publisher-prefixed Claude name
+  max_tokens: 4096
+  vertex_project_id: "my-gcp-project"
+  vertex_region: "europe-west1"
+```
+
+**Requires the `[gcp]` optional dependency group:**
+
+```bash
+pip install 'iac-cartographer[gcp]'
+```
+
+That pulls in `anthropic[vertex]` (official SDK with GCP auth) — the
+backend lazy-imports it on first invoke and fails loud with a
+pip-install hint if it's missing.
+
+Authentication uses **Google Application Default Credentials**:
+
+- **In cluster (GKE, Cloud Run Job runtime SA)** — workload identity
+  binding picks up the token automatically. No extra config.
+- **Workload Identity Federation from other clouds** (EKS pod →
+  GCP project, etc.) — same flow once federation is set up.
+- **Local dev** — `gcloud auth application-default login` populates ADC.
+- **Batch hosts** — service account key file mounted at the path
+  pointed to by `GOOGLE_APPLICATION_CREDENTIALS`.
+
+No `iac-cartographer/vertex` secret needed — auth is identity-based,
+not API-key-based.
+
+`model_id` uses Vertex AI's publisher-prefixed naming
+(`claude-sonnet-4-5@20240620`, not the raw `claude-sonnet-4-5-20250929`).
+See [the Vertex AI Claude docs](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude)
+for the current model catalog + supported regions.
+
 ## When to use which
 
 | Backend | Pick when |
 |---|---|
 | `bedrock` | You're on AWS, have IAM-bound compute (ECS task role, IRSA, Lambda role, etc.), and want zero-secret-rotation. |
+| `vertex` | You're on GCP — workload identity gives the same zero-secret-rotation experience Bedrock does on AWS. Same Claude models, same prompt, no provider-shift in narrative quality. |
 | `anthropic` | You're not on AWS, you don't have Bedrock model access (it's per-account opt-in), or you want lower latency from the EU. |
 
 ## Skipping the LLM entirely

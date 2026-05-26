@@ -219,11 +219,17 @@ class LLMConfig(_Strict):
     with code that referenced the old name during the internal phase.
     """
 
-    # Which LLM provider to use. "bedrock" → AWS Bedrock InvokeModel (auth
-    # via the standard AWS credential chain — env vars, instance profile,
-    # IRSA, etc.). "anthropic" → Anthropic API direct (auth via an API key
-    # loaded from the `iac-cartographer/anthropic` secret).
-    backend: Literal["bedrock", "anthropic"] = "bedrock"
+    # Which LLM provider to use.
+    #   "bedrock"   → AWS Bedrock InvokeModel (auth via the standard AWS
+    #                 credential chain — env vars, instance profile,
+    #                 IRSA, etc.). Default.
+    #   "anthropic" → Anthropic API direct (auth via an API key loaded
+    #                 from the `iac-cartographer/anthropic` secret).
+    #   "vertex"    → Claude on Vertex AI / Google Cloud (auth via GCP
+    #                 Application Default Credentials — workload identity
+    #                 in cluster, ADC for local dev, SA key for batch
+    #                 jobs). Requires `pip install iac-cartographer[gcp]`.
+    backend: Literal["bedrock", "anthropic", "vertex"] = "bedrock"
 
     # Model identifier — meaning is backend-specific.
     #   bedrock: an inference-profile ID (e.g. `eu.anthropic.claude-sonnet-4-5-20250929-v1:0`)
@@ -246,6 +252,19 @@ class LLMConfig(_Strict):
     # `https://api.anthropic.example/v1` if you front the Anthropic API
     # with an internal gateway).
     anthropic_base_url: str = "https://api.anthropic.com"
+
+    # Vertex-only: GCP project ID hosting the Vertex AI Claude endpoint.
+    # Default empty so the model still validates with default settings
+    # (matching the `bedrock` + `anthropic` shape); required when
+    # backend=vertex — the cli's `_build_llm_backend` raises a clean
+    # ConfigError if it's missing.
+    vertex_project_id: str = ""
+
+    # Vertex-only: Vertex AI region (e.g. `europe-west1`, `us-east5`).
+    # Pick a region where Claude is available — see
+    # https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude
+    # for the current list.
+    vertex_region: str = "europe-west1"
 
 
 # Back-compat alias. The original internal code used `BedrockConfig`; new

@@ -218,3 +218,133 @@ def test_anthropic_backend_handles_missing_usage() -> None:
         max_tokens=100,
     )
     assert response == LLMResponse(text="no usage", input_tokens=0, output_tokens=0)
+
+
+# ─── VertexBackend ─────────────────────────────────────────────────────
+
+
+def test_vertex_backend_rejects_empty_project_id() -> None:
+    from iac_cartographer.llm import VertexBackend
+
+    with pytest.raises(ValueError, match="project_id is required"):
+        VertexBackend(project_id="")
+
+
+def test_vertex_backend_raises_install_hint_when_sdk_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Anthropic SDK + [vertex] extra are optional. If the operator
+    flips `llm.backend: vertex` without installing them, the first
+    `invoke()` call should fail loud with a pip-install hint — not a
+    confusing `ModuleNotFoundError` deep in a call stack."""
+    import builtins
+
+    from iac_cartographer.llm import LLMBackendImportError, VertexBackend
+
+    real_import = builtins.__import__
+
+    def _fail_anthropic(name: str, *args: Any, **kwargs: Any) -> Any:
+        # Block only the anthropic.* imports; let everything else through.
+        if name == "anthropic" or name.startswith("anthropic."):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fail_anthropic)
+    backend = VertexBackend(project_id="my-project")
+
+    with pytest.raises(LLMBackendImportError, match=r"iac-cartographer\[gcp\]"):
+        backend.invoke(model_id="claude-3-5-sonnet@20240620", system_prompt="s", user_blocks=[], max_tokens=100)
+
+
+def test_vertex_backend_invokes_and_normalises_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End-to-end: mock the `AnthropicVertex` client so the SDK isn't
+    required to run the test. Verify the client is constructed with
+    project_id + region, that `messages.create()` gets the
+    iac-cartographer system/user shape, and that the SDK's response
+    object is normalised into LLMResponse."""
+    from iac_cartographer.llm import VertexBackend
+
+    captured: dict[str, Any] = {}
+
+    class _Block:
+        def __init__(self, text: str) -> None:
+            self.text = text
+
+    class _Usage:
+        def __init__(self, input_tokens: int, output_tokens: int) -> None:
+            self.input_tokens = input_tokens
+            self.output_tokens = output_tokens
+
+    class _Message:
+        def __init__(self) -> None:
+            self.content = [_Block("hello from vertex")]
+            self.usage = _Usage(1234, 42)
+
+    class _Messages:
+        def create(self, **kwargs: Any) -> _Message:
+            captured["create_kwargs"] = kwargs
+            return _Message()
+
+    class _FakeVertexClient:
+        def __init__(self, project_id: str, region: str) -> None:
+            captured["project_id"] = project_id
+            captured["region"] = region
+            self.messages = _Messages()
+
+    # Lazy-import patch — VertexBackend pulls AnthropicVertex inside
+    # `_get_client`. We pre-seed the attribute so the import path isn't
+    # exercised at all.
+    backend = VertexBackend(project_id="my-project", region="us-east5")
+    backend._client = _FakeVertexClient("my-project", "us-east5")
+
+    response = backend.invoke(
+        model_id="claude-3-5-sonnet@20240620",
+        system_prompt="you are a system prompt",
+        user_blocks=[{"type": "text", "text": "user content"}],
+        max_tokens=4096,
+    )
+
+    assert response == LLMResponse(text="hello from vertex", input_tokens=1234, output_tokens=42)
+    # cache_control on the system prompt block (same idiom as the
+    # other Claude-speaking backends — Vertex AI honours it too).
+    assert captured["create_kwargs"]["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert captured["create_kwargs"]["model"] == "claude-3-5-sonnet@20240620"
+    assert captured["create_kwargs"]["messages"][0]["content"] == [
+        {"type": "text", "text": "user content"},
+    ]
+
+
+def test_vertex_backend_handles_missing_usage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SDK responses normally have `usage`, but defensively we handle
+    its absence the same way the other backends do — return zeros."""
+    from iac_cartographer.llm import VertexBackend
+
+    class _Block:
+        def __init__(self, text: str) -> None:
+            self.text = text
+
+    class _Message:
+        def __init__(self) -> None:
+            self.content = [_Block("no usage block")]
+            self.usage = None
+
+    class _Messages:
+        def create(self, **kwargs: Any) -> _Message:
+            return _Message()
+
+    class _FakeVertexClient:
+        def __init__(self, **_: Any) -> None:
+            self.messages = _Messages()
+
+    backend = VertexBackend(project_id="my-project")
+    backend._client = _FakeVertexClient()
+
+    response = backend.invoke(
+        model_id="claude-3-5-sonnet@20240620",
+        system_prompt="s",
+        user_blocks=[],
+        max_tokens=100,
+    )
+    assert response == LLMResponse(text="no usage block", input_tokens=0, output_tokens=0)

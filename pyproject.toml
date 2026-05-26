@@ -43,6 +43,12 @@ dev = [
     "respx",
     "ruff",
 ]
+# `pip install iac-cartographer[gcp]` enables `llm.backend: vertex`
+# (Claude on Vertex AI). The `anthropic` SDK is the official client and
+# transitively pulls `google-auth` for ADC-based authentication.
+gcp = [
+    "anthropic[vertex]>=0.40",
+]
 # `pip install -e ".[docs]"` to build the mkdocs site locally:
 #   mkdocs serve   # http://127.0.0.1:8000
 #   mkdocs build --strict

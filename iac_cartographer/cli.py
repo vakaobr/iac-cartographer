@@ -61,7 +61,7 @@ from iac_cartographer.init_scaffold import (
     print_next_steps,
     write_scaffold,
 )
-from iac_cartographer.llm import AnthropicBackend, BedrockBackend, LLMBackend
+from iac_cartographer.llm import AnthropicBackend, BedrockBackend, LLMBackend, VertexBackend
 from iac_cartographer.models import (
     AnthropicCredentials,
     AppConfig,
@@ -306,6 +306,20 @@ def _build_llm_backend(llm_config: LLMConfig, secrets: LoadedSecrets) -> LLMBack
         return AnthropicBackend(
             api_key=secrets.anthropic.api_key,
             base_url=llm_config.anthropic_base_url,
+        )
+    if name == "vertex":
+        # No secret to load — Vertex AI auth flows through Google
+        # Application Default Credentials (workload identity in
+        # cluster, ADC for local dev, SA key file for batch jobs).
+        # The cli's secrets-loading path stays untouched.
+        if not llm_config.vertex_project_id:
+            raise ConfigError(
+                "llm.backend=vertex but llm.vertex_project_id is empty. "
+                "Set it to the GCP project ID hosting your Vertex AI Claude endpoint."
+            )
+        return VertexBackend(
+            project_id=llm_config.vertex_project_id,
+            region=llm_config.vertex_region,
         )
     raise ConfigError(f"unknown llm.backend: {name!r}")
 

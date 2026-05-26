@@ -7,6 +7,9 @@ pipeline once and exits. Pair it with any scheduler:
 |---|---|---|
 | Kubernetes (Helm chart) | [`charts/iac-cartographer/`](https://github.com/vakaobr/iac-cartographer/tree/main/charts/iac-cartographer) | k8s clusters — recommended path. Templates the schedule, namespace, image tag, secrets backend, resources, workload-identity binding. |
 | Kubernetes (raw manifest) | [`examples/runtime/kubernetes-cronjob.yaml`](https://github.com/vakaobr/iac-cartographer/blob/main/examples/runtime/kubernetes-cronjob.yaml) | Reading-and-copying reference for the raw shape. |
+| AWS ECS Fargate + EventBridge Scheduler | [`examples/runtime/aws-ecs-fargate/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/aws-ecs-fargate) (Terraform) | The reference AWS deployment — what the project was extracted from. Managed services, IAM identity, ~€1/month for a 50-repo weekly fleet. |
+| GCP Cloud Run Jobs + Cloud Scheduler | [`examples/runtime/gcp-cloud-run-job/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/gcp-cloud-run-job) (Terraform) | GCP-native batch path. Workload identity, per-second billing. |
+| Azure Container Apps Jobs | [`examples/runtime/azure-container-apps-job/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/azure-container-apps-job) (Terraform) | Azure-native batch path. AAD / Managed Identity wiring. |
 | GitHub Actions | [`examples/runtime/github-actions.yml`](https://github.com/vakaobr/iac-cartographer/blob/main/examples/runtime/github-actions.yml) | Lightweight setup with no infrastructure to own; secrets via Actions secrets. |
 | Plain cron / systemd-timer | [`examples/runtime/cron.sh`](https://github.com/vakaobr/iac-cartographer/blob/main/examples/runtime/cron.sh) | A single VM you already own. Docker-based, no Python on the host. |
 

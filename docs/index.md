@@ -12,13 +12,15 @@ description: Fleet-level documentation for your Terraform / IaC estate.
 
 > Fleet-level documentation for your Terraform / IaC estate.
 
-`iac-cartographer` discovers every Terraform repository across your GitLab
-groups, GitHub organisations, Bitbucket workspaces (or a hand-curated file),
-extracts structural facts with
-[`terraform-docs`](https://terraform-docs.io) (plus an HCL parser fallback
-for fields `terraform-docs` strips), asks a Claude model to write a short
-purpose summary for each repo, and publishes the result to Confluence,
-local Markdown, standalone HTML, or machine-readable JSON.
+`iac-cartographer` discovers every Terraform repository across your
+configured sources (GitLab groups, GitHub organisations, Bitbucket
+workspaces, self-hosted Gitea / Forgejo orgs, or a hand-curated file),
+extracts structural facts with [`terraform-docs`](https://terraform-docs.io)
+(plus an HCL parser fallback for fields `terraform-docs` strips),
+asks a pluggable LLM backend (Bedrock / Anthropic / Vertex AI /
+Azure OpenAI / OpenAI / Ollama) to write a short purpose summary for
+each repo, and publishes the result to Confluence, Notion, GitHub
+Wiki, local Markdown, standalone HTML, or machine-readable JSON.
 
 Pages republish only when the underlying content changes (banner-SHA
 short-circuit), so it's safe to run as often as you like.
@@ -34,28 +36,38 @@ short-circuit), so it's safe to run as often as you like.
   block render with a `(not declared)` marker; repos with unpinned versions
   get `(unpinned)`. The page surfaces problems instead of hiding them.
 - **Cheap.** Single-shot LLM spend per run is typically well under €1 for a
-  small fleet (30-ish repos with a Sonnet 4.5 default + prompt caching).
+  small fleet (30-ish repos against Bedrock + Sonnet 4.5 with prompt
+  caching). Run for free against a local Ollama model — the structural
+  inventory is unaffected by which backend renders the narrative.
 
 ## Pipeline
 
 ```
-GitLab + GitHub + Bitbucket + file ──► shallow clone ──► terraform-docs per .tf dir ──►
-                                                              │
-                              ┌───────────────────────────────┴───────────────┐
-                              ▼                                               ▼
-                          required_providers                          Claude (LLM)
-                          parsed from HCL                             (narrative summary)
-                              │                                               │
-                              └─────────────► aggregate ◄──────────────────────┘
-                                                  │
-                                                  ▼
-                                       render to chosen publisher
-                                                  │
-                                                  ▼
-                            Confluence / Markdown / HTML / JSON
-                                                  │
-                                                  ▼
-                                       Slack #channel (info / warn / error)
+Discovery: GitLab · GitHub · Bitbucket · Gitea/Forgejo · file
+                            │
+                            ▼
+              shallow clone ──► terraform-docs per .tf dir
+                            │
+        ┌───────────────────┴──────────────────────────┐
+        ▼                                              ▼
+required_providers              LLM (narrative summary)
+parsed from HCL                 Bedrock · Anthropic · Vertex
+        │                       Azure OpenAI · OpenAI · Ollama
+        │                                              │
+        └─────────────► aggregate ◄────────────────────┘
+                            │
+                            ▼
+              render to chosen publisher
+                            │
+                            ▼
+Publisher: Confluence (ADF) · Notion · GitHub Wiki
+           Markdown · HTML · JSON
+                            │
+                            ▼
+Notifications (info/warn/error) — multi-channel fanout
+Slack · Teams · email · SNS · PagerDuty · Opsgenie · Discord
+Slack-incoming · RocketChat · Mattermost · generic webhook
+stdout/JSONL
 ```
 
 ## Where to next

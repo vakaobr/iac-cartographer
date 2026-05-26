@@ -2,8 +2,8 @@
 
 `iac-cartographer` is structured as a linear pipeline orchestrated by
 `cli.py`. Each phase is a separate module with a narrow interface;
-pluggable backends sit behind ABCs at the discovery, LLM, publishing,
-and secrets seams.
+pluggable backends sit behind ABCs at five seams: discovery, LLM,
+publisher, secrets, and notifications.
 
 ## Pipeline phases
 
@@ -30,11 +30,14 @@ and secrets seams.
       persistent failure or AI-H1 trigger-phrase detection.
    5. `fetcher.cleanup` — remove the temp clone.
 5. **Publish** (`cli._build_publisher` → `Publisher.publish_*`) —
-   one publisher subclass handles everything (Confluence, Markdown,
-   HTML, JSON). Children are published first so the overview can link
-   to them. Banner-SHA short-circuit per page.
+   one publisher subclass handles everything (Confluence, Notion,
+   GitHub Wiki, Markdown, HTML, JSON). Children are published first
+   so the overview can link to them. Banner-SHA short-circuit per
+   page.
 6. **Run summary** — emit per-repo + aggregate metrics to logs +
-   CloudWatch + Slack (warn / info / error based on outcome).
+   CloudWatch + the `NotificationDispatcher` (warn / info / error
+   based on outcome; fans out to every configured channel
+   concurrently with per-channel error isolation).
 
 ## Load-bearing patterns
 
@@ -53,18 +56,20 @@ content. On the next run, the publisher reads the prior SHA back out of
 the existing artifact and compares against the freshly-computed value
 — equal means skip the write entirely.
 
-Same contract across all four publishers:
+Same contract across all six publishers:
 
 | Publisher | SHA location |
 |---|---|
 | Confluence | HTML comment inside the page's ADF body |
+| Notion | 🔖 callout block at the top of every page |
+| GitHub Wiki | First-line HTML comment in each `.md` file (matches the local-markdown publisher) |
 | Markdown | First-line HTML comment |
 | HTML | `<meta name="iac-cartographer-sha" content="...">` |
 | JSON | Top-level `iac_cartographer.sha` field |
 
 Reads are bounded (HTML reader scans only the first 1 KB; JSON reader
-uses `json.loads`) so the per-page "is this unchanged" check stays
-fast.
+uses `json.loads`; Notion reader fetches only the first block) so
+the per-page "is this unchanged" check stays fast.
 
 ### Per-repo failure isolation
 
@@ -84,7 +89,7 @@ Exit codes in `cli.main`:
 
 ### Pluggable backends behind ABCs
 
-Four subsystems, four ABCs, four factory functions — the rest of the
+Five subsystems, five ABCs, five factory functions — the rest of the
 pipeline doesn't know which implementation is active.
 
 | Subsystem | ABC | Factory |
@@ -93,6 +98,7 @@ pipeline doesn't know which implementation is active.
 | LLM | `LLMBackend` | `cli._build_llm_backend` |
 | Publisher | `Publisher` | `cli._build_publisher` |
 | Secrets | `SecretsProvider` | `secrets.build_provider` |
+| Notifications | `NotificationChannel` | `notifications.build_dispatcher` |
 
 Adding a new implementation means subclassing the ABC, adding a
 literal to the discriminator in `models.py`, and adding a branch to the
@@ -124,32 +130,48 @@ iac_cartographer/
 ├── models.py                 # every Pydantic model + Strict base
 ├── aws.py                    # boto3 wrappers (Secrets Manager, SSM, Bedrock, CloudWatch)
 ├── confluence.py             # Confluence v2 client (ADF body, banner-SHA)
-├── fetcher.py                # shallow git clone
+├── fetcher.py                # shallow git clone with per-host auth dispatch
 ├── extractor.py              # terraform-docs + HCL `required_providers` parser
-├── llm.py                    # LLMBackend ABC + Bedrock + Anthropic implementations
+├── llm.py                    # LLMBackend ABC + 6 implementations (Bedrock, Anthropic, Vertex, Azure OpenAI, OpenAI, Ollama)
 ├── narrator.py               # prompt assembly, schema validation, retry, AI-H1 scan
 ├── renderer.py               # shared rendering helpers (banner, provider inference)
-├── slack.py                  # post-summary notifications
 ├── init_scaffold.py          # `iac-cartographer --init`
 │
-├── discovery/                # DiscoverySource ABC + 4 implementations
+├── discovery/                # DiscoverySource ABC + 5 implementations
 │   ├── base.py
 │   ├── gitlab.py
 │   ├── github.py
 │   ├── bitbucket.py
+│   ├── gitea.py              # covers Forgejo too (API-compatible)
 │   ├── file.py
 │   └── orchestrator.py       # discover_from_sources()
 │
-├── publishers/               # Publisher ABC + 4 implementations
+├── publishers/               # Publisher ABC + 6 implementations
 │   ├── base.py
 │   ├── confluence.py
+│   ├── notion.py + notion_renderer.py
+│   ├── github_wiki.py        # git-based; reuses the markdown renderer
 │   ├── markdown.py + markdown_renderer.py
 │   ├── html.py + html_renderer.py
 │   └── json_publisher.py + json_renderer.py
 │
-└── secrets/                  # SecretsProvider ABC + 3 implementations
+├── secrets/                  # SecretsProvider ABC + 3 implementations
+│   ├── base.py
+│   ├── aws.py
+│   ├── env.py
+│   └── vault.py
+│
+└── notifications/            # NotificationChannel ABC + 10 channels + dispatcher
     ├── base.py
-    ├── aws.py
-    ├── env.py
-    └── vault.py
+    ├── dispatcher.py         # multi-channel fanout + per-level filter + error isolation
+    ├── slack.py              # bot-token `chat.postMessage`
+    ├── slack_webhook.py      # Slack incoming / RocketChat / Mattermost
+    ├── teams.py              # Adaptive Card v1.4
+    ├── email.py              # SMTP via aiosmtplib (optional [email] extra)
+    ├── sns.py                # AWS SNS publish (identity-based)
+    ├── pagerduty.py          # Events API v2
+    ├── opsgenie.py           # Alerts API; US + EU regions
+    ├── discord.py            # webhook
+    ├── webhook.py            # generic JSON POST
+    └── stdout.py             # JSON Lines on stdout / stderr
 ```

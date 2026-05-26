@@ -122,7 +122,7 @@ discovery:
 File format (YAML):
 
 ```yaml
-- host: github                                    # or "gitlab" / "bitbucket" / "other"
+- host: github                                    # or "gitlab" / "bitbucket" / "gitea" / "other"
   full_name: acme/main-cluster
   clone_url: https://github.com/acme/main-cluster.git
   web_url: https://github.com/acme/main-cluster
@@ -135,13 +135,15 @@ File format (YAML):
 Use cases:
 
 - **Air-gapped runs** without VCS API access.
-- **Self-hosted VCS** without a first-party source (Gitea, Forgejo,
-  Codeberg, …) — bring the metadata yourself.
+- **Self-hosted VCS without a first-party source** (Sourcehut, Phabricator,
+  …) — bring the metadata yourself. Codeberg uses the Gitea API, so
+  `gitea_orgs` works there too.
 - **Focused publish** of a curated subset of repos.
 
-`host: "other"` covers anything that isn't one of the three first-party
-hosts. The fetcher's `git clone --depth=1` doesn't care about the host
-label, so any HTTPS-cloneable URL works.
+`host: "other"` covers anything that isn't one of the four first-party
+hosts (`gitlab` / `github` / `bitbucket` / `gitea`). The fetcher's
+`git clone --depth=1` doesn't care about the host label, so any
+HTTPS-cloneable URL works.
 
 See [`examples/demo/repos.yaml`](https://github.com/vakaobr/iac-cartographer/blob/main/examples/demo/repos.yaml)
 for a working example.

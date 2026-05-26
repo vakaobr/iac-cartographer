@@ -9,37 +9,51 @@
 
 [![CI](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml)
 [![coverage](https://raw.githubusercontent.com/vakaobr/iac-cartographer/badges/coverage.svg)](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml)
+[![Dependabot](https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://github.com/vakaobr/iac-cartographer/network/updates)
 [![docs](https://img.shields.io/badge/docs-iac--cartographer.andersonleite.me-blue)](https://iac-cartographer.andersonleite.me/)
 
 > Fleet-level documentation for your Terraform / IaC estate.
 
-`iac-cartographer` discovers every Terraform repository across your GitLab
-groups and GitHub organisations, extracts structural facts with
+`iac-cartographer` discovers every Terraform repository across your
+configured sources (GitLab groups, GitHub orgs, Bitbucket workspaces, or a
+curated file), extracts structural facts with
 [`terraform-docs`](https://terraform-docs.io) (plus an HCL parser fallback for
-fields `terraform-docs` strips), asks a Claude model on AWS Bedrock to write a
-short purpose summary for each repo, and publishes a parent + child page
-hierarchy to Confluence Cloud. Pages republish only when the underlying content
-changes (banner-SHA short-circuit), so it's safe to run as often as you like.
+fields `terraform-docs` strips), asks an LLM to write a short purpose
+summary for each repo, and publishes a parent + child page hierarchy to
+your chosen output (Confluence Cloud, Markdown, HTML, or JSON). Pages
+republish only when the underlying content changes (banner-SHA
+short-circuit), so it's safe to run as often as you like.
 
 ```
-GitLab + GitHub APIs ──► clone shallow ──► terraform-docs per .tf dir ──►
-                                                       │
-                              ┌────────────────────────┴────────────────────────┐
-                              ▼                                                 ▼
-                          required_providers                          Claude on Bedrock
-                          parsed from HCL                             (narrative summary)
-                              │                                                 │
-                              └───────────────► aggregate ◄────────────────────┘
-                                                    │
-                                                    ▼
-                                              render ADF
-                                                    │
-                                                    ▼
-                                          Confluence v2 API
-                                                    │
-                                                    ▼
-                                          Slack #channel (info/warn/error)
+┌────────────────────────────────────────────┐
+│ Discovery                                  │   GitLab · GitHub
+│ (concurrent, deduped, deny-list filtered)  │   Bitbucket · curated file
+└────────────────────┬───────────────────────┘
+                     ▼
+              clone shallow ──► terraform-docs per .tf dir
+                     │
+        ┌────────────┴────────────┐
+        ▼                         ▼
+  required_providers          ┌────────────────────────────────┐
+  parsed from HCL             │ LLM (narrative summary)        │   Bedrock · Anthropic
+        │                     │                                │   Vertex · Azure OpenAI
+        │                     └────────────────────────────────┘   OpenAI · Ollama
+        │                         │
+        └─────────► aggregate ◄───┘
+                        │
+                        ▼
+        ┌────────────────────────────────┐
+        │ Publisher (banner-SHA          │   Confluence (ADF)
+        │  idempotent republish)         │   Markdown · HTML · JSON
+        └───────────────┬────────────────┘
+                        ▼
+              Slack #channel (info/warn/error)
 ```
+
+Every component on the right of each box is **pluggable**: pick the
+discovery sources, LLM backend, publisher, and secrets backend that fit
+your environment. Mix and match — GitHub + Bitbucket discovery, Vertex
+AI for narratives, Markdown output to a docs repo, Vault for secrets.
 
 ## Why
 
@@ -51,15 +65,19 @@ GitLab + GitHub APIs ──► clone shallow ──► terraform-docs per .tf di
 * **Fix-it signals are visible.** Repos missing a `required_providers` block
   render with a `(not declared)` marker; repos with unpinned versions get
   `(unpinned)`. The page surfaces problems instead of hiding them.
-* **Cheap.** Single-shot Bedrock spend per run is typically well under €1 for
-  a small fleet (30-ish repos with a Sonnet 4.5 default + prompt caching).
+* **Cheap.** Single-shot LLM spend per run is typically well under €1 for
+  a small fleet (30-ish repos against Bedrock + Sonnet 4.5 with prompt
+  caching). Run for free against a local Ollama model — the structural
+  inventory is unaffected by which backend renders the narrative.
 
 ## Status
 
 `v0.1.0` — extracted from a working production deployment at a single
-organisation. Public-facing edges are still rough; expect some hardcoded
-assumptions (AWS Bedrock for the LLM, AWS Secrets Manager + SSM Parameter
-Store for credentials/config). Pluggable backends are on the roadmap.
+organisation, then rebuilt around pluggable backends for the public
+release. Discovery, LLM, publisher, and secrets are all swappable today
+(see [Shipped](#shipped) below for the full matrix). API surface is
+"1.0-track but pre-1.0" — minor renames and YAML field tweaks are still
+possible before tagging `v1.0`.
 
 ## Quick start
 
@@ -97,7 +115,7 @@ iac-cartographer --once --dry-run --config ./iac-cartographer.config.yaml
 iac-cartographer --init \
   --secrets-backend env \                                # or `aws` | `vault`
   --publisher markdown \                                 # or `confluence`
-  --llm anthropic \                                      # or `bedrock`
+  --llm anthropic \                                      # or `bedrock` (the scaffolder covers these two; edit by hand for vertex / azure_openai / openai / ollama)
   --config-path ./iac-cartographer.config.yaml \
   --env-path    ./iac-cartographer.env
 ```
@@ -118,10 +136,15 @@ docker pull ghcr.io/vakaobr/iac-cartographer:latest
 Requirements:
 * Python 3.12+
 * [`terraform-docs`](https://terraform-docs.io) on your PATH
-* A Confluence Cloud space you can publish to
-* One of:
-  * **AWS credentials** with `bedrock:InvokeModel` on a Claude model (default — `llm.backend: bedrock`), or
-  * **An Anthropic API key** (`llm.backend: anthropic` — for deployments without Bedrock access)
+* A publishing target — either a Confluence Cloud space, or a writable
+  directory if you're using the Markdown / HTML / JSON publishers
+* An LLM backend — pick the one your environment already has credentials for:
+  * **`bedrock`** *(default)* — AWS credentials with `bedrock:InvokeModel` on a Claude model
+  * **`anthropic`** — an Anthropic API key (for deployments without Bedrock access)
+  * **`vertex`** — GCP Application Default Credentials with Vertex AI access *(requires `pip install iac-cartographer[gcp]`)*
+  * **`azure_openai`** — Azure OpenAI resource + API key or AAD identity *(requires `pip install iac-cartographer[azure]`)*
+  * **`openai`** — an OpenAI API key, or any OpenAI-compatible gateway *(requires `pip install iac-cartographer[openai]`)*
+  * **`ollama`** — a reachable Ollama server (`http://localhost:11434` by default) — zero auth, zero outbound traffic, zero API spend
 
 ### 2. Pre-create a parent Confluence page
 
@@ -135,12 +158,17 @@ Default backend is AWS Secrets Manager — for env-var or HashiCorp Vault deploy
 
 | Secret name | When required | JSON shape |
 |---|---|---|
-| `iac-cartographer/confluence` | always | `{"email": "bot@example.com", "api_token": "ATATT..."}` |
-| `iac-cartographer/gitlab` | always | `{"token": "glpat-..."}` |
-| `iac-cartographer/github` | always | `{"token": "ghp_..."}` |
+| `iac-cartographer/confluence` | when `publisher.kind == "confluence"` | `{"email": "bot@example.com", "api_token": "ATATT..."}` |
+| `iac-cartographer/gitlab` | when `discovery.gitlab_group_ids` is non-empty | `{"token": "glpat-..."}` |
+| `iac-cartographer/github` | when `discovery.github_orgs` is non-empty | `{"token": "ghp_..."}` |
 | `iac-cartographer/slack` | always | `{"bot_token": "xoxb-..."}` |
 | `iac-cartographer/anthropic` | only when `llm.backend == "anthropic"` | `{"api_key": "sk-ant-..."}` |
+| `iac-cartographer/azure_openai` | only when `llm.backend == "azure_openai"` and `azure_openai_use_aad` is false | `{"api_key": "..."}` |
+| `iac-cartographer/openai` | only when `llm.backend == "openai"` | `{"api_key": "sk-..."}` |
 | `iac-cartographer/bitbucket` | only when `discovery.bitbucket_workspaces` is non-empty | `{"access_token": "bbat-..."}` *(or `{"username": "...", "app_password": "..."}` for the legacy form)* |
+
+The `bedrock`, `vertex`, and `ollama` LLM backends are identity-based
+(IAM, GCP Workload Identity, or no auth at all) and don't need a secret.
 
 The Confluence token must be a **legacy unscoped** API token (the plain
 "Create API token" form at id.atlassian.com, not "Create API token with
@@ -161,13 +189,14 @@ discovery:
     - "acme-org/examples-*"
 
 llm:
-  # backend: bedrock (default) or anthropic
+  # backend: bedrock (default), anthropic, vertex, azure_openai, openai, ollama
   backend: "bedrock"
-  # Inference-profile ID for Bedrock, or model name for the Anthropic API.
+  # Bedrock: inference-profile ID. Other backends use a model name —
+  # see docs/backends/llm.md for the per-backend convention.
   model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 publisher:
-  # "confluence" (default) or "markdown"
+  # "confluence" (default), "markdown", "html", or "json"
   kind: "confluence"
 
 confluence:
@@ -357,7 +386,7 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 | `<canonical> (not declared)` in Source | The repo provisions this provider without a matching `terraform { required_providers { ... } }` block. The canonical source is inferred from a curated map. **This is a fix-it signal** — modern Terraform fails `terraform init` for any non-Hashicorp namespace lacking the declaration. |
 | `(not declared — unknown to inventory)` in Source | Same as above, except the provider isn't in our curated map. PRs adding new providers welcome. |
 | `(unpinned)` in Version | No `version = "..."` constraint declared. Worth pinning. |
-| `(Narrative summary unavailable for this run...)` in Purpose | Bedrock returned an error or invalid JSON for this repo. Structural facts (providers, resources, modules) are unaffected. Auto-retries once per run. |
+| `(Narrative summary unavailable for this run...)` in Purpose | The LLM backend returned an error, hit a rate limit, or emitted invalid JSON for this repo. Structural facts (providers, resources, modules) are unaffected. Auto-retries once per run. |
 | `:warning: Narrative review needed (AI-H1...)` on Slack | A repo's narrative contained a prompt-injection trigger phrase. Narrative is dropped from the page; structural facts publish unchanged. Inspect the source repo for unusual README content. |
 
 ## Roadmap

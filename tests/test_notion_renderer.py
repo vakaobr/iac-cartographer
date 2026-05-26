@@ -14,6 +14,7 @@ import pytest
 
 from iac_cartographer.models import (
     BedrockNarrative,
+    ModuleRef,
     ProviderRef,
     RepoInventory,
     RepoMetadata,
@@ -285,24 +286,76 @@ def test_overview_bullets_alphabetically_sorted() -> None:
 # ── Truncation ────────────────────────────────────────────────────────
 
 
-def test_long_paragraphs_truncate_at_block_char_cap() -> None:
-    """Notion caps each block's text at 2000 chars. We truncate
-    aggressively (1900) so the API doesn't reject pathologically long
-    narratives."""
-    long_purpose = "x " * 2000  # 4000 chars
-    long_narrative = BedrockNarrative(purpose=long_purpose[:600], environments=[], owning_team_guess=None)
-    inv = RepoInventory(meta=_meta(), summary=_summary_basic(), narrative=long_narrative)
-    blocks = render_child_blocks(
-        inv,
-        sha="x",
-        updated_at=datetime(2026, 5, 26, 9, 0, tzinfo=UTC),
-        pipeline_url=None,
+def test_text_helper_truncates_content_above_1900_chars() -> None:
+    """Notion caps each block's text at 2000 chars; the renderer
+    truncates aggressively at 1900 so the API doesn't reject
+    pathologically long content. Test the helper directly — no
+    BedrockNarrative field allows > 1900 chars (purpose is capped
+    at 600 by the model), so a render-path test couldn't reach
+    this branch."""
+    from iac_cartographer.publishers.notion_renderer import _text
+
+    long_content = "x" * 4000
+    run = _text(long_content)
+    assert run["type"] == "text"
+    truncated = run["text"]["content"]
+    assert len(truncated) == 1900
+    assert truncated.endswith("…")
+
+
+def test_text_helper_passes_short_content_through_unchanged() -> None:
+    """Below the cap, `_text` is a straight pass-through. Pinning
+    the non-truncation branch so a future change to the threshold
+    fails loudly."""
+    from iac_cartographer.publishers.notion_renderer import _text
+
+    run = _text("short and sweet")
+    assert run["text"]["content"] == "short and sweet"
+    assert not run["text"]["content"].endswith("…")
+
+
+# ── modules section (covers an inv with non-empty modules list) ───────
+
+
+def test_render_child_blocks_renders_modules_section_when_modules_present() -> None:
+    """Inventories with a non-empty `modules` list emit a "Modules"
+    heading + one bullet per module. The bullet text reads
+    `<name> — <source>` for unpinned modules and
+    `<name> — <source> (<version>)` for pinned ones."""
+    summary = TerraformSummary(
+        providers=[ProviderRef(name="aws", source="hashicorp/aws", version=">= 5.0")],
+        modules=[
+            ModuleRef(name="vpc", source="terraform-aws-modules/vpc/aws", version="5.0.0"),
+            ModuleRef(name="utils", source="git::https://github.com/acme/utils.git", version=None),
+        ],
+        resource_counts_by_type={"aws_instance": 1},
     )
-    for block in blocks:
-        for key in ("paragraph", "heading_2", "callout", "bulleted_list_item"):
-            if key in block:
-                for run in block[key].get("rich_text", []):
-                    assert len(run["text"]["content"]) <= 1900
+    inv = RepoInventory(meta=_meta(), summary=summary, narrative=None)
+    blocks = render_child_blocks(inv, sha="m", updated_at=datetime(2026, 5, 26, 9, 0, tzinfo=UTC), pipeline_url=None)
+
+    # Find the "Modules" heading and the bullets that follow until the
+    # next heading.
+    headings = [(i, b) for i, b in enumerate(blocks) if b.get("type") == "heading_2"]
+    modules_heading_idx = next(i for i, b in headings if b["heading_2"]["rich_text"][0]["text"]["content"] == "Modules")
+    # Bullets follow the heading until the next heading_2.
+    next_heading = next((i for i, b in headings if i > modules_heading_idx), len(blocks))
+    bullets = blocks[modules_heading_idx + 1 : next_heading]
+    bullet_texts = [b["bulleted_list_item"]["rich_text"][0]["text"]["content"] for b in bullets]
+
+    assert "vpc — terraform-aws-modules/vpc/aws (5.0.0)" in bullet_texts
+    assert "utils — git::https://github.com/acme/utils.git" in bullet_texts
+
+
+# ── extract_banner_sha edge: callout with empty rich_text ────────────
+
+
+def test_extract_banner_sha_returns_none_for_callout_with_empty_rich_text() -> None:
+    """An existing first block of type `callout` but with no
+    rich_text entries (someone hand-cleared the SHA but left the
+    block shell) must not crash — return None so the publisher falls
+    through to the "update" path on the next run."""
+    block_with_empty_rich = {"type": "callout", "callout": {"rich_text": []}}
+    assert extract_banner_sha(block_with_empty_rich) is None
 
 
 # Sanity check that pytest-asyncio's auto-mode doesn't bleed into these

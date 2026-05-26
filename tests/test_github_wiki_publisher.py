@@ -379,3 +379,108 @@ def test_slug_filename_replaces_slashes_with_double_underscore() -> None:
     pub = GitHubWikiPublisher(_creds(), owner="acme", repo="docs")
     assert pub._slug_filename("op/devops/grafana") == "op__devops__grafana.md"
     assert pub._slug_filename("flat-repo") == "flat-repo.md"
+
+
+# ── _run_git error path (commit + push failures) ─────────────────────
+
+
+async def test_aexit_raises_when_git_push_fails() -> None:
+    """`git push` can fail for adopter-facing reasons that the clone +
+    add + commit steps don't surface: branch protection rejecting the
+    push, network blip, GitHub rate-limit. The publisher must turn the
+    non-zero exit into a GitHubWikiError so the orchestrator records a
+    per-publisher failure instead of leaving the run in a half-pushed
+    state."""
+    workdir_holder: dict = {}
+
+    def _side_effect(args: list[str], **kwargs) -> subprocess.CompletedProcess:
+        # Same scaffolding as `_clean_clone_mock` but inject a push failure.
+        if args[:2] == ["git", "clone"]:
+            workdir = Path(args[-1])
+            workdir.mkdir(parents=True, exist_ok=True)
+            (workdir / ".git").mkdir(exist_ok=True)
+            workdir_holder["path"] = workdir
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+        if args[:3] == ["git", "diff", "--cached"]:
+            # Diff returncode 1 → there's something to commit → reach push.
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[1] == "push":
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr="remote: error: GH006: Protected branch update failed for refs/heads/master.",
+            )
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    with patch("iac_cartographer.publishers.github_wiki.subprocess.run", side_effect=_side_effect):
+        pub = GitHubWikiPublisher(_creds(), owner="acme", repo="docs")
+        await pub.__aenter__()
+        await pub.publish_child(
+            _inv("acme/main-cluster"),
+            sha="x",
+            updated_at=datetime(2026, 5, 26, tzinfo=UTC),
+            pipeline_url=None,
+        )
+        # The push happens in __aexit__; the failure must surface as
+        # GitHubWikiError, not get swallowed.
+        with pytest.raises(GitHubWikiError, match="git push failed"):
+            await pub.__aexit__(None, None, None)
+
+
+async def test_run_git_error_strips_token_from_stderr() -> None:
+    """Token sanitization on the non-clone git failure path too.
+    `_git_clone` has its own sanitizer (covered elsewhere); this
+    covers the equivalent path in `_run_git` for add/commit/push."""
+    workdir_holder: dict = {}
+
+    def _side_effect(args: list[str], **kwargs) -> subprocess.CompletedProcess:
+        if args[:2] == ["git", "clone"]:
+            workdir = Path(args[-1])
+            workdir.mkdir(parents=True, exist_ok=True)
+            (workdir / ".git").mkdir(exist_ok=True)
+            workdir_holder["path"] = workdir
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+        if args[:3] == ["git", "diff", "--cached"]:
+            return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+        if args[1] == "push":
+            # stderr mentions the token (e.g. via a remote URL echo).
+            return subprocess.CompletedProcess(
+                args=args,
+                returncode=128,
+                stdout="",
+                stderr="fatal: unable to access 'https://ghp_secret_token@github.com/acme/docs.wiki.git/': SSL error",
+            )
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    with patch("iac_cartographer.publishers.github_wiki.subprocess.run", side_effect=_side_effect):
+        pub = GitHubWikiPublisher(_creds(), owner="acme", repo="docs")
+        await pub.__aenter__()
+        await pub.publish_child(
+            _inv("acme/main-cluster"),
+            sha="x",
+            updated_at=datetime(2026, 5, 26, tzinfo=UTC),
+            pipeline_url=None,
+        )
+        with pytest.raises(GitHubWikiError) as excinfo:
+            await pub.__aexit__(None, None, None)
+
+    msg = str(excinfo.value)
+    assert "ghp_secret_token" not in msg
+    assert "<TOKEN>" in msg
+
+
+# ── __aexit__ defensive early return ──────────────────────────────────
+
+
+async def test_aexit_is_a_no_op_when_aenter_was_never_called() -> None:
+    """If `__aenter__` was never called (or already cleaned up via a
+    prior `__aexit__`), the second `__aexit__` must short-circuit
+    rather than crashing. Defensive against orchestrators that
+    double-call cleanup on partial-init failures."""
+    pub = GitHubWikiPublisher(_creds(), owner="acme", repo="docs")
+    # Never entered; _workdir is None.
+    assert pub._workdir is None
+    # Must not raise.
+    await pub.__aexit__(None, None, None)
+    assert pub._workdir is None

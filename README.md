@@ -269,6 +269,13 @@ iac-cartographer --once --model eu.anthropic.claude-haiku-4-5-20251001-v1:0
 # `publisher.kind: json` on the baseline run; the diff prints Markdown
 # to stdout and rides on the end-of-run Slack post.
 iac-cartographer --once --diff ./iac-inventory-json
+
+# Lint a single local repo against IaC-hygiene rules (CI-gating friendly).
+# No discovery, no LLM, no publisher — just the extractor + rules.
+iac-cartographer --lint ./infra                       # exit 0/2 on undeclared providers
+iac-cartographer --lint ./infra --fail-on=warn        # also fail on unpinned versions
+iac-cartographer --lint ./infra --format=github       # GitHub Actions annotations
+iac-cartographer --lint ./infra --format=json         # machine-readable for CI dashboards
 ```
 
 ## How to run it on a schedule
@@ -446,6 +453,7 @@ Plus the Phase 3 distribution + onboarding wins:
 * **Zero-credentials demo** — `./examples/demo/run.sh` clones three public Terraform repos and produces real Markdown output without any tokens.
 * **Docs site** — mkdocs-material at [iac-cartographer.andersonleite.me](https://iac-cartographer.andersonleite.me/).
 * **`--diff <prev-output>` mode** — between-run structural diff against a prior JSON-publisher snapshot. Adds / removes / provider bumps / module bumps / resource-count deltas. Prints Markdown to stdout and rides on the end-of-run Slack post as a one-liner (`3 new, 1 archived, 2 changed; 37 unchanged`). See [`docs/operations/diff.md`](docs/operations/diff.md).
+* **`iac-cartographer --lint <path>` subcommand** — IaC hygiene linter (undeclared providers, unpinned providers / modules) with text / JSON / GitHub-Actions-annotation output. Ships a `.pre-commit-hooks.yaml` for pre-commit users. CI-gating-friendly exit codes. See [`docs/operations/lint.md`](docs/operations/lint.md).
 
 ### Coming next
 
@@ -459,7 +467,6 @@ Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome o
   * Notification dispatcher under partial-failure scenarios (one channel raises, others succeed; per-level filter elision).
   * AWS / GCP / Azure runtime example `terraform validate` in CI.
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
-* **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.
 * **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.
 
 ## Contributing

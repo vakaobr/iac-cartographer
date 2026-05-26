@@ -1288,6 +1288,31 @@ def _build_parser() -> argparse.ArgumentParser:
             "--llm, --config-path, --env-path, --force."
         ),
     )
+    mode.add_argument(
+        "--lint",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Run the IaC hygiene linter against a local Terraform directory. "
+            "No discovery, no clone, no LLM, no publisher — just the extractor "
+            "pipeline + a small ruleset (undeclared providers, unpinned "
+            "providers / modules, no .tf files). Suitable for CI gating and "
+            "pre-commit hooks. Combine with --format (text|json|github) and "
+            "--fail-on (error|warn|info)."
+        ),
+    )
+    parser.add_argument(
+        "--format",
+        choices=["text", "json", "github"],
+        default="text",
+        help="Lint output format (default: text). `github` emits GitHub Actions annotations.",
+    )
+    parser.add_argument(
+        "--fail-on",
+        choices=["error", "warn", "info"],
+        default="error",
+        help="Lint severity threshold for non-zero exit (default: error).",
+    )
 
     # --init-specific flags. They're top-level so argparse can validate them
     # eagerly; the dispatcher ignores them when running `--once`.
@@ -1340,6 +1365,8 @@ def main(argv: list[str] | None = None) -> int:
             return run_once(args)
         if args.init:
             return _run_init(args)
+        if args.lint:
+            return _run_lint(args)
         return 0  # pragma: no cover — argparse `required=True` prevents this branch
     except CartographerError as exc:
         logger.exception("run aborted: %s", exc)
@@ -1347,6 +1374,18 @@ def main(argv: list[str] | None = None) -> int:
     except Exception:
         logger.exception("unhandled exception")
         return 3
+
+
+def _run_lint(args: argparse.Namespace) -> int:
+    """Dispatcher for `iac-cartographer --lint <PATH>`. Runs the
+    rules + renders + computes the exit code. Output goes to stdout
+    so CI capture / pre-commit hooks pick it up."""
+    from iac_cartographer.lint import Severity, compute_exit_code, render, run_lint
+
+    report = run_lint(args.lint)
+    sys.stdout.write(render(report, args.format))
+    sys.stdout.flush()
+    return compute_exit_code(report, Severity(args.fail_on))
 
 
 def _run_init(args: argparse.Namespace) -> int:

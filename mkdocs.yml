@@ -80,6 +80,7 @@ nav:
   - Operations:
       - Running on a schedule: operations/runtime.md
       - Between-run diff (--diff): operations/diff.md
+      - Lint mode (--lint): operations/lint.md
       - Cutting a release: operations/releases.md
   - Examples:
       - Overview: examples/index.md

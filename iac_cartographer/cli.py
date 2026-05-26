@@ -46,6 +46,12 @@ from iac_cartographer import __version__
 from iac_cartographer.aws import get_ssm_parameter, put_metric_data
 from iac_cartographer.confluence import ConfluenceClient
 from iac_cartographer.constants import CartographerError, ConfigError, MissingSecretError
+from iac_cartographer.diff import (
+    compute_diff,
+    load_prior_inventories,
+    render_diff_markdown,
+    render_diff_summary,
+)
 from iac_cartographer.discovery import (
     BitbucketDiscovery,
     DiscoverySource,
@@ -1128,6 +1134,23 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                     publish_failures[OVERVIEW_TITLE] = f"publisher: {exc}"
                     logger.exception("publisher failed for overview page")
 
+        # ── Between-run diff (optional, --diff PREV_OUTPUT) ─────────────
+        # Computed after every repo is built but before the outcome
+        # summary is emitted, so `diff_summary` can ride on the
+        # end-of-run Slack post alongside the per-run counts.
+        diff_summary: str | None = None
+        if args.diff:
+            prior = load_prior_inventories(args.diff)
+            diff = compute_diff(prior, inventories)
+            # Markdown to stdout — operators tailing the container log
+            # get the full picture; CI artefacts can capture stdout.
+            # Use sys.stdout directly (not the logger) so the Markdown
+            # stays as-is rather than getting wrapped in a JSON log
+            # envelope.
+            sys.stdout.write(render_diff_markdown(diff))
+            sys.stdout.flush()
+            diff_summary = render_diff_summary(diff)
+
         # ── Outcome + Slack notification ────────────────────────────────
         all_failures = {**failed, **publish_failures}
         outcome = RunOutcome(
@@ -1161,6 +1184,13 @@ async def _run_once_async(args: argparse.Namespace) -> int:
 
         if not args.dry_run:
             slack_msg = _format_slack_summary(outcome)
+            if diff_summary is not None:
+                # `diff_summary` is a one-liner ("3 new, 1 archived, …");
+                # appending it to the standard outcome line gives
+                # Slack readers the between-run delta without flooding
+                # the channel with the full Markdown breakdown (which
+                # is on stdout for operators tailing logs).
+                slack_msg += f"\n_Diff vs prior run:_ {diff_summary}"
             if suspicious_repos:
                 # Append AI-H1 review-queue notice to the message
                 review_lines = [f"{repo} → {', '.join(phrases)}" for repo, phrases in suspicious_repos.items()]
@@ -1219,6 +1249,19 @@ def _build_parser() -> argparse.ArgumentParser:
             "Defaults to whatever `bedrock.model_id` says in the config "
             "(typically a Sonnet variant for production runs). Use a Haiku "
             "inference-profile ID for cheap validation runs."
+        ),
+    )
+    parser.add_argument(
+        "--diff",
+        default=None,
+        metavar="PREV_OUTPUT",
+        help=(
+            "Compute a between-run change summary against the prior JSON-publisher output. "
+            "PREV_OUTPUT is the directory the previous run wrote its JSON output to "
+            "(`json.output_dir` from that run's config — typically `./iac-inventory-json/`). "
+            "The diff is printed to stdout as Markdown and attached to the end-of-run notification. "
+            "First-run shape: pass a path that doesn't yet exist and every repo shows as `added`. "
+            "Independent of `publisher.kind` — this run's publisher can be anything."
         ),
     )
     parser.add_argument("--verbose", action="store_true", help="DEBUG-level logging.")

@@ -27,33 +27,56 @@ logger = logging.getLogger("iac_cartographer.fetcher")
 GIT_CLONE_TIMEOUT_S = 120
 
 
-def _authed_clone_url(clone_url: str, host: str, gitlab_token: str, github_token: str) -> str:
+def _authed_clone_url(
+    clone_url: str,
+    host: str,
+    gitlab_token: str,
+    github_token: str,
+    gitea_token: str | None = None,
+) -> str:
     """Splice the right token into the clone URL.
 
     GitLab self-hosted accepts `https://oauth2:<token>@host/...`; GitHub
-    accepts `https://x-access-token:<token>@github.com/...`. Either way the
-    auth lives in the URL userinfo only and never escapes this function.
+    accepts `https://x-access-token:<token>@github.com/...`; Gitea /
+    Forgejo accept the same `oauth2:<token>@host/...` shape GitLab uses
+    (and also bare `<token>@host/...` — we use the oauth2 form for
+    consistency). Either way the auth lives in the URL userinfo only
+    and never escapes this function.
     """
     parsed = urlparse(clone_url)
     if host == "gitlab":
         netloc = f"oauth2:{gitlab_token}@{parsed.hostname}"
     elif host == "github":
         netloc = f"x-access-token:{github_token}@{parsed.hostname}"
-    else:  # pragma: no cover — Pydantic Literal restricts to these two
-        raise CloneError(f"unsupported host: {host}")
+    elif host == "gitea":
+        if not gitea_token:
+            raise CloneError("gitea host requires a gitea_token (check iac-cartographer/gitea secret)")
+        netloc = f"oauth2:{gitea_token}@{parsed.hostname}"
+    else:
+        # Bitbucket + `"other"` clone via the URL on RepoMetadata as-is
+        # (no token splice). Bitbucket app passwords use HTTP Basic
+        # auth which can ride in the URL userinfo too, but that's a
+        # follow-up — for now bitbucket discovery produces public-
+        # accessible clone URLs only.
+        raise CloneError(f"unsupported host for token splice: {host}")
     if parsed.port:
         netloc = f"{netloc}:{parsed.port}"
     return urlunparse(parsed._replace(netloc=netloc))
 
 
-def clone(meta: RepoMetadata, gitlab_token: str, github_token: str) -> Path:
+def clone(
+    meta: RepoMetadata,
+    gitlab_token: str,
+    github_token: str,
+    gitea_token: str | None = None,
+) -> Path:
     """Shallow-clone `meta` into a fresh temp dir; return the path.
 
     Caller is responsible for `cleanup(path)` in a try/finally. Raises
     `CloneError` on any git failure or timeout.
     """
     tmp = Path(tempfile.mkdtemp(prefix=f"iac-cartographer-{meta.host}-"))
-    url = _authed_clone_url(meta.clone_url, meta.host, gitlab_token, github_token)
+    url = _authed_clone_url(meta.clone_url, meta.host, gitlab_token, github_token, gitea_token)
     cmd = [
         "git",
         "clone",

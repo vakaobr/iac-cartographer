@@ -30,6 +30,7 @@ from iac_cartographer.discovery.base import (
 )
 from iac_cartographer.discovery.bitbucket import BITBUCKET_BASE_URL, BitbucketDiscovery
 from iac_cartographer.discovery.file import FileDiscovery
+from iac_cartographer.discovery.gitea import GiteaDiscovery
 from iac_cartographer.discovery.github import GITHUB_BASE_URL, GithubDiscovery
 from iac_cartographer.discovery.gitlab import GITLAB_DEFAULT_BASE_URL, GitlabDiscovery
 from iac_cartographer.discovery.orchestrator import discover_from_sources
@@ -71,6 +72,7 @@ __all__ = [
     "BitbucketDiscovery",
     "DiscoverySource",
     "FileDiscovery",
+    "GiteaDiscovery",
     "GithubDiscovery",
     "GitlabDiscovery",
     "_matches_deny_pattern",

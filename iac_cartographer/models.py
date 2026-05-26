@@ -38,7 +38,11 @@ class _Strict(BaseModel):
 class RepoMetadata(_Strict):
     # Supported VCS hosts. `"other"` covers repos loaded via the file
     # source whose origin isn't one of the first-party-supported hosts.
-    host: Literal["gitlab", "github", "bitbucket", "other"]
+    # `"gitea"` covers both Gitea and Forgejo (Forgejo forked from
+    # Gitea in 2022 and intentionally preserves API + auth-scheme
+    # compatibility, so one discovery source + one auth path handles
+    # both).
+    host: Literal["gitlab", "github", "bitbucket", "gitea", "other"]
     full_name: str
     clone_url: str
     web_url: str
@@ -190,6 +194,17 @@ class DiscoveryConfig(_Strict):
     # has no `extension:tf`-style filter on free plans) — combine with
     # `deny_repos` to narrow the scope.
     bitbucket_workspaces: list[str] = Field(default_factory=list)
+    # Gitea / Forgejo organisations to enumerate. Empty list = skip.
+    # Same source covers both platforms (Forgejo preserves Gitea API
+    # compatibility). Like Bitbucket, the source lists every repo in
+    # each org and lets the extractor filter — Gitea's code-search API
+    # is per-repo only and many self-hosted instances disable the
+    # indexer entirely, so org-wide enumeration is the portable path.
+    gitea_orgs: list[str] = Field(default_factory=list)
+    # Gitea / Forgejo base URL. REQUIRED when `gitea_orgs` is non-empty
+    # — Gitea has no hosted-default-URL like GitHub or Bitbucket; every
+    # deployment is self-hosted at a different domain.
+    gitea_base_url: str = ""
     # Optional path to a YAML/JSON file containing a hand-curated list of
     # `RepoMetadata` records. Loaded as an additional `DiscoverySource`;
     # combine with the VCS-host fields or use standalone for air-gapped
@@ -851,6 +866,18 @@ class GitlabCredentials(_Strict):
 
 
 class GithubCredentials(_Strict):
+    token: str
+
+
+class GiteaCredentials(_Strict):
+    """Gitea / Forgejo personal-access token — `iac-cartographer/gitea` secret.
+
+    Generate at `<base_url>/-/user/settings/applications` →
+    Generate New Token. Scopes needed: `read:organization` +
+    `read:repository`. The same token works for the listing API
+    (discovery) and the clone path (fetcher).
+    """
+
     token: str
 
 

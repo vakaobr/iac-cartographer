@@ -1,0 +1,6 @@
+# Local-only files: real credentials, real config, the rendered output.
+# Everything `*.example.*` is committed; everything else (.env, config.yaml,
+# output/) is per-installation.
+.env
+config.yaml
+output/

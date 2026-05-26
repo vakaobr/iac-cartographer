@@ -1,0 +1,33 @@
+# iac-cartographer config for the docker-compose example.
+#
+# Designed to work out of the box once `.env` is populated:
+#   * Markdown publisher writes to /var/run/iac-cartographer/output
+#     (bind-mounted to ./output on the host).
+#   * Anthropic LLM backend keeps you off AWS — set
+#     IAC_CARTOGRAPHER_SECRET_ANTHROPIC in .env.
+#   * Env secrets backend reads everything else from .env.
+#
+# Edit `discovery` to point at your real GitLab groups / GitHub orgs /
+# Bitbucket workspaces. See ../../config.example.yaml for the full set
+# of fields with comments.
+
+discovery:
+  gitlab_group_ids: []
+  github_orgs: []
+  deny_repos: []
+
+secrets:
+  backend: env
+
+llm:
+  backend: anthropic
+  model_id: claude-sonnet-4-5-20250929
+
+publisher:
+  kind: markdown
+
+markdown:
+  output_dir: /var/run/iac-cartographer/output
+
+slack:
+  channel: "#alerts"

@@ -79,6 +79,13 @@ nav:
   - Operations:
       - Running on a schedule: operations/runtime.md
       - Cutting a release: operations/releases.md
+  - Examples:
+      - Overview: examples/index.md
+      - docker-compose: examples/docker-compose.md
+      - Kubernetes (Helm chart): examples/kubernetes-helm.md
+      - Kubernetes (raw manifest): examples/kubernetes-manifest.md
+      - GitHub Actions: examples/github-actions.md
+      - cron / systemd-timer: examples/cron.md
   - Reference:
       - Architecture: reference/architecture.md
       - Configuration schema: reference/configuration.md

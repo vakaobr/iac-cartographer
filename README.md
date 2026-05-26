@@ -381,13 +381,24 @@ Plus the Phase 3 distribution + onboarding wins:
 
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
+**Multi-cloud parity.** The current shape leans AWS-native (Bedrock for the LLM, Secrets Manager + SSM for state, ECS Fargate in the roadmap). The pluggable LLM has Anthropic-direct and the pluggable secrets has env + Vault, so non-AWS deployments already work — but native parity with the other hyperscalers is missing:
+
+* **GCP**: Vertex AI LLM backend (Claude is on Vertex), Google Secret Manager secrets backend, Cloud Run Jobs runtime example.
+* **Azure**: Azure OpenAI LLM backend, Azure Key Vault secrets backend, Container Apps Jobs runtime example.
+* **AWS Terraform module** for the ECS Fargate + EventBridge deployment path the project was extracted from.
+
+**New backends.**
+
 * **New publishers** — Notion, GitHub Wiki.
 * **New LLM backends** — OpenAI, Ollama (local).
 * **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
-* **Terraform module** — for the ECS Fargate + EventBridge deployment path the project was extracted from.
+
+**Polish + new modes.**
+
 * **Multi-arch container image** — `linux/arm64` alongside `linux/amd64` for Apple Silicon devs + arm64 k8s nodes.
 * **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.
 * **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.
+* **`docs/examples/` directory** — walkthroughs per deployment target (docker-compose, Terraform on AWS/GCP/Azure, Helm, plain cron). Each with a README + working code; links out to the runnable code under [`examples/`](examples/).
 * **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.
 
 ## Contributing

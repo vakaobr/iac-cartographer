@@ -62,8 +62,11 @@ routing — no surprise extra channels.
 
 ## Channels
 
-Four channels ship today. The follow-up roadmap covers email, SNS,
-PagerDuty / Opsgenie, Discord, and stdout/JSONL.
+Ten channels ship today, covering the major real-world destination
+shapes (chat platforms, email, AWS-native, pager escalation, generic
+webhooks, local I/O). Each lives in its own ~80-line file under
+`iac_cartographer/notifications/`; adding a new one is small surface
+area.
 
 | `kind` | Status | Notes |
 |---|---|---|
@@ -75,8 +78,8 @@ PagerDuty / Opsgenie, Discord, and stdout/JSONL.
 | `sns` | Shipped | AWS SNS topic publish — identity-based (no stored secret). SNS fans downstream to email / SMS / Lambda / SQS / HTTPS / mobile push. |
 | `pagerduty` | Shipped | PagerDuty Events API v2 — triggers incidents via per-Service routing key. Pair with `levels: [error]` for page-on-error. |
 | `opsgenie` | Shipped | Opsgenie Alerts API — `GenieKey` auth, US + EU region split. Level → priority mapping (info=P5, warn=P3, error=P1). |
-| `discord` | Coming next | Community / homelab. |
-| `stdout` | Coming next | JSON Lines on stdout — air-gapped + CI friendly. |
+| `discord` | Shipped | Discord Incoming Webhook — community / homelab. Unicode-emoji severity prefixes; optional per-message `username` / `avatar_url` overrides. |
+| `stdout` | Shipped | JSON Lines on stdout / stderr — air-gapped + CI friendly. Same payload schema as the generic webhook channel. No credentials, no HTTP. |
 
 Adding a new channel is small surface area: subclass
 `NotificationChannel` (one async `notify(level, message)` method),
@@ -336,6 +339,70 @@ Severity mapping (level → Opsgenie `priority` field):
 The `details.level` field on every alert carries our original level
 literal too, so Opsgenie filter rules can route by exact severity if
 priority isn't granular enough.
+
+## Discord
+
+Posts to a Discord channel via an **Incoming Webhook URL**. Designed
+for community / homelab deployments where Slack would be overkill —
+same chat-style notification surface, no bot user to invite, no
+workspace admin to ask. Discord webhooks are per-channel and free.
+
+```yaml
+notifications:
+  - kind: discord
+    username: "iac-cartographer (prod)"     # optional override
+    avatar_url: "https://example.com/avatar.png"  # optional override
+```
+
+Credentials live in the `iac-cartographer/discord` secret as
+`{"url": "https://discord.com/api/webhooks/..."}`. Create the webhook
+via Discord channel settings → **Integrations → Webhooks → New
+Webhook**; the URL embeds the webhook ID + token, so the URL IS the
+credential.
+
+Severity prefixes are **unicode emojis** (✅ ⚠️ ❌) — Discord
+renders Slack-style `:emoji:` shortcodes as literal text in most
+webhook content.
+
+`content` is capped at 2000 chars (Discord webhook hard limit); long
+messages truncate with a `…` marker so operators see the cut.
+`username` and `avatar_url` are optional per-message overrides that
+replace the defaults baked into the webhook by whoever created it —
+useful when one Discord server hosts notifications from multiple
+deployments (per-env or per-tenant identity).
+
+## Stdout / stderr (JSONL)
+
+Emits one structured JSON line per notification to a configured
+stream — no HTTP, no SDK, no credentials. Useful for:
+
+- **CI runs** with log capture but no chat / pager access (GitHub
+  Actions, GitLab CI, Jenkins).
+- **Air-gapped deployments** where outbound chat / pager / SMTP isn't
+  permitted but a log aggregator picks up stdout.
+- **Local dev / smoke tests** — see notifications without wiring up
+  a real destination.
+
+```yaml
+notifications:
+  - kind: stdout
+    stream: "stdout"                        # or "stderr"
+```
+
+The payload schema matches the generic webhook channel, so
+downstream log-parsing tooling can treat both interchangeably:
+
+```json
+{"schema": "iac-cartographer.notification.v1",
+ "level": "info",
+ "message": "iac-cartographer: run starting",
+ "ts": "2026-05-26T10:30:00Z",
+ "source": "iac-cartographer"}
+```
+
+Use `stream: "stderr"` when stdout is reserved for machine-parseable
+pipeline output (Markdown publisher dumps, renderer banner-SHA logs,
+etc.).
 
 ## Slack (concrete reference)
 

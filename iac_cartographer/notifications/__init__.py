@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING
 
 from iac_cartographer.constants import ConfigError
 from iac_cartographer.notifications.base import NotificationChannel, NotificationLevel
+from iac_cartographer.notifications.discord import DiscordChannel
 from iac_cartographer.notifications.dispatcher import NotificationDispatcher
 from iac_cartographer.notifications.email import EmailChannel
 from iac_cartographer.notifications.opsgenie import OpsgenieChannel
@@ -35,12 +36,14 @@ from iac_cartographer.notifications.pagerduty import PagerDutyChannel
 from iac_cartographer.notifications.slack import SlackChannel
 from iac_cartographer.notifications.slack_webhook import SlackWebhookChannel
 from iac_cartographer.notifications.sns import SnsChannel
+from iac_cartographer.notifications.stdout import StdoutChannel
 from iac_cartographer.notifications.teams import TeamsChannel
 from iac_cartographer.notifications.webhook import GenericWebhookChannel
 
 if TYPE_CHECKING:
     from iac_cartographer.models import (
         AppConfig,
+        DiscordCredentials,
         EmailCredentials,
         OpsgenieCredentials,
         PagerDutyCredentials,
@@ -71,8 +74,10 @@ class NotificationSecrets:
     email: EmailCredentials | None = None
     pagerduty: PagerDutyCredentials | None = None
     opsgenie: OpsgenieCredentials | None = None
-    # No `sns` field — SNS uses the AWS credential chain (identity-based),
-    # not a stored secret. See `SnsChannel` for the auth flow.
+    discord: DiscordCredentials | None = None
+    # No `sns` or `stdout` fields:
+    # - SNS uses the AWS credential chain (identity-based).
+    # - Stdout has no credential — it just writes to a process stream.
 
 
 def build_dispatcher(
@@ -199,10 +204,27 @@ def _build_channel(
             )
         return OpsgenieChannel(secrets.opsgenie, region=getattr(entry, "region", "us"))
 
+    if kind == "discord":
+        if secrets.discord is None:
+            raise ConfigError(
+                "notifications[].kind=discord but no DiscordCredentials were loaded "
+                "(check the iac-cartographer/discord secret)"
+            )
+        return DiscordChannel(
+            secrets.discord,
+            username=getattr(entry, "username", None),
+            avatar_url=getattr(entry, "avatar_url", None),
+        )
+
+    if kind == "stdout":
+        # No credentials, no I/O setup — just resolve the stream.
+        return StdoutChannel(stream=getattr(entry, "stream", "stdout"))
+
     raise ConfigError(f"unknown notifications[].kind: {kind!r}")
 
 
 __all__ = [
+    "DiscordChannel",
     "EmailChannel",
     "GenericWebhookChannel",
     "NotificationChannel",
@@ -214,6 +236,7 @@ __all__ = [
     "SlackChannel",
     "SlackWebhookChannel",
     "SnsChannel",
+    "StdoutChannel",
     "TeamsChannel",
     "build_dispatcher",
 ]

@@ -76,6 +76,7 @@ from iac_cartographer.models import (
     AzureOpenAICredentials,
     BitbucketCredentials,
     ConfluenceCredentials,
+    DiscordCredentials,
     EmailCredentials,
     GithubCredentials,
     GitlabCredentials,
@@ -217,6 +218,9 @@ class LoadedSecrets:
     # `notifications[].kind` is present.
     pagerduty: PagerDutyCredentials | None = None
     opsgenie: OpsgenieCredentials | None = None
+    # `discord` is only populated when any `notifications[].kind == "discord"`.
+    # The webhook URL doubles as the credential (token embedded in path).
+    discord: DiscordCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -246,6 +250,9 @@ EMAIL_SECRET_NAME = "iac-cartographer/email"  # noqa: S105
 # integration key (region-bound — see OpsgenieChannel).
 PAGERDUTY_SECRET_NAME = "iac-cartographer/pagerduty"  # noqa: S105
 OPSGENIE_SECRET_NAME = "iac-cartographer/opsgenie"  # noqa: S105
+# Discord webhook URL secret. No `stdout` secret — stdout has no
+# credential, it just writes to a process stream.
+DISCORD_SECRET_NAME = "iac-cartographer/discord"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -286,6 +293,7 @@ def _load_secrets(
     need_email: bool = False,
     need_pagerduty: bool = False,
     need_opsgenie: bool = False,
+    need_discord: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -447,6 +455,19 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"opsgenie secret payload failed schema validation: {exc}") from exc
 
+    discord_creds: DiscordCredentials | None = None
+    if need_discord:
+        try:
+            discord_raw = provider.get_secret(DISCORD_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=discord but the {DISCORD_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            discord_creds = DiscordCredentials.model_validate(discord_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"discord secret payload failed schema validation: {exc}") from exc
+
     try:
         return LoadedSecrets(
             confluence=ConfluenceCredentials.model_validate(confluence_raw),
@@ -463,6 +484,7 @@ def _load_secrets(
             email=email_creds,
             pagerduty=pagerduty_creds,
             opsgenie=opsgenie_creds,
+            discord=discord_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -831,6 +853,8 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # No `need_sns`: SNS uses the AWS credential chain, no secret to load.
         need_pagerduty="pagerduty" in notification_kinds,
         need_opsgenie="opsgenie" in notification_kinds,
+        need_discord="discord" in notification_kinds,
+        # No `need_stdout`: stdout has no credential to load.
     )
     notifier: NotificationDispatcher = build_dispatcher(
         config,
@@ -842,6 +866,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
             email=secrets.email,
             pagerduty=secrets.pagerduty,
             opsgenie=secrets.opsgenie,
+            discord=secrets.discord,
         ),
     )
     llm_backend = _build_llm_backend(config.llm, secrets)

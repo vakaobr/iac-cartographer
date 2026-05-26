@@ -1,0 +1,82 @@
+# Copy to `terraform.tfvars` and adjust before `terraform apply`.
+
+region = "eu-central-1"
+
+# Existing VPC subnets — must have egress to the internet.
+# Public subnets (with an IGW route) work if you also set
+# assign_public_ip = true; the more common shape is private subnets
+# with a NAT.
+subnet_ids = [
+  "subnet-0123456789abcdef0",
+  "subnet-0fedcba9876543210",
+]
+
+# Container image. Pin to a semver tag in production.
+image = "ghcr.io/vakaobr/iac-cartographer:v0.1.0"
+
+# Schedule — Monday 06:00 in the configured timezone.
+# EventBridge cron format: cron(MIN HOUR DOM MONTH DOW YEAR).
+# Use `?` in DOM when DOW is specified (and vice versa) — EventBridge
+# rejects `*` for both at once.
+schedule          = "cron(0 6 ? * MON *)"
+schedule_timezone = "Europe/Berlin"
+
+# Full iac-cartographer config.yaml body — embedded into TF state but
+# lands as a SecureString SSM parameter at runtime. Use a `file()`
+# call to keep your terraform.tfvars readable when the config grows:
+#   config_yaml = file("./config.yaml")
+config_yaml = <<-EOT
+  discovery:
+    gitlab_group_ids: [15]
+    github_orgs: ["acme-org"]
+
+  llm:
+    backend: "bedrock"
+    model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    bedrock_region: "eu-central-1"
+
+  publisher:
+    kind: "confluence"
+
+  secrets:
+    backend: "aws"
+    aws_region: "eu-central-1"
+
+  confluence:
+    site: "acme.atlassian.net"
+    space_key: "DOCS"
+    parent_page_id: "123456789"
+
+  slack:
+    channel: "#alerts"
+EOT
+
+# Resource tags merged onto every AWS resource the module creates.
+tags = {
+  team        = "platform"
+  environment = "prod"
+  cost-center = "engineering"
+}
+
+# Optional — extra Secrets Manager entries beyond the always-required
+# four (confluence, gitlab, github, slack). Add the ones your
+# config.yaml actually needs:
+extra_secrets = [
+  # "anthropic",        # llm.backend == "anthropic"
+  # "bitbucket",        # discovery.bitbucket_workspaces non-empty
+  # "azure_openai",     # llm.backend == "azure_openai" (without AAD)
+  # "openai",           # llm.backend == "openai"
+  # "webhook",          # any notifications[].kind == "webhook"
+  # "slack_webhook",    # any notifications[].kind == "slack_webhook"
+  # "teams",            # any notifications[].kind == "teams"
+  # "email",            # any notifications[].kind == "email"
+  # "pagerduty",        # any notifications[].kind == "pagerduty"
+  # "opsgenie",         # any notifications[].kind == "opsgenie"
+  # "discord",          # any notifications[].kind == "discord"
+]
+
+# Resource sizing — bump for fleets > 100 repos.
+task_cpu             = "512"
+task_memory          = "1024"
+task_timeout_seconds = 3600
+log_retention_days   = 30

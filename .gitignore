@@ -220,3 +220,16 @@ __marimo__/
 # iac-cartographer demo artefacts (examples/demo/run.sh)
 /demo-output/
 /demo-output-html/
+
+# Terraform — applies to every examples/runtime/<provider>/ module.
+# `.terraform/` is the provider plugin cache; `.terraform.lock.hcl` is
+# the dependency lock file (which we DO want to commit for the
+# examples — operators should be able to reproduce the same provider
+# versions). Local state + plan output stays out of VC.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+# Operator's filled-in tfvars (the .example template is committed).
+examples/runtime/*/terraform.tfvars

@@ -81,6 +81,7 @@ from iac_cartographer.models import (
     GithubCredentials,
     GitlabCredentials,
     LLMConfig,
+    NotionCredentials,
     OpenAICredentials,
     OpsgenieCredentials,
     PagerDutyCredentials,
@@ -103,6 +104,7 @@ from iac_cartographer.publishers import (
     LocalHtmlPublisher,
     LocalJsonPublisher,
     LocalMarkdownPublisher,
+    NotionPublisher,
     Publisher,
 )
 from iac_cartographer.renderer import OVERVIEW_TITLE, compute_sha
@@ -221,6 +223,8 @@ class LoadedSecrets:
     # `discord` is only populated when any `notifications[].kind == "discord"`.
     # The webhook URL doubles as the credential (token embedded in path).
     discord: DiscordCredentials | None = None
+    # `notion` is only populated when `publisher.kind == "notion"`.
+    notion: NotionCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -253,6 +257,11 @@ OPSGENIE_SECRET_NAME = "iac-cartographer/opsgenie"  # noqa: S105
 # Discord webhook URL secret. No `stdout` secret — stdout has no
 # credential, it just writes to a process stream.
 DISCORD_SECRET_NAME = "iac-cartographer/discord"  # noqa: S105
+# Notion publisher integration token. Only loaded when
+# `publisher.kind == "notion"`. The token is an operator-visible secret
+# (visible in the Notion integration UI) — store it via Secrets
+# Manager / env var / Vault like every other credential.
+NOTION_SECRET_NAME = "iac-cartographer/notion"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -294,6 +303,7 @@ def _load_secrets(
     need_pagerduty: bool = False,
     need_opsgenie: bool = False,
     need_discord: bool = False,
+    need_notion: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -468,6 +478,19 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"discord secret payload failed schema validation: {exc}") from exc
 
+    notion_creds: NotionCredentials | None = None
+    if need_notion:
+        try:
+            notion_raw = provider.get_secret(NOTION_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"publisher.kind=notion but the {NOTION_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            notion_creds = NotionCredentials.model_validate(notion_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"notion secret payload failed schema validation: {exc}") from exc
+
     try:
         return LoadedSecrets(
             confluence=ConfluenceCredentials.model_validate(confluence_raw),
@@ -485,6 +508,7 @@ def _load_secrets(
             pagerduty=pagerduty_creds,
             opsgenie=opsgenie_creds,
             discord=discord_creds,
+            notion=notion_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -614,6 +638,14 @@ def _build_publisher(
         return LocalHtmlPublisher(output_dir=config.html.output_dir)
     if kind == "json":
         return LocalJsonPublisher(output_dir=config.json_output.output_dir)
+    if kind == "notion":
+        if secrets.notion is None:
+            raise ConfigError(
+                "publisher.kind=notion but no NotionCredentials were loaded (check the iac-cartographer/notion secret)"
+            )
+        if not config.notion.parent_page_id:
+            raise ConfigError("publisher.kind=notion but notion.parent_page_id is empty")
+        return NotionPublisher(secrets.notion, parent_page_id=config.notion.parent_page_id)
     raise ConfigError(f"unknown publisher.kind: {kind!r}")
 
 
@@ -855,6 +887,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         need_opsgenie="opsgenie" in notification_kinds,
         need_discord="discord" in notification_kinds,
         # No `need_stdout`: stdout has no credential to load.
+        need_notion=config.publisher.kind == "notion",
     )
     notifier: NotificationDispatcher = build_dispatcher(
         config,

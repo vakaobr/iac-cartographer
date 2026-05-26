@@ -173,6 +173,12 @@ publisher:
   #                  Designed as a feed for Backstage catalog imports,
   #                  internal CMDBs, dashboards, and custom tooling that
   #                  consumes the inventory programmatically.
+  #   "notion"     → Notion sub-pages under `notion.parent_page_id`.
+  #                  Each repo = one sub-page, plus an "Overview" page
+  #                  with cross-links. SHA-callout idempotency.
+  #                  Credentials: `iac-cartographer/notion` secret as
+  #                  `{"integration_token": "secret_..."}`.
+  #                  Requires `pip install iac-cartographer[notion]`.
   kind: "confluence"
 
 secrets:
@@ -252,6 +258,15 @@ json:
   # Top-level `iac_cartographer.sha` field carries the banner SHA for
   # the idempotent-republish short-circuit.
   output_dir: "./iac-inventory-json"
+
+notion:
+  # Only used when `publisher.kind == "notion"`. UUID of the parent
+  # Notion page; the operator pre-creates it and shares it with the
+  # integration via the page's Connections menu. Each repo becomes a
+  # sub-page; an "Overview" sub-page carries the aggregate summary
+  # with cross-links. SHA-callout idempotency at the top of every
+  # page (🔖 iac-cartographer SHA: <hex>).
+  parent_page_id: "11111111-1111-1111-1111-111111111111"
 
 slack:
   # Legacy single-channel notification config. When `notifications:`

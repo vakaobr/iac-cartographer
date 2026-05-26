@@ -23,12 +23,14 @@ from iac_cartographer.publishers.confluence import ConfluencePublisher
 from iac_cartographer.publishers.html import LocalHtmlPublisher
 from iac_cartographer.publishers.json_publisher import LocalJsonPublisher
 from iac_cartographer.publishers.markdown import LocalMarkdownPublisher
+from iac_cartographer.publishers.notion import NotionPublisher
 
 __all__ = [
     "ConfluencePublisher",
     "LocalHtmlPublisher",
     "LocalJsonPublisher",
     "LocalMarkdownPublisher",
+    "NotionPublisher",
     "PublishResult",
     "Publisher",
 ]

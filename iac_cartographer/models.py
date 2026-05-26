@@ -646,7 +646,11 @@ class PublisherConfig(_Strict):
     #                  directory. Uses the `json:` config. Designed as a
     #                  feed for Backstage catalogs, internal CMDBs,
     #                  dashboards, and custom drift-detection tooling.
-    kind: Literal["confluence", "markdown", "html", "json"] = "confluence"
+    #   "notion"     → publish each repo as a Notion sub-page. Uses
+    #                  the `notion:` config + the
+    #                  `iac-cartographer/notion` secret. Requires
+    #                  `pip install iac-cartographer[notion]`.
+    kind: Literal["confluence", "markdown", "html", "json", "notion"] = "confluence"
 
 
 class MarkdownConfig(_Strict):
@@ -703,6 +707,29 @@ class JsonConfig(_Strict):
     """
 
     output_dir: str = "./iac-inventory-json"
+
+
+class NotionConfig(_Strict):
+    """`publisher.kind == "notion"` settings.
+
+    Layout: each repo becomes a sub-page of the configured parent
+    Notion page; an "Overview" sub-page carries the aggregate summary.
+    The banner-SHA is embedded in a 🔖 callout block at the top of
+    every page (operator-visible, idempotency anchor).
+
+    Operator pre-creates a Notion page, shares it with an internal
+    integration via the page's Connections menu, and sets the
+    integration token in the `iac-cartographer/notion` secret as
+    `{"integration_token": "secret_..."}`.
+
+    Requires `pip install 'iac-cartographer[notion]'` — the
+    `notion-client` SDK is lazy-imported on first publish.
+    """
+
+    # UUID of the parent Notion page (the one the operator pre-creates
+    # + shares with the integration). Strip dashes or keep them — both
+    # forms are accepted by the Notion API.
+    parent_page_id: str = ""
 
 
 class SecretsConfig(_Strict):
@@ -775,6 +802,7 @@ class AppConfig(_Strict):
     # YAML key is `json:` — Python attribute is `json_output` to avoid
     # shadowing Pydantic v2's deprecated `BaseModel.json()` shim.
     json_output: JsonConfig = Field(default_factory=JsonConfig, alias="json")
+    notion: NotionConfig = Field(default_factory=NotionConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)
     # Multi-channel notifications. When non-empty, the dispatcher fans
     # every pipeline event out to each listed channel concurrently and
@@ -943,3 +971,16 @@ class DiscordCredentials(_Strict):
     """
 
     url: str
+
+
+class NotionCredentials(_Strict):
+    """Notion integration token — `iac-cartographer/notion` secret.
+
+    Create an internal integration at notion.so/profile/integrations
+    → "+ New integration" → internal type → copy the secret. The
+    integration's permissions are governed by which pages the
+    operator shares with it (Connections menu on each page) — start
+    by sharing the configured `notion.parent_page_id`.
+    """
+
+    integration_token: str

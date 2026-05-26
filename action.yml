@@ -1,0 +1,98 @@
+name: 'iac-cartographer'
+description: >-
+  Fleet-level documentation for your Terraform / IaC estate. Discovers repos
+  across GitLab / GitHub / Bitbucket / Gitea / Forgejo / curated files,
+  extracts structural facts via terraform-docs, narrates each repo with a
+  pluggable LLM (Bedrock / Anthropic / Vertex / Azure OpenAI / OpenAI /
+  Ollama), and publishes to Confluence, Notion, GitHub Wiki, Markdown, HTML,
+  or JSON.
+author: 'Anderson Leite'
+branding:
+  # Marketplace listing — keep both fields set. `icon` must be one of
+  # https://feathericons.com/ ; `color` one of the GitHub-approved palette.
+  icon: 'map'
+  color: 'blue'
+
+inputs:
+  config:
+    description: >-
+      Path to the iac-cartographer config.yaml. Relative to the workflow's
+      working directory (usually the repo root after actions/checkout).
+      Required when mode=once.
+    required: false
+  mode:
+    description: >-
+      Which subcommand to run. `once` performs a full discovery + extract +
+      narrate + publish pipeline. `lint` runs the IaC-hygiene linter
+      against a single local repo (no LLM, no publisher).
+    required: false
+    default: 'once'
+  dry-run:
+    description: >-
+      Skip publishing (Confluence PUTs, Slack sends, Notion mutations, …)
+      and write only locally where applicable. Pairs well with
+      `workflow_dispatch` runs for sanity-checking config changes.
+    required: false
+    default: 'false'
+  verbose:
+    description: 'DEBUG-level logging. Verbose, but helpful for first-run debugging.'
+    required: false
+    default: 'false'
+  repos:
+    description: >-
+      Optional comma-separated list of `org/repo` patterns to restrict the
+      run to. When set, discovery still walks every configured source but
+      the run only processes matching repos. Useful for targeted re-runs.
+    required: false
+  model:
+    description: >-
+      Override the LLM model from config.yaml. Backend-specific (Bedrock:
+      inference-profile ID; Anthropic / OpenAI / Ollama: model name). Leave
+      empty to use the config value.
+    required: false
+  diff:
+    description: >-
+      Path to a prior JSON-publisher snapshot to diff this run against.
+      When set, the run prints a between-run change summary (3 new repos,
+      1 archived, provider bumps, …) to stdout in addition to publishing.
+    required: false
+  lint-path:
+    description: >-
+      Required when mode=lint. Directory to lint against IaC-hygiene rules
+      (undeclared providers, unpinned providers / modules).
+    required: false
+  lint-format:
+    description: >-
+      Output format when mode=lint. `github` emits Actions annotations
+      (problem matchers); `json` is machine-readable for downstream
+      tooling; `text` is the default human-readable form.
+    required: false
+    default: 'github'
+  fail-on:
+    description: >-
+      Severity threshold for the lint exit code. `error` exits 2 only on
+      hard errors (undeclared providers); `warn` also fails on unpinned
+      versions.
+    required: false
+    default: 'error'
+  extra-args:
+    description: >-
+      Escape hatch — additional CLI flags appended verbatim. Use this only
+      for flags not exposed as a typed input above; the action will
+      eventually grow proper inputs for anything that lands in here.
+    required: false
+
+runs:
+  using: 'docker'
+  # `Dockerfile` rebuilds the image on every action invocation from the
+  # checked-out source at the action's pinned ref. Slower per-run than
+  # `docker://ghcr.io/...:vX.Y.Z`, but it has two big advantages:
+  #   1. Always in sync with the action.yml + entrypoint script at the
+  #      same ref — no risk of a v0.1.2 user accidentally pulling a
+  #      v0.1.1 image with a stale entrypoint.
+  #   2. Works from day one of a new repo without waiting for GHCR
+  #      publish on the very first tag.
+  # GitHub caches built Docker actions per repo by content hash, so the
+  # build cost is one-time per release in each adopter's repo.
+  image: 'Dockerfile'
+  entrypoint: '/usr/local/bin/action-entrypoint.sh'

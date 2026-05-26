@@ -1,0 +1,85 @@
+# Refresh the IaC inventory on a schedule using the published iac-cartographer
+# marketplace action. This is the lighter-weight cousin of `github-actions.yml`
+# — uses `uses: vakaobr/iac-cartographer@vX.Y.Z` instead of hand-rolling
+# `docker run`. Same trigger, same secrets shape, less YAML.
+#
+# Setup:
+#   1. Drop this file in `.github/workflows/iac-cartographer.yml` of any repo.
+#   2. Pin the action ref to a specific release (e.g. `@v0.1.2`) for
+#      reproducibility — `@v0.1` and `@main` exist but pin for prod.
+#   3. Configure the secrets your active backends need (see env block below).
+#   4. Commit a `iac-cartographer.config.yaml` alongside this workflow.
+#
+# The action defaults to the `env` secrets backend, which reads credentials
+# from env vars prefixed `IAC_CARTOGRAPHER_*` — matching what most adopters
+# wire up in GitHub Actions secrets. For AWS Secrets Manager / SSM, set
+# `secrets.backend: aws` in your config and grant the workflow an OIDC role
+# (see actions/configure-aws-credentials).
+
+name: iac-cartographer (marketplace action)
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC. Adjust to your cadence — most adopters land
+    # between daily and weekly.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry-run (no publisher writes, no notifications)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-inventory:
+    name: Refresh IaC inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the config
+        uses: actions/checkout@v6
+
+      - name: Run iac-cartographer
+        uses: vakaobr/iac-cartographer@v0.1.2
+        with:
+          config: ./iac-cartographer.config.yaml
+          # Toggle from the workflow_dispatch UI — leave false for scheduled runs.
+          dry-run: ${{ inputs.dry-run || 'false' }}
+          # Uncomment to override the LLM model for a one-off cheap-run check:
+          # model: 'eu.anthropic.claude-haiku-4-5-20251001-v1:0'
+          # Uncomment to scope the run to a subset (debugging):
+          # repos: 'acme/main-cluster,acme/auth-service'
+        env:
+          # Discovery — set only the credentials your config.yaml uses.
+          IAC_CARTOGRAPHER_GITLAB_TOKEN:     ${{ secrets.IAC_GITLAB_TOKEN }}
+          IAC_CARTOGRAPHER_GITHUB_TOKEN:     ${{ secrets.IAC_GITHUB_TOKEN }}
+          IAC_CARTOGRAPHER_BITBUCKET_TOKEN:  ${{ secrets.IAC_BITBUCKET_TOKEN }}
+          IAC_CARTOGRAPHER_GITEA_TOKEN:      ${{ secrets.IAC_GITEA_TOKEN }}
+
+          # Publisher — set only what your publisher.kind needs.
+          IAC_CARTOGRAPHER_CONFLUENCE_EMAIL:     ${{ secrets.CONFLUENCE_EMAIL }}
+          IAC_CARTOGRAPHER_CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          IAC_CARTOGRAPHER_NOTION_TOKEN:         ${{ secrets.NOTION_TOKEN }}
+
+          # LLM — set the credential matching llm.backend in your config.
+          IAC_CARTOGRAPHER_ANTHROPIC_API_KEY:    ${{ secrets.ANTHROPIC_API_KEY }}
+          IAC_CARTOGRAPHER_OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+
+          # Notifications — set per kind in your notifications: list.
+          IAC_CARTOGRAPHER_SLACK_BOT_TOKEN:      ${{ secrets.SLACK_BOT_TOKEN }}
+          IAC_CARTOGRAPHER_TEAMS_URL:            ${{ secrets.TEAMS_WEBHOOK_URL }}
+
+      # Optional: snapshot the JSON publisher's output for use with `--diff`
+      # on the next run. Pairs with `publisher.kind: json` in config.yaml.
+      - name: Upload JSON snapshot for next run's --diff
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-inventory-json
+          path: ./iac-inventory-json/
+          retention-days: 14
+          if-no-files-found: ignore

@@ -62,12 +62,21 @@ RUN pip install --no-cache-dir .
 COPY iac_cartographer/ iac_cartographer/
 RUN pip install --no-cache-dir -e .
 
+# Bundle the GitHub Actions wrapper entrypoint so the same image can serve
+# both as a plain scheduler container AND as the docker-based marketplace
+# action (see action.yml). The script reads $INPUT_* env vars, assembles
+# CLI args, and execs iac-cartographer. Non-action invocations ignore it
+# entirely — the ENTRYPOINT below remains the default.
+COPY scripts/action-entrypoint.sh /usr/local/bin/action-entrypoint.sh
+RUN chmod +x /usr/local/bin/action-entrypoint.sh
+
 # Non-root user — not strictly required by every runtime, but good hygiene.
 RUN useradd --create-home --shell /bin/bash --uid 10001 cartographer \
  && chown -R cartographer:cartographer /app
 USER cartographer
 
 # Default command — your scheduler can override with `--repos a,b,c` or
-# `--model <inference-profile>` via containerOverrides / args.
+# `--model <inference-profile>` via containerOverrides / args. The
+# action.yml wrapper overrides ENTRYPOINT to /usr/local/bin/action-entrypoint.sh.
 ENTRYPOINT ["iac-cartographer"]
 CMD ["--once"]

@@ -100,6 +100,10 @@ docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
     "pymdown-extensions>=10.0",
+    # `mike` publishes versioned docs to the `gh-pages` branch. The
+    # mkdocs-material theme picks it up via `extra.version.provider: mike`
+    # and renders a version selector dropdown in the header.
+    "mike>=2.1",
 ]
 
 [project.scripts]

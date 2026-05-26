@@ -451,7 +451,7 @@ Plus the Phase 3 distribution + onboarding wins:
 * **Helm chart** — [`charts/iac-cartographer/`](charts/iac-cartographer/) for k8s CronJob deployments with workload-identity bindings.
 * **`iac-cartographer --init` scaffolder** — interactive starter `config.yaml` + `.env` for any backend combination.
 * **Zero-credentials demo** — `./examples/demo/run.sh` clones three public Terraform repos and produces real Markdown output without any tokens.
-* **Docs site** — mkdocs-material at [iac-cartographer.andersonleite.me](https://iac-cartographer.andersonleite.me/).
+* **Docs site (versioned)** — mkdocs-material at [iac-cartographer.andersonleite.me](https://iac-cartographer.andersonleite.me/). Versioned via [`mike`](https://github.com/jimporter/mike); the header dropdown lets readers switch between `latest`, `dev`, and any tagged release. See [`docs/operations/docs-deploy.md`](docs/operations/docs-deploy.md).
 * **`--diff <prev-output>` mode** — between-run structural diff against a prior JSON-publisher snapshot. Adds / removes / provider bumps / module bumps / resource-count deltas. Prints Markdown to stdout and rides on the end-of-run Slack post as a one-liner (`3 new, 1 archived, 2 changed; 37 unchanged`). See [`docs/operations/diff.md`](docs/operations/diff.md).
 * **`iac-cartographer --lint <path>` subcommand** — IaC hygiene linter (undeclared providers, unpinned providers / modules) with text / JSON / GitHub-Actions-annotation output. Ships a `.pre-commit-hooks.yaml` for pre-commit users. CI-gating-friendly exit codes. See [`docs/operations/lint.md`](docs/operations/lint.md).
 
@@ -467,7 +467,6 @@ Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome o
   * Notification dispatcher under partial-failure scenarios (one channel raises, others succeed; per-level filter elision).
   * AWS / GCP / Azure runtime example `terraform validate` in CI.
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
-* **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.
 
 ## Contributing
 

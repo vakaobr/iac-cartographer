@@ -7,8 +7,17 @@ name: Release Please
 # `release-ghcr.yml` (tag-driven). One source of truth: commit message
 # conventions on `main`.
 #
+# IMPORTANT: this workflow uses a fine-grained PAT (`RELEASE_PLEASE_TOKEN`)
+# instead of the default `GITHUB_TOKEN`. GitHub's anti-loop protection
+# means tag pushes by `GITHUB_TOKEN` do NOT trigger downstream workflows —
+# so the v0.1.4 tag release-please created didn't fire release-pypi.yml /
+# release-ghcr.yml until we manually dispatched them. Using a PAT
+# bypasses that protection because the tag push runs as a real user.
+#
 # Maintainer notes:
-#   * No secrets required — uses the default `GITHUB_TOKEN`.
+#   * Secret required: `RELEASE_PLEASE_TOKEN` — fine-grained PAT scoped
+#     to this repo with `contents: read+write`, `pull-requests: read+write`,
+#     `actions: read+write`, `workflows: read+write`. Rotate annually.
 #   * Authoring rules: use `feat:`, `fix:`, `feat!:`/`fix!:` (breaking),
 #     or scoped equivalents (`feat(publishers):`, `fix(notifications):`).
 #     Non-user-facing types (`ci:`, `chore:`, `build:`, `test:`, `style:`)
@@ -39,5 +48,10 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
+          # Fine-grained PAT (NOT the default GITHUB_TOKEN) — see the
+          # workflow header comment for why. Without this, the v*-tag
+          # push at the end of the release-please run won't trigger
+          # release-pypi.yml or release-ghcr.yml.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

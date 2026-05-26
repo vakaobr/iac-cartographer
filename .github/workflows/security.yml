@@ -74,6 +74,10 @@ jobs:
 
       - name: Run pip-audit
         # `--strict` makes warnings (yanked versions, etc.) hard-fail.
+        # `--skip-editable` excludes the locally-installed editable
+        # `iac-cartographer` itself — auditing it requires the package
+        # to be on PyPI, which it isn't until first publish, and the
+        # project doesn't have transitive vulns of its own anyway.
         # `--ignore-vuln` waivers go in `.pip-audit.toml` — keep them
         # rare and timestamped.
-        run: pip-audit --strict
+        run: pip-audit --strict --skip-editable

@@ -90,6 +90,7 @@ nav:
   - Reference:
       - Architecture: reference/architecture.md
       - Configuration schema: reference/configuration.md
+      - Security: reference/security.md
   - Contributing: contributing.md
 
 extra:

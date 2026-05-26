@@ -1,0 +1,79 @@
+name: Security
+
+# Two checks that need their own cadence + their own failure semantics,
+# kept out of `ci.yml` so a transient pip-audit / gitleaks blip doesn't
+# turn the main CI badge red.
+#
+#   * gitleaks  — secret scan over the working tree + full history.
+#                  False positives are suppressed in `.gitleaksignore`.
+#   * pip-audit — Python dependency CVE scan against the full extras
+#                  resolution. New CVEs fail the build until they're
+#                  fixed (Dependabot bump) or explicitly waived.
+#
+# Both run on every PR, every push to main, and weekly on Mondays at
+# 09:00 UTC so we surface upstream advisories even without commits.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  gitleaks:
+    name: gitleaks (secret scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Fetch full history so gitleaks scans every commit, not just
+          # the PR diff. ~2,000 commits at v0.1.0 — measured cost < 10s.
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          # The action prompts the user to set GITLEAKS_LICENSE for orgs;
+          # personal accounts don't need it. Leave the var unset to keep
+          # the OSS path active.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pip-audit:
+    name: pip-audit (Python CVE scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install full dependency surface (incl. all optional extras)
+        # Install every extras group so pip-audit sees the full transitive
+        # closure a user could realistically pull. A CVE in `[gcp]` matters
+        # even if the maintainer's day-to-day doesn't touch Vertex AI.
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev,gcp,azure,openai,notion,email]"
+          pip install pip-audit
+
+      - name: Run pip-audit
+        # `--strict` makes warnings (yanked versions, etc.) hard-fail.
+        # `--ignore-vuln` waivers go in `.pip-audit.toml` — keep them
+        # rare and timestamped.
+        run: pip-audit --strict

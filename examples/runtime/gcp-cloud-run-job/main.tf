@@ -115,15 +115,15 @@ resource "google_cloud_run_v2_job" "this" {
   name     = var.name
   labels   = local.base_labels
 
-  # `Forbid` overlap — Cloud Run Jobs default to allowing concurrent
-  # executions, but iac-cartographer is idempotent-per-content and
-  # concurrent runs just waste LLM spend. The Scheduler is set to
-  # `RETRY_AFTER_SOME_TIME` below so a still-running execution won't
-  # be re-triggered.
-  start_execution_token = ""
+  # Concurrent-execution protection lives at the Scheduler level —
+  # `google_cloud_run_v2_job` doesn't expose a job-level "forbid
+  # overlap" knob. The Cloud Scheduler `retry_config` below + a long
+  # retry interval keep a still-running execution from being
+  # re-triggered (iac-cartographer is idempotent per content; we
+  # avoid the LLM spend, not a correctness issue).
 
   template {
-    task_count = 1
+    task_count  = 1
     parallelism = 1
 
     template {

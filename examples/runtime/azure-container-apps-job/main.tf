@@ -54,7 +54,7 @@ resource "azurerm_key_vault" "this" {
   resource_group_name        = var.resource_group_name
   tenant_id                  = var.tenant_id
   sku_name                   = "standard"
-  enable_rbac_authorization  = true
+  rbac_authorization_enabled = true
   purge_protection_enabled   = false
   soft_delete_retention_days = 7
   tags                       = local.base_tags
@@ -93,9 +93,12 @@ resource "azurerm_key_vault_secret" "credentials" {
 
   # Ignore changes to the value — operator manages versions out-of-band
   # via `az keyvault secret set`. Otherwise every Terraform apply would
-  # try to reset the placeholder.
+  # try to reset the placeholder. `version` is decided by the provider
+  # (Key Vault auto-assigns a new GUID on every write), so ignoring it
+  # is implicit — listing it triggers a "Redundant ignore_changes"
+  # warning on `terraform validate`.
   lifecycle {
-    ignore_changes = [value, version]
+    ignore_changes = [value]
   }
 
   depends_on = [azurerm_role_assignment.runner_secrets_user]

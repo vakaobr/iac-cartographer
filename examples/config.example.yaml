@@ -271,16 +271,37 @@ slack:
 # this list empty (default) to keep the single-Slack back-compat path.
 #
 # Channel kinds shipped today:
-#   "slack"  → Slack bot-token `chat.postMessage`. Same credentials as
-#              the legacy block (`iac-cartographer/slack` secret).
-# Coming in follow-up PRs: "teams", "rocketchat", "mattermost",
-# "email", "sns", "webhook", "pagerduty", "opsgenie", "discord",
-# "stdout". See docs/backends/notifications.md for the roadmap.
+#   "slack"         → Slack bot-token `chat.postMessage`. Same credentials
+#                     as the legacy block (`iac-cartographer/slack` secret).
+#   "webhook"       → Generic JSON POST to any URL with our own stable
+#                     schema (`{schema, level, message, ts, source}`).
+#                     Catch-all destination — internal observability
+#                     platforms, custom Lambda forwarders, etc.
+#                     Credentials: `iac-cartographer/webhook` secret as
+#                     `{"url": "https://..."}`.
+#   "slack_webhook" → Slack-compatible incoming webhook. Drop-in for
+#                     native Slack incoming webhooks, RocketChat, and
+#                     Mattermost (all accept Slack-shaped `{"text"}`
+#                     payloads). Credentials: `iac-cartographer/slack_webhook`
+#                     secret as `{"url": "https://..."}`.
+#   "teams"         → Microsoft Teams workflow webhook + Adaptive Card.
+#                     Severity → colour mapping (good / warning / attention).
+#                     Works with Workflow webhooks (Power Automate) and
+#                     legacy Office 365 Connector webhooks.
+#                     Credentials: `iac-cartographer/teams` secret as
+#                     `{"url": "https://..."}`.
+# Coming in follow-up PRs: "email" (SMTP), "sns" (AWS), "pagerduty" /
+# "opsgenie" (errors-only escalation), "discord", "stdout" (JSONL).
+# See docs/backends/notifications.md for the full roadmap.
 notifications: []
-  # Example — two Slack channels, one for chat / one for pager-style:
+  # Example — chat + error-only Teams escalation + custom webhook:
   # - kind: slack
   #   channel: "#infra-info"
   #   # levels defaults to all three when omitted
-  # - kind: slack
-  #   channel: "#infra-oncall"
+  # - kind: teams
   #   levels: [error]
+  # - kind: webhook
+  #   extra_headers:
+  #     Authorization: "Bearer my-internal-token"
+  # - kind: slack_webhook       # Slack incoming / RocketChat / Mattermost
+  #   levels: [warn, error]

@@ -26,6 +26,7 @@ from iac_cartographer.notifications import (
     NotificationChannel,
     NotificationDispatcher,
     NotificationLevel,
+    NotificationSecrets,
     SlackChannel,
     build_dispatcher,
 )
@@ -147,7 +148,7 @@ def _slack_creds() -> SlackCredentials:
 def test_build_dispatcher_legacy_path_single_slack() -> None:
     """Empty `notifications:` + Slack creds → one SlackChannel at all levels."""
     config = AppConfig()  # notifications=[] by default
-    d = build_dispatcher(config, slack_creds=_slack_creds())
+    d = build_dispatcher(config, secrets=NotificationSecrets(slack=_slack_creds()))
 
     assert len(d._channels) == 1
     channel, levels = d._channels[0]
@@ -158,7 +159,7 @@ def test_build_dispatcher_legacy_path_single_slack() -> None:
 def test_build_dispatcher_legacy_path_uses_top_level_slack_channel() -> None:
     """Legacy shape pulls `slack.channel` from the top-level block."""
     config = AppConfig.model_validate({"slack": {"channel": "#infra-alerts"}})
-    d = build_dispatcher(config, slack_creds=_slack_creds())
+    d = build_dispatcher(config, secrets=NotificationSecrets(slack=_slack_creds()))
 
     channel, _ = d._channels[0]
     assert isinstance(channel, SlackChannel)
@@ -175,7 +176,7 @@ def test_build_dispatcher_modern_path_with_per_entry_levels() -> None:
             ]
         }
     )
-    d = build_dispatcher(config, slack_creds=_slack_creds())
+    d = build_dispatcher(config, secrets=NotificationSecrets(slack=_slack_creds()))
 
     assert len(d._channels) == 2
     chat_ch, chat_levels = d._channels[0]
@@ -199,7 +200,7 @@ def test_build_dispatcher_modern_path_ignores_top_level_slack_block() -> None:
             "notifications": [{"kind": "slack", "channel": "#explicit"}],
         }
     )
-    d = build_dispatcher(config, slack_creds=_slack_creds())
+    d = build_dispatcher(config, secrets=NotificationSecrets(slack=_slack_creds()))
 
     assert len(d._channels) == 1  # the legacy block is dropped
     channel, _ = d._channels[0]
@@ -211,7 +212,7 @@ def test_build_dispatcher_empty_config_and_no_slack_creds_is_silent() -> None:
     """`--dry-run` / CI / air-gapped: no slack secret loaded, no
     `notifications:` configured → empty dispatcher, no error."""
     config = AppConfig()
-    d = build_dispatcher(config, slack_creds=None)
+    d = build_dispatcher(config, secrets=NotificationSecrets())
     assert d._channels == []
 
 
@@ -221,7 +222,118 @@ def test_build_dispatcher_rejects_slack_kind_without_creds() -> None:
     config = AppConfig.model_validate({"notifications": [{"kind": "slack"}]})
 
     with pytest.raises(ConfigError, match=r"notifications.*slack"):
-        build_dispatcher(config, slack_creds=None)
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_build_dispatcher_wires_webhook_channel() -> None:
+    """kind: webhook → GenericWebhookChannel with the loaded URL + headers."""
+    from iac_cartographer.models import WebhookCredentials
+    from iac_cartographer.notifications import GenericWebhookChannel
+
+    config = AppConfig.model_validate(
+        {
+            "notifications": [
+                {"kind": "webhook", "extra_headers": {"Authorization": "Bearer t"}},
+            ]
+        }
+    )
+    secrets = NotificationSecrets(webhook=WebhookCredentials(url="https://hook.example.com"))
+    d = build_dispatcher(config, secrets=secrets)
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, GenericWebhookChannel)
+    assert channel._url == "https://hook.example.com"
+    assert channel._extra_headers == {"Authorization": "Bearer t"}
+
+
+def test_build_dispatcher_wires_slack_webhook_channel() -> None:
+    """kind: slack_webhook → SlackWebhookChannel with the loaded URL."""
+    from iac_cartographer.models import SlackWebhookCredentials
+    from iac_cartographer.notifications import SlackWebhookChannel
+
+    config = AppConfig.model_validate({"notifications": [{"kind": "slack_webhook"}]})
+    secrets = NotificationSecrets(slack_webhook=SlackWebhookCredentials(url="https://hooks.slack.com/services/x/y/z"))
+    d = build_dispatcher(config, secrets=secrets)
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, SlackWebhookChannel)
+    assert channel._url == "https://hooks.slack.com/services/x/y/z"
+
+
+def test_build_dispatcher_wires_teams_channel() -> None:
+    """kind: teams → TeamsChannel with the loaded URL."""
+    from iac_cartographer.models import TeamsCredentials
+    from iac_cartographer.notifications import TeamsChannel
+
+    config = AppConfig.model_validate({"notifications": [{"kind": "teams"}]})
+    secrets = NotificationSecrets(teams=TeamsCredentials(url="https://teams.example.com"))
+    d = build_dispatcher(config, secrets=secrets)
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, TeamsChannel)
+    assert channel._url == "https://teams.example.com"
+
+
+def test_build_dispatcher_rejects_webhook_kind_without_creds() -> None:
+    config = AppConfig.model_validate({"notifications": [{"kind": "webhook"}]})
+    with pytest.raises(ConfigError, match=r"notifications.*webhook"):
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_build_dispatcher_rejects_slack_webhook_kind_without_creds() -> None:
+    config = AppConfig.model_validate({"notifications": [{"kind": "slack_webhook"}]})
+    with pytest.raises(ConfigError, match=r"notifications.*slack_webhook"):
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_build_dispatcher_rejects_teams_kind_without_creds() -> None:
+    config = AppConfig.model_validate({"notifications": [{"kind": "teams"}]})
+    with pytest.raises(ConfigError, match=r"notifications.*teams"):
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_build_dispatcher_mixed_kinds() -> None:
+    """All four kinds in one list — each instantiates its own channel
+    type and the dispatcher fans events across them in order."""
+    from iac_cartographer.models import (
+        SlackWebhookCredentials,
+        TeamsCredentials,
+        WebhookCredentials,
+    )
+    from iac_cartographer.notifications import (
+        GenericWebhookChannel,
+        SlackChannel,
+        SlackWebhookChannel,
+        TeamsChannel,
+    )
+
+    config = AppConfig.model_validate(
+        {
+            "notifications": [
+                {"kind": "slack", "channel": "#chat"},
+                {"kind": "webhook"},
+                {"kind": "slack_webhook"},
+                {"kind": "teams", "levels": ["error"]},
+            ]
+        }
+    )
+    secrets = NotificationSecrets(
+        slack=_slack_creds(),
+        webhook=WebhookCredentials(url="https://hook.example.com"),
+        slack_webhook=SlackWebhookCredentials(url="https://hooks.slack.com/services/x/y/z"),
+        teams=TeamsCredentials(url="https://teams.example.com"),
+    )
+    d = build_dispatcher(config, secrets=secrets)
+
+    assert [type(c) for c, _ in d._channels] == [
+        SlackChannel,
+        GenericWebhookChannel,
+        SlackWebhookChannel,
+        TeamsChannel,
+    ]
+    # Last entry's level filter is applied per-channel, not globally.
+    _, teams_levels = d._channels[3]
+    assert teams_levels == {NotificationLevel.ERROR}
 
 
 # ── Pydantic model behaviour ─────────────────────────────────────────

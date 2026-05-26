@@ -52,6 +52,34 @@ def test_authed_clone_url_github_uses_x_access_token() -> None:
     assert out == "https://x-access-token:GH_TOKEN@github.com/acme-org/x.git"
 
 
+def test_authed_clone_url_gitea_uses_oauth2_userinfo() -> None:
+    """Gitea + Forgejo accept the same `oauth2:<token>@host` shape as
+    GitLab — verified against real Gitea deployments."""
+    out = _authed_clone_url(
+        "https://gitea.example.com/acme/x.git",
+        host="gitea",
+        gitlab_token="GL_TOKEN",
+        github_token="GH_TOKEN",
+        gitea_token="GITEA_TOKEN",
+    )
+    assert out == "https://oauth2:GITEA_TOKEN@gitea.example.com/acme/x.git"
+
+
+def test_authed_clone_url_gitea_without_token_raises() -> None:
+    """Discovery passed a `gitea` host but the operator never set up the
+    secret — fail loud with a CloneError that names the secret to add."""
+    from iac_cartographer.constants import CloneError
+
+    with pytest.raises(CloneError, match=r"iac-cartographer/gitea"):
+        _authed_clone_url(
+            "https://gitea.example.com/acme/x.git",
+            host="gitea",
+            gitlab_token="GL",
+            github_token="GH",
+            gitea_token=None,
+        )
+
+
 def test_authed_clone_url_preserves_port() -> None:
     out = _authed_clone_url(
         "https://gitlab.example.com:8443/acme/x.git",

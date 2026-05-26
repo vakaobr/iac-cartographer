@@ -26,8 +26,8 @@ short-circuit), so it's safe to run as often as you like.
 
 ```
 ┌────────────────────────────────────────────┐
-│ Discovery                                  │   GitLab · GitHub
-│ (concurrent, deduped, deny-list filtered)  │   Bitbucket · curated file
+│ Discovery                                  │   GitLab · GitHub · Bitbucket
+│ (concurrent, deduped, deny-list filtered)  │   Gitea/Forgejo · curated file
 └────────────────────┬───────────────────────┘
                      ▼
               clone shallow ──► terraform-docs per .tf dir
@@ -176,6 +176,7 @@ Default backend is AWS Secrets Manager — for env-var or HashiCorp Vault deploy
 | `iac-cartographer/azure_openai` | only when `llm.backend == "azure_openai"` and `azure_openai_use_aad` is false | `{"api_key": "..."}` |
 | `iac-cartographer/openai` | only when `llm.backend == "openai"` | `{"api_key": "sk-..."}` |
 | `iac-cartographer/bitbucket` | only when `discovery.bitbucket_workspaces` is non-empty | `{"access_token": "bbat-..."}` *(or `{"username": "...", "app_password": "..."}` for the legacy form)* |
+| `iac-cartographer/gitea` | only when `discovery.gitea_orgs` is non-empty | `{"token": "..."}` *(Gitea / Forgejo personal-access token — powers both discovery + clone)* |
 | `iac-cartographer/webhook` | only when any `notifications[].kind == "webhook"` | `{"url": "https://..."}` |
 | `iac-cartographer/slack_webhook` | only when any `notifications[].kind == "slack_webhook"` | `{"url": "https://..."}` *(Slack-incoming / RocketChat / Mattermost URL)* |
 | `iac-cartographer/teams` | only when any `notifications[].kind == "teams"` | `{"url": "https://..."}` *(Teams workflow / Office 365 Connector URL)* |
@@ -415,7 +416,7 @@ The five pluggable seams:
 
 * **Publishers** — Confluence, Notion, local Markdown, standalone HTML, machine-readable JSON.
 * **LLM** — AWS Bedrock, Anthropic API direct, Vertex AI (Claude on GCP), Azure OpenAI (GPT on Azure), OpenAI direct (GPT via api.openai.com / OpenAI-compatible gateways), Ollama (local LLM).
-* **Discovery** — GitLab groups, GitHub orgs, Bitbucket workspaces, curated YAML/JSON file.
+* **Discovery** — GitLab groups, GitHub orgs, Bitbucket workspaces, Gitea / Forgejo orgs (self-hosted), curated YAML/JSON file.
 * **Secrets** — AWS Secrets Manager + SSM, process env vars (with `.env` autoload), HashiCorp Vault KV v2.
 * **Notifications** — multi-channel dispatcher with per-level routing (info / warn / error). Ten channels: Slack (bot-token + incoming-webhook), Microsoft Teams (Adaptive Card), RocketChat / Mattermost (Slack-compat webhook), generic JSON webhook, email (SMTP via `aiosmtplib`), AWS SNS, PagerDuty (Events API v2), Opsgenie (Alerts API; US + EU), Discord (Incoming Webhook), and stdout/JSONL (CI + air-gapped).
 
@@ -433,7 +434,6 @@ Plus the Phase 3 distribution + onboarding wins:
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
 * **New publishers** — GitHub Wiki.
-* **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
 * **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.
 * **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.

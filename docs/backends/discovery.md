@@ -67,6 +67,48 @@ Requires the `iac-cartographer/bitbucket` secret. Two auth forms:
 The credential model enforces exactly-one-of via Pydantic validation, so
 misconfiguration fails fast at startup.
 
+## Gitea / Forgejo
+
+Enumerate every repository under each configured org on a self-hosted
+Gitea or Forgejo instance.
+
+```yaml
+discovery:
+  gitea_orgs: ["acme"]
+  gitea_base_url: "https://gitea.example.com"
+```
+
+One source covers both platforms — Forgejo forked from Gitea in 2022
+and intentionally preserves API + auth-scheme compatibility.
+
+Like Bitbucket, the source lists every repo in each org and lets the
+per-repo extractor filter out the ones with no `.tf` files. Gitea's
+code-search API is per-repo only, and many self-hosted instances
+disable the indexer entirely — org-wide enumeration is the portable
+path that works on every deployment regardless of indexer config.
+Combine with `deny_repos` to narrow large orgs.
+
+`gitea_base_url` is **required** — Gitea has no hosted-default URL
+like GitHub or Bitbucket; every deployment is self-hosted at a
+different domain.
+
+Requires the `iac-cartographer/gitea` secret:
+
+```json
+{"token": "..."}
+```
+
+Generate the token at `<base_url>/-/user/settings/applications` →
+Generate New Token. Scopes: `read:organization` + `read:repository`.
+The same token powers the listing API (discovery) and the clone path
+(fetcher splices it into the clone URL).
+
+!!! note "Auth scheme: `token`, not `Bearer`"
+    Gitea uses `Authorization: token <pat>` — the most common
+    operator-side mistake when porting a config over from GitHub is
+    leaving the `Bearer` prefix in place, which Gitea rejects with
+    401.
+
 ## Curated file
 
 Read a YAML or JSON list of `RepoMetadata` records from disk. No

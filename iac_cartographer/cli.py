@@ -50,6 +50,7 @@ from iac_cartographer.discovery import (
     BitbucketDiscovery,
     DiscoverySource,
     FileDiscovery,
+    GiteaDiscovery,
     GithubDiscovery,
     GitlabDiscovery,
     discover_from_sources,
@@ -78,6 +79,7 @@ from iac_cartographer.models import (
     ConfluenceCredentials,
     DiscordCredentials,
     EmailCredentials,
+    GiteaCredentials,
     GithubCredentials,
     GitlabCredentials,
     LLMConfig,
@@ -201,6 +203,10 @@ class LoadedSecrets:
     # `bitbucket` is only populated when `discovery.bitbucket_workspaces`
     # is non-empty — runs without Bitbucket discovery don't need the secret.
     bitbucket: BitbucketCredentials | None = None
+    # `gitea` is only populated when `discovery.gitea_orgs` is non-empty.
+    # Same token powers the listing API (discovery) and the clone path
+    # (fetcher's `_authed_clone_url`).
+    gitea: GiteaCredentials | None = None
     # `azure_openai` is only populated when `llm.backend == "azure_openai"`
     # AND `llm.azure_openai_use_aad` is false. AAD-authenticated
     # deployments skip the secret entirely.
@@ -239,6 +245,9 @@ ANTHROPIC_SECRET_NAME = "iac-cartographer/anthropic"  # noqa: S105
 AZURE_OPENAI_SECRET_NAME = "iac-cartographer/azure_openai"  # noqa: S105
 OPENAI_SECRET_NAME = "iac-cartographer/openai"  # noqa: S105
 BITBUCKET_SECRET_NAME = "iac-cartographer/bitbucket"  # noqa: S105
+# Gitea / Forgejo discovery + clone token. Loaded only when
+# `discovery.gitea_orgs` is non-empty.
+GITEA_SECRET_NAME = "iac-cartographer/gitea"  # noqa: S105
 # Webhook-family notification secrets. Each one is `{"url": "..."}` —
 # the URL itself is the credential (URL-embedded SAS token for Teams,
 # URL-embedded webhook secret for Slack-incoming / RocketChat / Mattermost,
@@ -295,6 +304,7 @@ def _load_secrets(
     llm_backend_name: str = "bedrock",
     *,
     need_bitbucket: bool = False,
+    need_gitea: bool = False,
     need_azure_openai: bool = False,
     need_webhook: bool = False,
     need_slack_webhook: bool = False,
@@ -384,6 +394,20 @@ def _load_secrets(
             bitbucket_creds = BitbucketCredentials.model_validate(bitbucket_raw)
         except Exception as exc:
             raise MissingSecretError(f"bitbucket secret payload failed schema validation: {exc}") from exc
+
+    gitea_creds: GiteaCredentials | None = None
+    if need_gitea:
+        try:
+            gitea_raw = provider.get_secret(GITEA_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"discovery.gitea_orgs is set but the {GITEA_SECRET_NAME} "
+                f"secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            gitea_creds = GiteaCredentials.model_validate(gitea_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"gitea secret payload failed schema validation: {exc}") from exc
 
     webhook_creds: WebhookCredentials | None = None
     if need_webhook:
@@ -499,6 +523,7 @@ def _load_secrets(
             slack=SlackCredentials.model_validate(slack_raw),
             anthropic=anthropic_creds,
             bitbucket=bitbucket_creds,
+            gitea=gitea_creds,
             azure_openai=azure_openai_creds,
             openai=openai_creds,
             webhook=webhook_creds,
@@ -683,6 +708,21 @@ def _build_sources(config: AppConfig, secrets: LoadedSecrets) -> list[DiscoveryS
                 "were loaded (check the iac-cartographer/bitbucket secret)"
             )
         sources.append(BitbucketDiscovery(secrets.bitbucket, config.discovery.bitbucket_workspaces))
+    if config.discovery.gitea_orgs:
+        if secrets.gitea is None:
+            raise ConfigError(
+                "discovery.gitea_orgs is set but no GiteaCredentials were loaded "
+                "(check the iac-cartographer/gitea secret)"
+            )
+        if not config.discovery.gitea_base_url:
+            raise ConfigError("discovery.gitea_orgs is set but discovery.gitea_base_url is empty")
+        sources.append(
+            GiteaDiscovery(
+                secrets.gitea,
+                config.discovery.gitea_orgs,
+                base_url=config.discovery.gitea_base_url,
+            )
+        )
     if config.discovery.repos_file:
         sources.append(FileDiscovery(config.discovery.repos_file))
     return sources
@@ -763,6 +803,7 @@ async def _process_repo(
     *,
     no_bedrock: bool,
     semaphore: asyncio.Semaphore,
+    gitea_token: str | None = None,
 ) -> tuple[RepoInventory | None, str | None, int, int]:
     """Clone → extract → narrate one repo. Returns (inventory, error, tokens_in, tokens_out).
 
@@ -773,7 +814,7 @@ async def _process_repo(
     """
     path: Path | None = None
     try:
-        path = await asyncio.to_thread(clone, meta, gitlab_token, github_token)
+        path = await asyncio.to_thread(clone, meta, gitlab_token, github_token, gitea_token)
         summary = await asyncio.to_thread(run_terraform_docs, path)
         readme, hcl_concat = await asyncio.to_thread(_read_repo_content, path)
 
@@ -874,6 +915,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         secrets_provider,
         config.llm.backend,
         need_bitbucket=bool(config.discovery.bitbucket_workspaces),
+        need_gitea=bool(config.discovery.gitea_orgs),
         # Azure OpenAI's API-key secret is needed only when the backend
         # is active AND `use_aad` is off. AAD deployments authenticate
         # via DefaultAzureCredential and don't need a stored key.
@@ -981,6 +1023,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 llm_backend,
                 no_bedrock=args.no_bedrock,
                 semaphore=semaphore,
+                gitea_token=secrets.gitea.token if secrets.gitea else None,
             )
             for r in repos
         ]

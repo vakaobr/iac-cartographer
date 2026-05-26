@@ -38,10 +38,25 @@ discovery:
   bitbucket_workspaces:
     - "acme"
 
+  # Gitea / Forgejo organisations to enumerate. Empty list = skip.
+  # One source covers both platforms (Forgejo forked from Gitea and
+  # preserves API compatibility). Like Bitbucket, lists every repo
+  # in each org and lets the per-repo extractor filter — Gitea's
+  # code-search API is per-repo only, and many self-hosted instances
+  # disable the indexer. Combine with deny_repos to narrow large orgs.
+  # Credentials come from the `iac-cartographer/gitea` secret as
+  # `{"token": "..."}`. The same token powers discovery + clone.
+  gitea_orgs:
+    - "acme"
+
+  # Gitea / Forgejo base URL. REQUIRED when gitea_orgs is non-empty —
+  # Gitea has no hosted-default URL; every deployment is self-hosted.
+  gitea_base_url: "https://gitea.example.com"
+
   # Optional path to a YAML/JSON file containing pre-curated repo
-  # metadata. Use for air-gapped runs, self-hosted VCS without API
-  # support (Gitea, Forgejo, Codeberg, …), or to pin a focused subset
-  # of repos. See iac_cartographer/discovery/file.py for the schema.
+  # metadata. Use for air-gapped runs or self-hosted VCS that
+  # iac-cartographer doesn't natively support yet (Codeberg uses the
+  # Gitea API so `gitea_orgs` above also works; others go via file).
   # Path is interpreted relative to the CWD of the running container.
   # repos_file: "./repos.yaml"
 

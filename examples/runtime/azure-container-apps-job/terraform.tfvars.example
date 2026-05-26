@@ -1,0 +1,53 @@
+# Copy to terraform.tfvars and edit. Required: resource_group_name,
+# tenant_id, config_yaml.
+
+resource_group_name = "REPLACE_ME-my-rg"
+tenant_id           = "REPLACE_ME-00000000-0000-0000-0000-000000000000"
+location            = "westeurope"
+
+# Pin to a semver tag in production. Verify the cosign signature before
+# bumping:
+#   cosign verify ghcr.io/vakaobr/iac-cartographer:v0.1.0 \
+#     --certificate-identity-regexp '^https://github\.com/vakaobr/iac-cartographer' \
+#     --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+image = "ghcr.io/vakaobr/iac-cartographer:v0.1.0"
+
+schedule = "0 6 * * 1"
+
+# Full iac-cartographer config.yaml body. Stored in Key Vault as a
+# secret; mounted into the Job as the IAC_CARTOGRAPHER_CONFIG_YAML env
+# var (the container's command line materialises it into /tmp/config.yaml
+# at startup — see main.tf).
+#
+# `secrets.backend: env` makes the Job's env vars (sourced from Key
+# Vault via secrets[] in the Job spec) the credential source.
+# `llm.backend: anthropic` keeps the run off Azure OpenAI for now
+# (Azure OpenAI iac-cartographer LLM backend is on the roadmap).
+config_yaml = <<-YAML
+  discovery:
+    gitlab_group_ids: [15]
+    github_orgs: ["acme-org"]
+
+  secrets:
+    backend: env
+
+  llm:
+    backend: anthropic
+    model_id: claude-sonnet-4-5-20250929
+
+  publisher:
+    kind: confluence
+
+  confluence:
+    site: acme.atlassian.net
+    space_key: DOCS
+    parent_page_id: "REPLACE_ME-123456789"
+
+  slack:
+    channel: "#alerts"
+YAML
+
+tags = {
+  team        = "platform"
+  environment = "prod"
+}

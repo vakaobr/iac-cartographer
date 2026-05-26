@@ -862,3 +862,35 @@ def test_build_llm_backend_openai_branch() -> None:
     assert backend._api_key == "sk-..."
     assert backend._base_url == "https://openai.example.com/v1"
     assert backend._organization == "org-123"
+
+
+def test_build_llm_backend_ollama_branch() -> None:
+    """Ollama factory branch wires base_url + timeout + extra headers; no secret."""
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.llm import OllamaBackend
+    from iac_cartographer.models import (
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(
+        backend="ollama",
+        ollama_base_url="http://ollama.example.com:11434",
+        ollama_timeout_seconds=120,
+        ollama_extra_headers={"Authorization": "Bearer proxy-token"},
+    )
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+        # No `ollama` credential field — Ollama auth is via extra_headers only.
+    )
+    backend = _build_llm_backend(llm_cfg, secrets)
+    assert isinstance(backend, OllamaBackend)
+    assert backend._base_url == "http://ollama.example.com:11434"
+    assert backend._timeout == 120
+    assert backend._extra_headers == {"Authorization": "Bearer proxy-token"}

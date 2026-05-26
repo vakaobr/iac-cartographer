@@ -199,12 +199,54 @@ but accepts any OpenAI-compatible endpoint. Useful for:
   or PII redaction in front of the upstream provider.
 - **Self-hosted models with an OpenAI-compatible REST API** —
   vLLM, llama.cpp's server, OpenLLM, etc. (For Ollama specifically,
-  use `llm.backend: ollama` once that ships — it has zero-auth
-  defaults that fit Ollama better.)
+  prefer `llm.backend: ollama` below — it talks Ollama's native
+  `/api/chat` endpoint and has zero-auth defaults.)
 
 The same narrative-quality caveat applies as for Azure OpenAI: GPT-4
 emits invalid JSON slightly more often than Claude, and the narrator's
 retry-once path catches the rest.
+
+## Ollama (local LLM)
+
+For air-gapped runs, dev laptops, and small homelab deployments
+where pulling a local model is preferable to outbound API calls.
+
+```yaml
+llm:
+  backend: ollama
+  model_id: "llama3.1:8b"                       # or "mistral", "qwen2.5-coder:14b", etc.
+  max_tokens: 4096
+  ollama_base_url: "http://localhost:11434"     # default; override for remote hosts
+  ollama_timeout_seconds: 300                   # local models are slower than hosted APIs
+  # ollama_extra_headers:                       # only if you front Ollama with a reverse proxy
+  #   Authorization: "Bearer my-proxy-token"
+```
+
+**No optional dependency group.** The backend talks Ollama's native
+`/api/chat` endpoint over raw `httpx` — `httpx` is already a base
+install dependency, so the Ollama backend works in a stock
+`pip install iac-cartographer` with no extras.
+
+No `iac-cartographer/ollama` secret either — Ollama doesn't have
+auth out of the box. If you've fronted it with a reverse-proxy
+that adds bearer-token / mTLS auth, pass the headers via
+`ollama_extra_headers`.
+
+### Tuning notes
+
+- **Pick a model that handles JSON output well.** The backend sets
+  `format: "json"` in the request body which nudges Ollama's
+  built-in JSON mode, but smaller models (3B and below) still emit
+  invalid JSON frequently. `llama3.1:8b`, `qwen2.5-coder:14b`, and
+  `mistral-small3.1` are good starting points.
+- **Timeout default is 300s** because local inference is slower
+  than hosted APIs — especially on CPU or first-token cold starts.
+  Tune `ollama_timeout_seconds` to taste.
+- **Narrator quality scales with model size.** The narrator's
+  retry-once-then-skip path covers schema failures, so a smaller
+  model just means more repos with placeholder narratives. The
+  structural inventory (providers, modules, resources) is
+  unaffected.
 
 ## When to use which
 
@@ -214,6 +256,7 @@ retry-once path catches the rest.
 | `vertex` | You're on GCP — workload identity gives the same zero-secret-rotation experience Bedrock does on AWS. Same Claude models, same prompt, no provider-shift in narrative quality. |
 | `azure_openai` | You're on Azure and need everything to stay in-tenant. AAD mode gives the same zero-secret-rotation experience. |
 | `openai` | You want GPT-4 without the Azure-specific deployment shape, or you're routing through a LiteLLM / internal gateway / self-hosted OpenAI-compatible endpoint. |
+| `ollama` | Air-gapped runs, dev laptops, homelab. No API keys, no outbound traffic, local model pulled once. Narrative quality scales with model size. |
 | `anthropic` | You're not on AWS, you don't have Bedrock model access (it's per-account opt-in), or you want lower latency from the EU. |
 
 ## Skipping the LLM entirely

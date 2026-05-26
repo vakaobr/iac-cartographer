@@ -237,7 +237,10 @@ class LLMConfig(_Strict):
     #                    OpenAI-compatible gateway via openai_base_url).
     #                    Auth via API key in `iac-cartographer/openai`.
     #                    Requires `pip install iac-cartographer[openai]`.
-    backend: Literal["bedrock", "anthropic", "vertex", "azure_openai", "openai"] = "bedrock"
+    #   "ollama"       → Local LLM via Ollama's native /api/chat
+    #                    endpoint. Zero auth by default (server bound
+    #                    to localhost). No extra optional dependency.
+    backend: Literal["bedrock", "anthropic", "vertex", "azure_openai", "openai", "ollama"] = "bedrock"
 
     # Model identifier — meaning is backend-specific.
     #   bedrock: an inference-profile ID (e.g. `eu.anthropic.claude-sonnet-4-5-20250929-v1:0`)
@@ -304,6 +307,22 @@ class LLMConfig(_Strict):
     # OpenAI-only: org ID. Most accounts don't need this; set when your
     # billing routes through a specific org and the default doesn't.
     openai_organization: str | None = None
+
+    # Ollama-only: server URL. Defaults to Ollama's standard local
+    # bind. Set to a remote host (`http://ollama.internal:11434`) for
+    # shared deployments, optionally with `ollama_extra_headers` for
+    # reverse-proxy auth.
+    ollama_base_url: str = "http://localhost:11434"
+
+    # Ollama-only: per-invocation timeout. Local CPU inference can be
+    # slow on big models; default is 5 min, override for tighter SLOs
+    # or much longer ones.
+    ollama_timeout_seconds: float = 300.0
+
+    # Ollama-only: extra request headers (e.g. for a reverse-proxy
+    # bearer token). Plain map of strings; merged into the request
+    # headers as-is.
+    ollama_extra_headers: dict[str, str] = Field(default_factory=dict)
 
 
 # Back-compat alias. The original internal code used `BedrockConfig`; new

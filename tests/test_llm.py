@@ -648,3 +648,112 @@ def test_openai_backend_handles_missing_usage() -> None:
 
     response = backend.invoke(model_id="gpt-4o", system_prompt="s", user_blocks=[], max_tokens=100)
     assert response == LLMResponse(text="no usage", input_tokens=0, output_tokens=0)
+
+
+# ─── OllamaBackend ─────────────────────────────────────────────────────
+
+
+@respx.mock
+def test_ollama_backend_sends_native_chat_request() -> None:
+    """End-to-end against Ollama's /api/chat. Asserts request shape
+    (flattened user_blocks, num_predict, format=json), response
+    normalisation (prompt_eval_count → input_tokens, eval_count →
+    output_tokens)."""
+    from iac_cartographer.llm import OllamaBackend
+
+    captured: dict[str, Any] = {}
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(
+            200,
+            json={
+                "message": {"role": "assistant", "content": '{"hello": "from ollama"}'},
+                "prompt_eval_count": 123,
+                "eval_count": 45,
+                "done": True,
+            },
+        )
+
+    respx.post("http://localhost:11434/api/chat").mock(side_effect=respond)
+
+    backend = OllamaBackend()
+    response = backend.invoke(
+        model_id="llama3.1:8b",
+        system_prompt="you are a system prompt",
+        user_blocks=[
+            {"type": "text", "text": "block-a "},
+            {"type": "text", "text": "block-b"},
+        ],
+        max_tokens=4096,
+    )
+
+    assert response == LLMResponse(text='{"hello": "from ollama"}', input_tokens=123, output_tokens=45)
+    body = captured["body"]
+    assert body["model"] == "llama3.1:8b"
+    assert body["stream"] is False
+    assert body["format"] == "json"
+    assert body["options"]["num_predict"] == 4096
+    assert body["messages"][0] == {"role": "system", "content": "you are a system prompt"}
+    assert body["messages"][1] == {"role": "user", "content": "block-a block-b"}
+
+
+@respx.mock
+def test_ollama_backend_respects_custom_base_url_and_extra_headers() -> None:
+    """Remote Ollama behind a reverse proxy — operator overrides
+    base_url and adds an Authorization header for the proxy."""
+    from iac_cartographer.llm import OllamaBackend
+
+    captured: dict[str, Any] = {}
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(
+            200,
+            json={
+                "message": {"role": "assistant", "content": "ok"},
+                "prompt_eval_count": 1,
+                "eval_count": 1,
+            },
+        )
+
+    respx.post("https://ollama.example.com/api/chat").mock(side_effect=respond)
+
+    backend = OllamaBackend(
+        base_url="https://ollama.example.com",
+        extra_headers={"Authorization": "Bearer my-proxy-token"},
+    )
+    response = backend.invoke(model_id="llama3.1:8b", system_prompt="s", user_blocks=[], max_tokens=100)
+
+    assert response.text == "ok"
+    # Extra headers flow through to the actual request.
+    assert captured["headers"]["authorization"] == "Bearer my-proxy-token"
+
+
+@respx.mock
+def test_ollama_backend_raises_on_http_error() -> None:
+    """Ollama returning a 5xx (model OOM, server down) propagates as a
+    raised exception — narrator's retry-once-then-skip orchestration
+    handles it the same way it handles Anthropic/Bedrock failures."""
+    from iac_cartographer.llm import OllamaBackend
+
+    respx.post("http://localhost:11434/api/chat").mock(
+        return_value=httpx.Response(503, json={"error": "model loading"})
+    )
+    with pytest.raises(httpx.HTTPStatusError):
+        OllamaBackend().invoke(model_id="llama3.1:8b", system_prompt="s", user_blocks=[], max_tokens=100)
+
+
+@respx.mock
+def test_ollama_backend_handles_missing_token_counts() -> None:
+    """Ollama responses normally include `prompt_eval_count` +
+    `eval_count`, but very small / cached responses sometimes elide
+    them. Defensively we return zeros, same as the other backends."""
+    from iac_cartographer.llm import OllamaBackend
+
+    respx.post("http://localhost:11434/api/chat").mock(
+        return_value=httpx.Response(200, json={"message": {"role": "assistant", "content": "no tokens"}})
+    )
+    response = OllamaBackend().invoke(model_id="x", system_prompt="s", user_blocks=[], max_tokens=100)
+    assert response == LLMResponse(text="no tokens", input_tokens=0, output_tokens=0)

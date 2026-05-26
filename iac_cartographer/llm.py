@@ -5,7 +5,7 @@ these user blocks, give me back text + token counts". Anything more
 specific to a particular provider (auth, endpoint, response shape) lives
 behind the `LLMBackend` ABC defined here.
 
-Five implementations ship by default:
+Six implementations ship by default:
 
   * `BedrockBackend`     — Claude on AWS Bedrock. Auth via boto3
     credential chain; no API key handling.
@@ -18,6 +18,9 @@ Five implementations ship by default:
   * `OpenAIBackend`      — GPT models via api.openai.com (or any
     OpenAI-compatible gateway). Auth via API key. Requires the
     `[openai]` optional dependency group.
+  * `OllamaBackend`      — Local LLMs via Ollama's native `/api/chat`
+    endpoint. Zero auth by default (server bound to localhost). No
+    extra dependency group — uses the base httpx pin.
 
 The three Claude backends (Bedrock, Anthropic, Vertex) speak the
 Anthropic Messages API request format internally; the backends
@@ -566,6 +569,101 @@ class OpenAIBackend(LLMBackend):
         )
 
 
+# ─── Ollama (local LLM) ──────────────────────────────────────────────
+
+
+class OllamaBackend(LLMBackend):
+    """Invoke local models via Ollama's native `/api/chat` endpoint.
+
+    Local-first companion to the API-key-bearing backends. Defaults to
+    `http://localhost:11434` (Ollama's standard bind address) with no
+    authentication — the server is typically bound to localhost / a
+    private network and accessed without credentials. For remote
+    Ollama deployments behind a reverse proxy that adds auth, set
+    `extra_headers` (e.g. `{"Authorization": "Bearer ..."}`).
+
+    Uses Ollama's native API (not its OpenAI-compatible shim) for two
+    reasons:
+      * No `openai` SDK dependency required — httpx is already a base
+        dep, so OllamaBackend works in a stock iac-cartographer install.
+      * Native API surfaces token counts (`prompt_eval_count`,
+        `eval_count`) cleanly; the OpenAI shim sometimes elides them
+        depending on model.
+
+    The narrator's prompt is Claude-tuned. Open-weight models running
+    on Ollama (llama3.x, qwen, mistral, …) vary widely in instruction-
+    following — some emit valid JSON consistently, others trip the
+    narrator's retry-once path frequently. The backend sets Ollama's
+    `format: "json"` to nudge structured output; results still depend
+    on the underlying model.
+    """
+
+    DEFAULT_BASE_URL = "http://localhost:11434"
+    DEFAULT_TIMEOUT_S = 300.0  # local CPU inference can be slow
+
+    def __init__(
+        self,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT_S,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        self._base_url = base_url.rstrip("/")
+        self._timeout = timeout
+        self._extra_headers = dict(extra_headers or {})
+
+    def invoke(
+        self,
+        *,
+        model_id: str,
+        system_prompt: str,
+        user_blocks: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> LLMResponse:
+        # Flatten Anthropic-style user_blocks like the OpenAI backends.
+        user_content = "".join(b.get("text", "") for b in user_blocks if b.get("type") == "text")
+
+        body = {
+            "model": model_id,
+            "stream": False,
+            "format": "json",  # nudge toward valid JSON output
+            "options": {
+                # Ollama uses `num_predict` for max output tokens.
+                "num_predict": max_tokens,
+            },
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+        }
+        headers = {"content-type": "application/json", **self._extra_headers}
+
+        with httpx.Client(timeout=self._timeout) as client:
+            resp = client.post(
+                f"{self._base_url}/api/chat",
+                content=json.dumps(body),
+                headers=headers,
+            )
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Ollama native response shape:
+        #   {"message": {"role": "assistant", "content": "..."},
+        #    "prompt_eval_count": N, "eval_count": M, ...}
+        message = data.get("message") if isinstance(data, dict) else None
+        text = ""
+        if isinstance(message, dict):
+            content = message.get("content")
+            if isinstance(content, str):
+                text = content
+
+        return LLMResponse(
+            text=text,
+            input_tokens=int(data.get("prompt_eval_count", 0) or 0) if isinstance(data, dict) else 0,
+            output_tokens=int(data.get("eval_count", 0) or 0) if isinstance(data, dict) else 0,
+        )
+
+
 class LLMBackendImportError(ImportError):
     """Raised when a backend's optional dependency group isn't installed.
 
@@ -580,6 +678,7 @@ __all__ = [
     "LLMBackend",
     "LLMBackendImportError",
     "LLMResponse",
+    "OllamaBackend",
     "OpenAIBackend",
     "VertexBackend",
 ]

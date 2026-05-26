@@ -66,6 +66,7 @@ from iac_cartographer.llm import (
     AzureOpenAIBackend,
     BedrockBackend,
     LLMBackend,
+    OllamaBackend,
     OpenAIBackend,
     VertexBackend,
 )
@@ -417,6 +418,15 @@ def _build_llm_backend(llm_config: LLMConfig, secrets: LoadedSecrets) -> LLMBack
             api_key=secrets.openai.api_key,
             base_url=llm_config.openai_base_url,
             organization=llm_config.openai_organization,
+        )
+    if name == "ollama":
+        # No secret to load — Ollama is zero-auth by default. Behind a
+        # reverse proxy that adds auth, pass headers via
+        # `llm.ollama_extra_headers` (e.g. {"Authorization": "Bearer ..."}).
+        return OllamaBackend(
+            base_url=llm_config.ollama_base_url,
+            timeout=llm_config.ollama_timeout_seconds,
+            extra_headers=llm_config.ollama_extra_headers,
         )
     raise ConfigError(f"unknown llm.backend: {name!r}")
 

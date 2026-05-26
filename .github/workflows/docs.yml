@@ -1,17 +1,26 @@
 name: Deploy docs site
 
-# Build the mkdocs-material site on every push to main and deploy it to
-# GitHub Pages. PRs build the site too (without deploying) so the
-# `strict: true` setting in mkdocs.yml catches broken links in review.
+# Build the mkdocs-material site on every push to main and PR, and deploy
+# **versioned** copies to GitHub Pages via `mike`:
+#
+#   * push to main         → publishes the `dev` alias
+#   * push of git tag v*   → publishes `vX.Y.Z` and updates the `latest` alias
+#   * PR                   → builds only (strict-mode link check), no deploy
+#
+# The version selector dropdown in the mkdocs-material header reads
+# from the `gh-pages` branch that `mike` maintains. See
+# docs/operations/docs-deploy.md for the one-time bootstrap that
+# seeds the first version + the `latest` alias.
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
     paths:
       - "docs/**"
       - "mkdocs.yml"
       - ".github/workflows/docs.yml"
-      - "pyproject.toml"   # docs deps live in [project.optional-dependencies].docs
+      - "pyproject.toml"
   pull_request:
     branches: [main]
     paths:
@@ -20,13 +29,19 @@ on:
       - ".github/workflows/docs.yml"
       - "pyproject.toml"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version alias to deploy (e.g. v0.2.0). Leave blank to deploy dev."
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: docs-${{ github.ref }}
-  cancel-in-progress: true
+  # `mike deploy --push` writes to `gh-pages` — serialize all writes
+  # so concurrent main-pushes + tag-pushes don't race.
+  group: docs-deploy
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -47,45 +62,68 @@ jobs:
         run: pip install -e ".[docs]"
 
       - name: Build
+        # PR build doubles as the strictness check — no deploy on PRs.
         run: mkdocs build --strict
 
-      - name: Upload site
-        # Stash for the deploy job. Skipped on PRs (`deploy` doesn't run
-        # there) but the build itself still acts as a strictness check.
-        uses: actions/upload-artifact@v4
-        with:
-          name: site
-          path: site/
-          retention-days: 7
-
   deploy:
-    name: Deploy to GitHub Pages
+    name: Deploy via mike to gh-pages
     needs: build
-    # Tag pushes deploy too; main pushes are the primary trigger. PRs
-    # only build, never deploy.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Tag pushes deploy `vX.Y.Z` + update `latest`; main pushes deploy
+    # `dev`. PRs only build; manual dispatches deploy whatever version
+    # the operator selected.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write  # mike pushes to gh-pages
     steps:
-      - name: Download site
-        uses: actions/download-artifact@v5
+      - uses: actions/checkout@v6
         with:
-          name: site
-          path: site/
+          # mike rebases against the existing gh-pages tip — fetch
+          # full history so the push isn't rejected as non-fast-forward.
+          fetch-depth: 0
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload to Pages artefact store
-        uses: actions/upload-pages-artifact@v3
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          path: site/
+          python-version: "3.12"
+          cache: pip
 
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Install docs deps
+        run: pip install -e ".[docs]"
+
+      - name: Configure git
+        # mike runs `git commit` + `git push` under the hood — needs an
+        # author identity. github-actions[bot] is the conventional
+        # choice for workflow-driven commits.
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+      - name: Deploy `dev` alias (push to main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # `--update-aliases` lets us reuse the `dev` alias for every
+        # main push (otherwise mike refuses to overwrite an existing
+        # alias). `--push` commits + pushes to gh-pages in one step.
+        run: mike deploy --push --update-aliases dev
+
+      - name: Deploy tagged version + update `latest`
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        # The tag `v0.2.0` deploys as version `0.2.0` (strip the `v`
+        # prefix to match the python-semver convention mike expects).
+        # `latest` alias gets bumped to point at the new version, then
+        # we mark it as the default so the bare URL serves it.
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          mike deploy --push --update-aliases "${VERSION}" latest
+          mike set-default --push latest
+
+      - name: Deploy operator-selected version (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version != ''
+        # Lets the operator hand-deploy a specific version label —
+        # useful for backfilling a missing pre-1.0 tag or staging a
+        # release candidate before tagging.
+        run: mike deploy --push --update-aliases "${{ github.event.inputs.version }}"
+
+      - name: Deploy dev (workflow_dispatch fallback)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.version == ''
+        run: mike deploy --push --update-aliases dev

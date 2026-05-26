@@ -82,6 +82,7 @@ nav:
       - Between-run diff (--diff): operations/diff.md
       - Lint mode (--lint): operations/lint.md
       - Cutting a release: operations/releases.md
+      - Docs deployment (versioned): operations/docs-deploy.md
   - Examples:
       - Overview: examples/index.md
       - docker-compose: examples/docker-compose.md
@@ -100,6 +101,17 @@ extra:
       link: https://github.com/vakaobr/iac-cartographer
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/iac-cartographer/
+
+  # Versioned docs via `mike` — renders a version-selector dropdown
+  # in the mkdocs-material header. The selector populates from the
+  # version aliases pushed to the `gh-pages` branch by the docs
+  # deploy workflow (`dev`, `latest`, `v0.1.0`, …). See
+  # docs/operations/docs-deploy.md for the bootstrap + release flow.
+  version:
+    provider: mike
+    default: latest
+    alias: true   # show alias names ("latest", "dev") alongside the version
+    warning: true # banner on non-latest versions: "This is an older / dev version"
 
 # Build-time strictness — fail on broken internal links, undefined
 # nav entries, etc. Keeps the docs honest as the project moves.

@@ -79,6 +79,7 @@ nav:
       - Notifications: backends/notifications.md
   - Operations:
       - Running on a schedule: operations/runtime.md
+      - Between-run diff (--diff): operations/diff.md
       - Cutting a release: operations/releases.md
   - Examples:
       - Overview: examples/index.md

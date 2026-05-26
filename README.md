@@ -259,6 +259,12 @@ iac-cartographer --once --repos acme-org/main-cluster,acme-org/auth-service
 
 # Use a cheaper model for validation
 iac-cartographer --once --model eu.anthropic.claude-haiku-4-5-20251001-v1:0
+
+# Compute a between-run diff against a prior JSON-publisher snapshot
+# (3 new, 1 archived, AWS provider bumped, etc.). Pairs with
+# `publisher.kind: json` on the baseline run; the diff prints Markdown
+# to stdout and rides on the end-of-run Slack post.
+iac-cartographer --once --diff ./iac-inventory-json
 ```
 
 ## How to run it on a schedule
@@ -431,13 +437,13 @@ Plus the Phase 3 distribution + onboarding wins:
 * **`iac-cartographer --init` scaffolder** — interactive starter `config.yaml` + `.env` for any backend combination.
 * **Zero-credentials demo** — `./examples/demo/run.sh` clones three public Terraform repos and produces real Markdown output without any tokens.
 * **Docs site** — mkdocs-material at [iac-cartographer.andersonleite.me](https://iac-cartographer.andersonleite.me/).
+* **`--diff <prev-output>` mode** — between-run structural diff against a prior JSON-publisher snapshot. Adds / removes / provider bumps / module bumps / resource-count deltas. Prints Markdown to stdout and rides on the end-of-run Slack post as a one-liner (`3 new, 1 archived, 2 changed; 37 unchanged`). See [`docs/operations/diff.md`](docs/operations/diff.md).
 
 ### Coming next
 
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
-* **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.
 * **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.
 * **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.
 

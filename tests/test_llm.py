@@ -348,3 +348,170 @@ def test_vertex_backend_handles_missing_usage(monkeypatch: pytest.MonkeyPatch) -
         max_tokens=100,
     )
     assert response == LLMResponse(text="no usage block", input_tokens=0, output_tokens=0)
+
+
+# ─── AzureOpenAIBackend ────────────────────────────────────────────────
+
+
+def test_azure_openai_backend_rejects_empty_endpoint() -> None:
+    from iac_cartographer.llm import AzureOpenAIBackend
+
+    with pytest.raises(ValueError, match="endpoint is required"):
+        AzureOpenAIBackend(endpoint="", deployment="my-deployment", api_key="k")
+
+
+def test_azure_openai_backend_rejects_empty_deployment() -> None:
+    from iac_cartographer.llm import AzureOpenAIBackend
+
+    with pytest.raises(ValueError, match="deployment is required"):
+        AzureOpenAIBackend(endpoint="https://x.openai.azure.com/", deployment="", api_key="k")
+
+
+def test_azure_openai_backend_rejects_no_auth() -> None:
+    """Either api_key or use_aad=True is required — empty config rejected."""
+    from iac_cartographer.llm import AzureOpenAIBackend
+
+    with pytest.raises(ValueError, match="api_key or use_aad"):
+        AzureOpenAIBackend(
+            endpoint="https://x.openai.azure.com/",
+            deployment="my-deployment",
+        )
+
+
+def test_azure_openai_backend_raises_install_hint_when_sdk_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The OpenAI SDK is an optional dependency. Missing → clean
+    LLMBackendImportError with a pip-install pointer, not a confusing
+    ModuleNotFoundError."""
+    import builtins
+
+    from iac_cartographer.llm import AzureOpenAIBackend, LLMBackendImportError
+
+    real_import = builtins.__import__
+
+    def _fail_openai(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "openai" or name.startswith("openai."):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fail_openai)
+    backend = AzureOpenAIBackend(
+        endpoint="https://x.openai.azure.com/",
+        deployment="my-deployment",
+        api_key="k",
+    )
+
+    with pytest.raises(LLMBackendImportError, match=r"iac-cartographer\[azure\]"):
+        backend.invoke(model_id="ignored", system_prompt="s", user_blocks=[], max_tokens=100)
+
+
+def test_azure_openai_backend_invokes_and_normalises_response() -> None:
+    """End-to-end with a mocked SDK client. Covers:
+    - chat.completions.create() request shape (system+user messages,
+      response_format=json_object, max_tokens, deployment as model).
+    - flattened user_blocks → single user-message content string.
+    - OpenAI's prompt_tokens/completion_tokens → LLMResponse's
+      input_tokens/output_tokens (different field names).
+    """
+    from iac_cartographer.llm import AzureOpenAIBackend
+
+    captured: dict[str, Any] = {}
+
+    class _Msg:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class _Choice:
+        def __init__(self, content: str) -> None:
+            self.message = _Msg(content)
+
+    class _Usage:
+        def __init__(self, p: int, c: int) -> None:
+            self.prompt_tokens = p
+            self.completion_tokens = c
+
+    class _Completion:
+        def __init__(self) -> None:
+            self.choices = [_Choice("hello from azure")]
+            self.usage = _Usage(p=1234, c=42)
+
+    class _ChatCompletions:
+        def create(self, **kwargs: Any) -> _Completion:
+            captured["kwargs"] = kwargs
+            return _Completion()
+
+    class _Chat:
+        def __init__(self) -> None:
+            self.completions = _ChatCompletions()
+
+    class _FakeClient:
+        def __init__(self, **_: Any) -> None:
+            self.chat = _Chat()
+
+    backend = AzureOpenAIBackend(
+        endpoint="https://x.openai.azure.com/",
+        deployment="my-gpt4-deployment",
+        api_key="k",
+    )
+    backend._client = _FakeClient()  # bypass lazy-import
+
+    response = backend.invoke(
+        model_id="ignored-by-azure",
+        system_prompt="you are a system prompt",
+        user_blocks=[
+            {"type": "text", "text": "block-a "},
+            {"type": "text", "text": "block-b"},
+        ],
+        max_tokens=4096,
+    )
+
+    assert response == LLMResponse(text="hello from azure", input_tokens=1234, output_tokens=42)
+    kwargs = captured["kwargs"]
+    # Deployment name (not model_id) is sent to the SDK as `model`.
+    assert kwargs["model"] == "my-gpt4-deployment"
+    # JSON-object response_format hint is on by default.
+    assert kwargs["response_format"] == {"type": "json_object"}
+    # System + user messages built correctly; user_blocks flattened.
+    assert kwargs["messages"][0] == {"role": "system", "content": "you are a system prompt"}
+    assert kwargs["messages"][1] == {"role": "user", "content": "block-a block-b"}
+
+
+def test_azure_openai_backend_handles_missing_usage() -> None:
+    """Defensive — same shape as the other backends' missing-usage paths."""
+    from iac_cartographer.llm import AzureOpenAIBackend
+
+    class _Msg:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class _Choice:
+        def __init__(self, content: str) -> None:
+            self.message = _Msg(content)
+
+    class _Completion:
+        def __init__(self) -> None:
+            self.choices = [_Choice("no usage")]
+            self.usage = None
+
+    class _ChatCompletions:
+        def create(self, **kwargs: Any) -> _Completion:
+            return _Completion()
+
+    class _Chat:
+        def __init__(self) -> None:
+            self.completions = _ChatCompletions()
+
+    class _FakeClient:
+        def __init__(self, **_: Any) -> None:
+            self.chat = _Chat()
+
+    backend = AzureOpenAIBackend(
+        endpoint="https://x.openai.azure.com/",
+        deployment="my-deployment",
+        api_key="k",
+    )
+    backend._client = _FakeClient()
+
+    response = backend.invoke(model_id="x", system_prompt="s", user_blocks=[], max_tokens=100)
+    assert response == LLMResponse(text="no usage", input_tokens=0, output_tokens=0)

@@ -1,6 +1,6 @@
 [project]
 name = "iac-cartographer"
-version = "0.1.2"
+version = "0.1.3"
 description = "Fleet-level documentation for your Terraform / IaC estate. Discovers repos (GitLab/GitHub/Bitbucket/Gitea/file), extracts structural facts via terraform-docs, narrates each repo with a pluggable LLM (Bedrock/Anthropic/Vertex/Azure OpenAI/OpenAI/Ollama), and publishes to Confluence, Notion, GitHub Wiki, Markdown, HTML, or JSON. Pluggable notifications (Slack, Teams, email, SNS, PagerDuty, Opsgenie, Discord, webhook, stdout)."
 readme = "README.md"
 license = { text = "MIT" }
@@ -47,9 +47,19 @@ dependencies = [
 ]
 
 [project.urls]
+# PyPI verifies URL labels whose host + path match the OIDC trusted-
+# publisher repo (vakaobr/iac-cartographer). The labels below all do —
+# they get a green "Verified" badge on the PyPI project page once the
+# next publish lands. Custom-domain URLs (docs site) can't be verified
+# the same way, so we use the GitHub-served docs source as the
+# Documentation link for now.
 Homepage = "https://github.com/vakaobr/iac-cartographer"
+Documentation = "https://github.com/vakaobr/iac-cartographer/blob/main/docs/index.md"
 Repository = "https://github.com/vakaobr/iac-cartographer"
+Source = "https://github.com/vakaobr/iac-cartographer"
 Issues = "https://github.com/vakaobr/iac-cartographer/issues"
+Changelog = "https://github.com/vakaobr/iac-cartographer/blob/main/CHANGELOG.md"
+Releases = "https://github.com/vakaobr/iac-cartographer/releases"
 
 [project.optional-dependencies]
 dev = [

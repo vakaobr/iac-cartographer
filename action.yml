@@ -1,11 +1,8 @@
 name: 'iac-cartographer'
+# Marketplace caps `description` at 125 chars. Keep the long-form summary in
+# README / pyproject.toml; this is the catalogue-line version.
 description: >-
-  Fleet-level documentation for your Terraform / IaC estate. Discovers repos
-  across GitLab / GitHub / Bitbucket / Gitea / Forgejo / curated files,
-  extracts structural facts via terraform-docs, narrates each repo with a
-  pluggable LLM (Bedrock / Anthropic / Vertex / Azure OpenAI / OpenAI /
-  Ollama), and publishes to Confluence, Notion, GitHub Wiki, Markdown, HTML,
-  or JSON.
+  Auto-discover Terraform repos, narrate each with an LLM, publish to Confluence / Notion / Wiki / Markdown / HTML / JSON.
 author: 'Anderson Leite'
 branding:
   # Marketplace listing — keep both fields set. `icon` must be one of

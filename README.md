@@ -47,13 +47,19 @@ short-circuit), so it's safe to run as often as you like.
         │  idempotent republish)         │   Markdown · HTML · JSON
         └───────────────┬────────────────┘
                         ▼
-              Slack #channel (info/warn/error)
+        ┌────────────────────────────────┐
+        │ Notifications (info/warn/error)│   Slack
+        │  multi-channel fanout +        │   (Teams · email · SNS ·
+        │  per-level filter              │    webhook · … coming next)
+        └────────────────────────────────┘
 ```
 
 Every component on the right of each box is **pluggable**: pick the
-discovery sources, LLM backend, publisher, and secrets backend that fit
-your environment. Mix and match — GitHub + Bitbucket discovery, Vertex
-AI for narratives, Markdown output to a docs repo, Vault for secrets.
+discovery sources, LLM backend, publisher, secrets backend, and
+notification destinations that fit your environment. Mix and match —
+GitHub + Bitbucket discovery, Vertex AI for narratives, Markdown output
+to a docs repo, Vault for secrets, Slack info + (future) PagerDuty
+errors.
 
 ## Why
 
@@ -393,12 +399,13 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 
 ### Shipped
 
-The four pluggable seams that were the original Phase 2 push:
+The five pluggable seams:
 
 * **Publishers** — Confluence, local Markdown, standalone HTML, machine-readable JSON.
 * **LLM** — AWS Bedrock, Anthropic API direct, Vertex AI (Claude on GCP), Azure OpenAI (GPT on Azure), OpenAI direct (GPT via api.openai.com / OpenAI-compatible gateways), Ollama (local LLM).
 * **Discovery** — GitLab groups, GitHub orgs, Bitbucket workspaces, curated YAML/JSON file.
 * **Secrets** — AWS Secrets Manager + SSM, process env vars (with `.env` autoload), HashiCorp Vault KV v2.
+* **Notifications** — multi-channel dispatcher with per-level routing (info / warn / error). Slack shipped; Teams · RocketChat · Mattermost · email · SNS · generic webhook · PagerDuty · stdout queued as follow-up PRs.
 
 Plus the Phase 3 distribution + onboarding wins:
 
@@ -414,6 +421,7 @@ Plus the Phase 3 distribution + onboarding wins:
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
 * **New publishers** — Notion, GitHub Wiki.
+* **New notification channels** — Teams, RocketChat, Mattermost, email (SMTP), AWS SNS, generic webhook, PagerDuty / Opsgenie, Discord, stdout/JSONL. Dispatcher framework already shipped (see `docs/backends/notifications.md`); each channel is a small follow-up PR.
 * **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
 * **Terraform module** — for the ECS Fargate + EventBridge deployment path the project was extracted from.
 * **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.

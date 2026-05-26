@@ -363,6 +363,44 @@ class SlackConfig(_Strict):
     channel: str = "#alerts"
 
 
+# Per-channel notification config. The discriminated union below grows as
+# new channels ship (Teams, RocketChat, email, SNS, generic webhook, …);
+# Slack is the first concrete entry because it's the one that already
+# exists. Each entry carries its own `levels:` filter so operators can
+# route info → chat, errors → pager/email/etc. independently.
+class _BaseNotificationConfig(_Strict):
+    """Common shape every concrete `NotificationConfig.kind` shares."""
+
+    # `kind` is the discriminator — Pydantic uses it to pick which
+    # subclass to instantiate when validating the `notifications:` list.
+    # Set by each subclass with a `Literal` default.
+    #: Per-entry severity filter. Default is "fire on everything";
+    #: narrow to e.g. `[error]` for a PagerDuty-style escalation channel.
+    levels: list[Literal["info", "warn", "error"]] = Field(default_factory=lambda: ["info", "warn", "error"])
+
+
+class SlackNotificationConfig(_BaseNotificationConfig):
+    """Slack workspace channel.
+
+    Credentials come from the `iac-cartographer/slack` secret (same
+    secret name as the legacy `slack:` block; both shapes can coexist
+    during a migration). `channel` overrides the top-level `slack.channel`
+    when set — useful when one Slack workspace publishes notifications to
+    multiple channels (e.g. `#infra-info` for info, `#infra-alerts` for
+    error).
+    """
+
+    kind: Literal["slack"] = "slack"
+    # `#channel-name` or channel ID (`C0...`). When unset, falls back to
+    # the top-level `slack.channel` so single-Slack deployments need only
+    # one place to configure the destination.
+    channel: str | None = None
+
+
+# Discriminated union — extend as new channels ship.
+NotificationConfig = SlackNotificationConfig
+
+
 class PublisherConfig(_Strict):
     """Selects WHERE the inventory gets published.
 
@@ -517,6 +555,15 @@ class AppConfig(_Strict):
     # shadowing Pydantic v2's deprecated `BaseModel.json()` shim.
     json_output: JsonConfig = Field(default_factory=JsonConfig, alias="json")
     slack: SlackConfig = Field(default_factory=SlackConfig)
+    # Multi-channel notifications. When non-empty, the dispatcher fans
+    # every pipeline event out to each listed channel concurrently and
+    # honours each entry's own `levels:` filter. When empty (default),
+    # the dispatcher falls back to the legacy single-Slack shape — the
+    # top-level `slack:` block + `iac-cartographer/slack` secret act
+    # as if they were the sole entry at all three levels. Migration is
+    # opt-in: add a `notifications:` list when you need a second
+    # destination, otherwise leave it empty.
+    notifications: list[NotificationConfig] = Field(default_factory=list)
 
 
 # ─── Secrets (one model per Secrets Manager entry) ─────────────────────────

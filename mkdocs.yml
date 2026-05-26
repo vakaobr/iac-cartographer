@@ -76,6 +76,7 @@ nav:
       - LLM providers: backends/llm.md
       - Publishers: backends/publishers.md
       - Secrets providers: backends/secrets.md
+      - Notifications: backends/notifications.md
   - Operations:
       - Running on a schedule: operations/runtime.md
       - Cutting a release: operations/releases.md

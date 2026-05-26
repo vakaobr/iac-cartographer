@@ -665,7 +665,11 @@ class PublisherConfig(_Strict):
     #                  the `notion:` config + the
     #                  `iac-cartographer/notion` secret. Requires
     #                  `pip install iac-cartographer[notion]`.
-    kind: Literal["confluence", "markdown", "html", "json", "notion"] = "confluence"
+    #   "github_wiki" → git-push Markdown files to a repo's GitHub Wiki.
+    #                   Uses the `github_wiki:` config + the existing
+    #                   `iac-cartographer/github` secret (same token
+    #                   that powers GitHub discovery).
+    kind: Literal["confluence", "markdown", "html", "json", "notion", "github_wiki"] = "confluence"
 
 
 class MarkdownConfig(_Strict):
@@ -747,6 +751,39 @@ class NotionConfig(_Strict):
     parent_page_id: str = ""
 
 
+class GitHubWikiConfig(_Strict):
+    """`publisher.kind == "github_wiki"` settings.
+
+    Each repo is rendered as a Markdown page in the target repo's
+    GitHub Wiki; `Home.md` carries the overview. The publisher
+    clones the wiki repo to a temp dir, rewrites Markdown files
+    in-place, then `git commit` + `git push` once at the end.
+    SHA-in-HTML-comment idempotency at the top of each `.md` file
+    means unchanged repos skip the disk write entirely.
+
+    Reuses the existing `iac-cartographer/github` secret — operators
+    using GitHub discovery already have the token configured. The
+    token needs `public_repo` for public targets or `repo` for
+    private targets; the wiki inherits the repo's collaborator
+    permissions automatically.
+
+    Pre-requisite: the wiki must exist. GitHub creates the
+    `<owner>/<repo>.wiki.git` backing repo only when the first wiki
+    page is created via the UI — visit
+    `github.com/<owner>/<repo>/wiki` and create a placeholder page
+    before pointing iac-cartographer at it.
+    """
+
+    # GitHub repo owner (org or user).
+    owner: str = ""
+    # GitHub repo name (without the `.wiki` suffix — we append that).
+    repo: str = ""
+    # Author identity on each commit. Override for service-account
+    # deployments (e.g. `github-actions[bot]@users.noreply.github.com`).
+    commit_author_name: str = "iac-cartographer"
+    commit_author_email: str = "iac-cartographer@noreply"
+
+
 class SecretsConfig(_Strict):
     """Selects WHERE credentials + opaque parameters come from.
 
@@ -818,6 +855,7 @@ class AppConfig(_Strict):
     # shadowing Pydantic v2's deprecated `BaseModel.json()` shim.
     json_output: JsonConfig = Field(default_factory=JsonConfig, alias="json")
     notion: NotionConfig = Field(default_factory=NotionConfig)
+    github_wiki: GitHubWikiConfig = Field(default_factory=GitHubWikiConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)
     # Multi-channel notifications. When non-empty, the dispatcher fans
     # every pipeline event out to each listed channel concurrently and

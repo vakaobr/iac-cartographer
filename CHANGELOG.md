@@ -12,6 +12,33 @@ section below records everything that shipped before automation was wired up.
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-26
+
+First PyPI publish. Functionally a superset of 0.1.0 with the post-0.1.0
+additions below; cut primarily to exercise the release pipeline
+end-to-end (PyPI trusted publishing, GHCR cosign signing, GitHub
+Release artefact attachment).
+
+### Added
+
+* `--diff <prev-output>` mode — between-run structural diff against a
+  prior JSON-publisher snapshot. Adds / removes / provider bumps /
+  module bumps / resource-count deltas. Prints Markdown to stdout and
+  rides on the end-of-run Slack post as a one-liner ([#44]).
+* CHANGELOG.md (Keep a Changelog format) + release-please automation:
+  release-please maintains a single open "release PR" on main that bumps
+  the version + updates CHANGELOG from Conventional Commits; merging it
+  cuts the `vX.Y.Z` tag that drives PyPI + GHCR publishes ([#48]).
+
+### Documentation
+
+* Refreshed every doc surface after the notifications / Notion /
+  GitHub Wiki / Gitea / AWS Terraform additions ([#47]).
+
+[#44]: https://github.com/vakaobr/iac-cartographer/pull/44
+[#47]: https://github.com/vakaobr/iac-cartographer/pull/47
+[#48]: https://github.com/vakaobr/iac-cartographer/pull/48
+
 ## [0.1.0] — 2026-05-26
 
 Initial public release. Five pluggable seams (discovery, LLM, publisher,
@@ -121,5 +148,6 @@ secrets, notifications) plus the distribution + onboarding wins below.
 [#42]: https://github.com/vakaobr/iac-cartographer/pull/42
 [#43]: https://github.com/vakaobr/iac-cartographer/pull/43
 
-[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/vakaobr/iac-cartographer/releases/tag/v0.1.0

@@ -184,6 +184,13 @@ messages.
 4. The tag push triggers `release-pypi.yml` (PyPI upload via OIDC) and
    `release-ghcr.yml` (container image + cosign + SBOM).
 
+**Required secret: `RELEASE_PLEASE_TOKEN`.** Fine-grained PAT scoped to
+this repo with `contents: read+write`, `pull-requests: read+write`,
+`actions: read+write`, and `workflows: read+write`. Without it, the tag
+push at step 3 uses the default `GITHUB_TOKEN`, which (by GitHub's
+anti-loop design) cannot trigger downstream workflows — and step 4
+silently fails to run. Rotate the PAT annually.
+
 **Commit message conventions (enforced by release-please):**
 
 | Prefix | Effect | Appears in CHANGELOG |

@@ -1,0 +1,51 @@
+# docker-compose deployment for iac-cartographer.
+#
+# Use cases:
+#   * Local dev / one-off runs against your real fleet without
+#     installing Python on the host.
+#   * On-prem VMs that have Docker but no Kubernetes / Helm.
+#   * Air-gapped or non-cloud environments — the only AWS code path
+#     (CloudWatch metric emission) fails best-effort, so the run
+#     completes regardless.
+#
+# This file uses `docker compose run --rm iac-cartographer` rather than
+# defining a long-running service: the CLI is a one-shot batch job, so
+# `compose up` would exit immediately. Wire the `run` invocation into
+# your scheduler of choice (cron, systemd-timer, Nomad periodic).
+#
+# Usage:
+#   cp .env.example .env       # then edit with your real credentials
+#   cp config.example.yaml config.yaml
+#   docker compose run --rm iac-cartographer
+#
+# To schedule:
+#   # /etc/cron.d/iac-cartographer
+#   0 6 * * 1 cd /opt/iac-cartographer/docker-compose && \
+#     docker compose run --rm iac-cartographer >> /var/log/iac-cartographer.log 2>&1
+
+services:
+  iac-cartographer:
+    image: ghcr.io/vakaobr/iac-cartographer:latest
+    # Pin to a semver tag in production:
+    # image: ghcr.io/vakaobr/iac-cartographer:v0.1.0
+    pull_policy: missing
+    restart: "no"           # one-shot batch; not a long-running service
+    user: "1000:1000"       # non-root inside the container
+    env_file:
+      - .env
+    volumes:
+      # Mount the config read-only; the CLI is pointed at this path via
+      # the command below.
+      - ./config.yaml:/etc/iac-cartographer/config.yaml:ro
+      # Output dir for the markdown / html / json publishers. Bind-mount
+      # so the host can browse the result after the run. Remove this if
+      # publisher.kind is "confluence".
+      - ./output:/var/run/iac-cartographer/output
+    command:
+      - --once
+      - --config
+      - /etc/iac-cartographer/config.yaml
+    # tmpfs for shallow git clones — keeps clones off the rootfs and out
+    # of any bind mount. Sized for ~50 typical IaC repos.
+    tmpfs:
+      - /tmp:size=1G,uid=1000,gid=1000

@@ -12,6 +12,28 @@ section below records everything that shipped before automation was wired up.
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-05-26
+
+GitHub Marketplace publish + PyPI verified-metadata polish. v0.1.2
+shipped the action successfully but Marketplace rejected the listing
+on a description-length cap; PyPI showed the project page with an
+"Unverified details" notice on metadata it couldn't verify against the
+trusted publisher.
+
+### Fixed
+
+* **`action.yml` description** trimmed to 120 chars to satisfy the
+  GitHub Marketplace 125-char cap. The long-form description still
+  lives in README + pyproject.toml — `action.yml` only carries the
+  catalogue-line version.
+* **`pyproject.toml [project.urls]`** expanded — every label now points
+  at a `github.com/vakaobr/iac-cartographer` path, which PyPI
+  auto-verifies because it matches the OIDC trusted-publisher repo.
+  Adds `Documentation`, `Source`, `Changelog`, `Releases` to the
+  existing `Homepage`, `Repository`, `Issues` set. The "Unverified
+  details" banner on the PyPI project page should clear on the next
+  publish.
+
 ## [0.1.2] — 2026-05-26
 
 Release-pipeline shakedown plus the GitHub Marketplace action. The v0.1.1
@@ -190,7 +212,8 @@ secrets, notifications) plus the distribution + onboarding wins below.
 [#42]: https://github.com/vakaobr/iac-cartographer/pull/42
 [#43]: https://github.com/vakaobr/iac-cartographer/pull/43
 
-[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/vakaobr/iac-cartographer/releases/tag/v0.1.0

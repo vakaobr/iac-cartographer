@@ -119,9 +119,11 @@ Releases are tag-driven. Two workflows fan out from a single tag push:
    sdist + wheel and uploads them to PyPI on every tag matching `v*`,
    then attaches them to the corresponding GitHub Release.
 2. [`release-ghcr.yml`](.github/workflows/release-ghcr.yml) — builds the
-   container image and pushes it to `ghcr.io/vakaobr/iac-cartographer`
-   with a full semver tag fan-out, then signs the image with cosign and
-   attaches an SPDX SBOM to the GitHub Release.
+   container image (multi-arch: `linux/amd64` + `linux/arm64` via
+   buildx + QEMU emulation) and pushes it to
+   `ghcr.io/vakaobr/iac-cartographer` with a full semver tag fan-out,
+   then signs the image with cosign and attaches an SPDX SBOM to the
+   GitHub Release.
 
 ### PyPI side
 

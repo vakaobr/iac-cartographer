@@ -159,11 +159,16 @@ Requirements:
   * **`openai`** — an OpenAI API key, or any OpenAI-compatible gateway *(requires `pip install iac-cartographer[openai]`)*
   * **`ollama`** — a reachable Ollama server (`http://localhost:11434` by default) — zero auth, zero outbound traffic, zero API spend
 
-### 2. Pre-create a parent Confluence page
+### 2. Pre-create the publishing target
 
-Create an empty Confluence page in your target space (e.g. `DOCS`). It will
-become the overview / index. Note the numeric page ID from the URL
-(`/wiki/spaces/DOCS/pages/123456789/...` → `123456789`).
+The shape of this step depends on which publisher you picked:
+
+| Publisher | What to pre-create | Notes |
+|---|---|---|
+| **`confluence`** | Empty parent page in your target space (e.g. `DOCS`). Note the numeric page ID from the URL (`/wiki/spaces/DOCS/pages/123456789/...` → `123456789`). | See [Confluence backend](https://iac-cartographer.andersonleite.me/backends/publishers/#confluence) for token scoping. |
+| **`notion`** | Empty Notion page; share it with your internal integration via the Connections menu so the integration can write children. Note the page UUID from the URL. | See [Notion backend](https://iac-cartographer.andersonleite.me/backends/publishers/#notion). |
+| **`github_wiki`** | A GitHub repo with the wiki enabled. Visit the repo's `/wiki` tab once and create any one page to bootstrap `<owner>/<repo>.wiki.git`. | See [GitHub Wiki backend](https://iac-cartographer.andersonleite.me/backends/publishers/#github-wiki). |
+| **`markdown`** / **`html`** / **`json`** | Any writable directory the process can `os.makedirs(..., exist_ok=True)` into. Nothing else. | See [Markdown / HTML / JSON backends](https://iac-cartographer.andersonleite.me/backends/publishers/). |
 
 ### 3. Seed credentials
 

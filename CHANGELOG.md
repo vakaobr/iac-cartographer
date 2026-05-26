@@ -12,6 +12,48 @@ section below records everything that shipped before automation was wired up.
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-05-26
+
+Release-pipeline shakedown plus the GitHub Marketplace action. The v0.1.1
+tag exercised the workflows end-to-end and surfaced three issues; this
+release fixes them, then adds the marketplace wrapper so adopters can
+`uses: vakaobr/iac-cartographer@v0.1.2` from any workflow.
+
+### Added
+
+* **GitHub Action wrapper** — [`action.yml`](action.yml) at the repo
+  root publishes a reusable marketplace action backed by the existing
+  container image (Docker-based action; rebuilds from `Dockerfile` at
+  invocation time, so the entrypoint + image always match the pinned
+  ref). Inputs: `config`, `mode` (`once` / `lint`), `dry-run`,
+  `verbose`, `repos`, `model`, `diff`, `lint-path`, `lint-format`,
+  `fail-on`, `extra-args`. Ships [`scripts/action-entrypoint.sh`](scripts/action-entrypoint.sh)
+  inside the image; non-action invocations still use the existing
+  `iac-cartographer` ENTRYPOINT.
+* **Marketplace usage example** —
+  [`examples/runtime/github-action-marketplace.yml`](examples/runtime/github-action-marketplace.yml)
+  shows the shortest possible scheduled-refresh workflow + the secret
+  shape for the `env` secrets backend.
+
+### Fixed
+
+* `pyproject.toml` description trimmed from 595 → 427 chars to satisfy PyPI's
+  512-char `summary` limit (the v0.1.1 upload failed with a 400 Bad Request
+  from upload.pypi.org).
+* `.github/workflows/security.yml` — `pip-audit --strict` no longer trips
+  over the editable install of the project itself; the workflow now installs
+  the package non-editably so the `--strict` warning-as-error path stays
+  intact for yanked-version detection.
+
+### Documentation
+
+* README quick-start step 2 is no longer Confluence-specific — covers all six
+  publishers (Confluence, Notion, GitHub Wiki, Markdown, HTML, JSON).
+* [`examples/runtime/README.md`](examples/runtime/README.md) rewritten to
+  link every subdirectory (`docker-compose/`, `aws-ecs-fargate/`,
+  `gcp-cloud-run-job/`, `azure-container-apps-job/`) that landed in
+  earlier PRs but wasn't surfaced in the index.
+
 ## [0.1.1] — 2026-05-26
 
 First PyPI publish. Functionally a superset of 0.1.0 with the post-0.1.0
@@ -148,6 +190,7 @@ secrets, notifications) plus the distribution + onboarding wins below.
 [#42]: https://github.com/vakaobr/iac-cartographer/pull/42
 [#43]: https://github.com/vakaobr/iac-cartographer/pull/43
 
-[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/vakaobr/iac-cartographer/releases/tag/v0.1.0

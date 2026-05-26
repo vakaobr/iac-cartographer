@@ -5,27 +5,27 @@ these user blocks, give me back text + token counts". Anything more
 specific to a particular provider (auth, endpoint, response shape) lives
 behind the `LLMBackend` ABC defined here.
 
-Three implementations ship by default:
+Five implementations ship by default:
 
-  * `BedrockBackend` — invokes Claude models via AWS Bedrock's
-    InvokeModel API. Auth comes from boto3's standard credential chain
-    (env, instance profile, etc.); no API key handling.
-  * `AnthropicBackend` — invokes Claude models against the Anthropic API
-    directly (https://api.anthropic.com/v1/messages). Auth via an API
-    key passed at construction.
-  * `VertexBackend` — invokes Claude models on Vertex AI (Google Cloud)
-    via the Anthropic SDK's `AnthropicVertex` client. Auth via Google
-    Application Default Credentials (workload identity in cluster, ADC
-    for local dev, service account key for batch jobs). Requires the
-    `[gcp]` optional dependency group.
+  * `BedrockBackend`     — Claude on AWS Bedrock. Auth via boto3
+    credential chain; no API key handling.
+  * `AnthropicBackend`   — Claude on api.anthropic.com. Auth via API key.
+  * `VertexBackend`      — Claude on Vertex AI / Google Cloud. Auth via
+    Google ADC. Requires the `[gcp]` optional dependency group.
+  * `AzureOpenAIBackend` — GPT models on Azure OpenAI. Auth via API
+    key or Azure AD / managed identity. Requires the `[azure]`
+    optional dependency group.
+  * `OpenAIBackend`      — GPT models via api.openai.com (or any
+    OpenAI-compatible gateway). Auth via API key. Requires the
+    `[openai]` optional dependency group.
 
-All three speak the Anthropic Messages API request format internally;
-the backends translate to/from provider-specific quirks (Bedrock embeds
-the version in the body and elides `model`; Anthropic direct uses a
-header version and includes `model`; Vertex uses
-`vertex-2023-10-16` as the version and encodes the model in the URL).
+The three Claude backends (Bedrock, Anthropic, Vertex) speak the
+Anthropic Messages API request format internally; the backends
+translate to/from provider-specific quirks. AzureOpenAIBackend speaks
+the OpenAI chat.completions format and flattens
+`user_blocks` accordingly.
 
-Adding a new backend (OpenAI, Ollama, etc.) means subclassing
+Adding a new backend (OpenAI direct, Ollama, etc.) means subclassing
 `LLMBackend` and overriding `invoke()`.
 """
 
@@ -312,6 +312,260 @@ class VertexBackend(LLMBackend):
         )
 
 
+# ─── Azure OpenAI (GPT family via Azure) ─────────────────────────────
+
+
+class AzureOpenAIBackend(LLMBackend):
+    """Invoke OpenAI models hosted on Azure (GPT-4o, GPT-4-Turbo, etc.).
+
+    First non-Claude backend in iac-cartographer — Azure doesn't host
+    Claude. The narrator prompt is currently tuned for Claude (XML tags,
+    structured-output instructions); GPT-4 handles it but has slightly
+    higher schema-validation failure rates than Claude. The
+    `response_format={"type": "json_object"}` setting nudges the model
+    into producing valid JSON, and the narrator's existing retry-once
+    path catches the rest.
+
+    Auth: two modes:
+      * **API key** — operator stores it in `iac-cartographer/azure_openai`
+        (matching the env / vault / aws secrets backend pattern). Default.
+      * **Azure AD / Managed Identity** — set `use_aad=True`. The SDK
+        uses `azure.identity.DefaultAzureCredential` which picks up
+        workload identity in cluster, IMDS on Azure VMs, or `az login`
+        ADC for local dev. Recommended for cloud-native deployments —
+        no secret to rotate.
+
+    Endpoint config:
+      * `endpoint`    — `https://<your-resource>.openai.azure.com/`
+      * `deployment`  — the deployment NAME you created in Azure OpenAI
+        Studio (NOT the underlying model — Azure decouples them).
+      * `api_version` — defaults to a recent stable; bump as Azure
+        releases new versions with features.
+
+    Requires the `[azure]` optional dependency group:
+
+        pip install 'iac-cartographer[azure]'
+    """
+
+    DEFAULT_API_VERSION = "2024-10-21"
+
+    def __init__(
+        self,
+        endpoint: str,
+        deployment: str,
+        *,
+        api_key: str | None = None,
+        use_aad: bool = False,
+        api_version: str = DEFAULT_API_VERSION,
+    ) -> None:
+        if not endpoint:
+            raise ValueError("AzureOpenAIBackend: endpoint is required")
+        if not deployment:
+            raise ValueError("AzureOpenAIBackend: deployment is required")
+        if not use_aad and not api_key:
+            raise ValueError("AzureOpenAIBackend: either api_key or use_aad=True is required")
+        self._endpoint = endpoint.rstrip("/")
+        self._deployment = deployment
+        self._api_key = api_key
+        self._use_aad = use_aad
+        self._api_version = api_version
+        self._client: Any | None = None  # lazy
+
+    def _get_client(self) -> Any:
+        """Lazy-import `openai` + optionally `azure-identity`. Failures
+        surface as `LLMBackendImportError` with a pip-install hint."""
+        if self._client is not None:
+            return self._client
+        try:
+            from openai import AzureOpenAI  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise LLMBackendImportError(
+                "AzureOpenAIBackend requires the [azure] optional dependency group. "
+                "Install with: pip install 'iac-cartographer[azure]'"
+            ) from exc
+
+        if self._use_aad:
+            try:
+                from azure.identity import (  # type: ignore[import-not-found]
+                    DefaultAzureCredential,
+                    get_bearer_token_provider,
+                )
+            except ImportError as exc:
+                raise LLMBackendImportError(
+                    "AzureOpenAIBackend with use_aad=True requires azure-identity. "
+                    "Install with: pip install 'iac-cartographer[azure]'"
+                ) from exc
+            # Bearer token provider refreshes the AAD token automatically;
+            # the SDK calls it on every request.
+            token_provider = get_bearer_token_provider(
+                DefaultAzureCredential(),
+                "https://cognitiveservices.azure.com/.default",
+            )
+            self._client = AzureOpenAI(
+                azure_endpoint=self._endpoint,
+                api_version=self._api_version,
+                azure_ad_token_provider=token_provider,
+            )
+        else:
+            self._client = AzureOpenAI(
+                azure_endpoint=self._endpoint,
+                api_version=self._api_version,
+                api_key=self._api_key,
+            )
+        return self._client
+
+    def invoke(
+        self,
+        *,
+        model_id: str,
+        system_prompt: str,
+        user_blocks: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> LLMResponse:
+        # `model_id` is ignored by Azure OpenAI in favour of the
+        # deployment name passed at construction — Azure binds models
+        # to deployments via the Studio UI, not via the request body.
+        # Log the discrepancy so operators who set both notice.
+        if model_id and model_id != self._deployment:
+            logger.debug(
+                "azure_openai: llm.model_id=%r ignored; deployment=%r drives the routing",
+                model_id,
+                self._deployment,
+            )
+
+        # Flatten Anthropic-style user_blocks into one OpenAI message.
+        # Both formats are "list of text blocks" semantically; OpenAI
+        # chat.completions just expects them concatenated under
+        # `content: str`.
+        user_content = "".join(b.get("text", "") for b in user_blocks if b.get("type") == "text")
+
+        client = self._get_client()
+        completion = client.chat.completions.create(
+            model=self._deployment,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            # Nudge GPT-4 into emitting parseable JSON. The narrator's
+            # Pydantic validation gives the second layer of safety —
+            # `json_object` mode guarantees syntactic validity but not
+            # schema compliance.
+            response_format={"type": "json_object"},
+        )
+
+        # OpenAI SDK returns Pydantic-modelled response objects.
+        choices = getattr(completion, "choices", None) or []
+        text = ""
+        if choices:
+            message = getattr(choices[0], "message", None)
+            text = getattr(message, "content", None) or ""
+
+        usage = getattr(completion, "usage", None)
+        # OpenAI's token field names differ from Anthropic's
+        # (prompt_tokens vs input_tokens; completion_tokens vs
+        # output_tokens). Normalise here so the narrator + outcome
+        # reporting stay backend-agnostic.
+        return LLMResponse(
+            text=text,
+            input_tokens=int(getattr(usage, "prompt_tokens", 0) or 0) if usage else 0,
+            output_tokens=int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0,
+        )
+
+
+# ─── OpenAI direct (GPT family via api.openai.com) ───────────────────
+
+
+class OpenAIBackend(LLMBackend):
+    """Invoke OpenAI models via the public `api.openai.com` endpoint.
+
+    Sibling of `AzureOpenAIBackend` — same chat.completions request
+    shape, same JSON-object response_format nudge, same prompt-vs-
+    completion-tokens normalisation. Differences:
+      * Auth uses an API key (`x-api-key`-equivalent header set by the
+        SDK), not AAD.
+      * `model_id` actually routes the request (no deployment indirection).
+      * Endpoint base URL is overridable for OpenAI-compatible proxies
+        and gateways (Azure API Management routes, internal LLM
+        gateways, LiteLLM, etc.).
+
+    Requires the `[openai]` optional dependency group:
+
+        pip install 'iac-cartographer[openai]'
+
+    The same `openai` SDK that AzureOpenAIBackend uses — installing
+    either extra is enough if you only need one.
+    """
+
+    DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        organization: str | None = None,
+    ) -> None:
+        if not api_key:
+            raise ValueError("OpenAIBackend: api_key is required")
+        self._api_key = api_key
+        self._base_url = base_url.rstrip("/")
+        self._organization = organization
+        self._client: Any | None = None  # lazy
+
+    def _get_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        try:
+            from openai import OpenAI  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise LLMBackendImportError(
+                "OpenAIBackend requires the [openai] optional dependency group. "
+                "Install with: pip install 'iac-cartographer[openai]'"
+            ) from exc
+        kwargs: dict[str, Any] = {"api_key": self._api_key, "base_url": self._base_url}
+        if self._organization:
+            kwargs["organization"] = self._organization
+        self._client = OpenAI(**kwargs)
+        return self._client
+
+    def invoke(
+        self,
+        *,
+        model_id: str,
+        system_prompt: str,
+        user_blocks: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> LLMResponse:
+        # Flatten Anthropic-style user_blocks into one OpenAI chat
+        # message string. Same as AzureOpenAIBackend.
+        user_content = "".join(b.get("text", "") for b in user_blocks if b.get("type") == "text")
+
+        client = self._get_client()
+        completion = client.chat.completions.create(
+            model=model_id,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            response_format={"type": "json_object"},
+        )
+
+        choices = getattr(completion, "choices", None) or []
+        text = ""
+        if choices:
+            message = getattr(choices[0], "message", None)
+            text = getattr(message, "content", None) or ""
+
+        usage = getattr(completion, "usage", None)
+        return LLMResponse(
+            text=text,
+            input_tokens=int(getattr(usage, "prompt_tokens", 0) or 0) if usage else 0,
+            output_tokens=int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0,
+        )
+
+
 class LLMBackendImportError(ImportError):
     """Raised when a backend's optional dependency group isn't installed.
 
@@ -321,9 +575,11 @@ class LLMBackendImportError(ImportError):
 
 __all__ = [
     "AnthropicBackend",
+    "AzureOpenAIBackend",
     "BedrockBackend",
     "LLMBackend",
     "LLMBackendImportError",
     "LLMResponse",
+    "OpenAIBackend",
     "VertexBackend",
 ]

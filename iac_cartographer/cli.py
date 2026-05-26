@@ -61,15 +61,24 @@ from iac_cartographer.init_scaffold import (
     print_next_steps,
     write_scaffold,
 )
-from iac_cartographer.llm import AnthropicBackend, BedrockBackend, LLMBackend, VertexBackend
+from iac_cartographer.llm import (
+    AnthropicBackend,
+    AzureOpenAIBackend,
+    BedrockBackend,
+    LLMBackend,
+    OpenAIBackend,
+    VertexBackend,
+)
 from iac_cartographer.models import (
     AnthropicCredentials,
     AppConfig,
+    AzureOpenAICredentials,
     BitbucketCredentials,
     ConfluenceCredentials,
     GithubCredentials,
     GitlabCredentials,
     LLMConfig,
+    OpenAICredentials,
     RepoInventory,
     RepoMetadata,
     RunOutcome,
@@ -178,6 +187,12 @@ class LoadedSecrets:
     # `bitbucket` is only populated when `discovery.bitbucket_workspaces`
     # is non-empty — runs without Bitbucket discovery don't need the secret.
     bitbucket: BitbucketCredentials | None = None
+    # `azure_openai` is only populated when `llm.backend == "azure_openai"`
+    # AND `llm.azure_openai_use_aad` is false. AAD-authenticated
+    # deployments skip the secret entirely.
+    azure_openai: AzureOpenAICredentials | None = None
+    # `openai` is only populated when `llm.backend == "openai"`.
+    openai: OpenAICredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -189,6 +204,8 @@ GITLAB_SECRET_NAME = "iac-cartographer/gitlab"  # noqa: S105
 GITHUB_SECRET_NAME = "iac-cartographer/github"  # noqa: S105
 SLACK_SECRET_NAME = "iac-cartographer/slack"  # noqa: S105
 ANTHROPIC_SECRET_NAME = "iac-cartographer/anthropic"  # noqa: S105
+AZURE_OPENAI_SECRET_NAME = "iac-cartographer/azure_openai"  # noqa: S105
+OPENAI_SECRET_NAME = "iac-cartographer/openai"  # noqa: S105
 BITBUCKET_SECRET_NAME = "iac-cartographer/bitbucket"  # noqa: S105
 
 
@@ -223,6 +240,7 @@ def _load_secrets(
     llm_backend_name: str = "bedrock",
     *,
     need_bitbucket: bool = False,
+    need_azure_openai: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -232,6 +250,11 @@ def _load_secrets(
 
     `need_bitbucket` decides whether the Bitbucket credential is required:
     True when `discovery.bitbucket_workspaces` is non-empty.
+
+    `need_azure_openai` decides whether the Azure OpenAI API key is
+    required: True when `llm.backend == "azure_openai"` AND
+    `llm.azure_openai_use_aad` is false. AAD-authenticated deployments
+    skip the secret entirely.
 
     Raises `MissingSecretError` if any required secret is missing or
     fails Pydantic validation. Always reads real credentials —
@@ -258,6 +281,33 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"anthropic secret payload failed schema validation: {exc}") from exc
 
+    openai_creds: OpenAICredentials | None = None
+    if llm_backend_name == "openai":
+        try:
+            openai_raw = provider.get_secret(OPENAI_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"llm.backend=openai but the {OPENAI_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            openai_creds = OpenAICredentials.model_validate(openai_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"openai secret payload failed schema validation: {exc}") from exc
+
+    azure_openai_creds: AzureOpenAICredentials | None = None
+    if need_azure_openai:
+        try:
+            azure_openai_raw = provider.get_secret(AZURE_OPENAI_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"llm.backend=azure_openai (without use_aad) but the "
+                f"{AZURE_OPENAI_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            azure_openai_creds = AzureOpenAICredentials.model_validate(azure_openai_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"azure_openai secret payload failed schema validation: {exc}") from exc
+
     bitbucket_creds: BitbucketCredentials | None = None
     if need_bitbucket:
         try:
@@ -280,6 +330,8 @@ def _load_secrets(
             slack=SlackCredentials.model_validate(slack_raw),
             anthropic=anthropic_creds,
             bitbucket=bitbucket_creds,
+            azure_openai=azure_openai_creds,
+            openai=openai_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -320,6 +372,51 @@ def _build_llm_backend(llm_config: LLMConfig, secrets: LoadedSecrets) -> LLMBack
         return VertexBackend(
             project_id=llm_config.vertex_project_id,
             region=llm_config.vertex_region,
+        )
+    if name == "azure_openai":
+        if not llm_config.azure_openai_endpoint:
+            raise ConfigError(
+                "llm.backend=azure_openai but llm.azure_openai_endpoint is empty. "
+                "Set it to your Azure OpenAI resource URL "
+                "(e.g. https://my-resource.openai.azure.com/)."
+            )
+        if not llm_config.azure_openai_deployment:
+            raise ConfigError(
+                "llm.backend=azure_openai but llm.azure_openai_deployment is empty. "
+                "Set it to the deployment name you created in Azure OpenAI Studio."
+            )
+        if llm_config.azure_openai_use_aad:
+            return AzureOpenAIBackend(
+                endpoint=llm_config.azure_openai_endpoint,
+                deployment=llm_config.azure_openai_deployment,
+                use_aad=True,
+                api_version=llm_config.azure_openai_api_version,
+            )
+        if secrets.azure_openai is None:
+            # Shouldn't happen — _load_secrets gates on the same
+            # condition — but guard for clarity / future-refactor safety.
+            raise ConfigError(
+                "llm.backend=azure_openai but no AzureOpenAICredentials were loaded. "
+                "Either set llm.azure_openai_use_aad: true OR populate "
+                "the iac-cartographer/azure_openai secret with an api_key."
+            )
+        return AzureOpenAIBackend(
+            endpoint=llm_config.azure_openai_endpoint,
+            deployment=llm_config.azure_openai_deployment,
+            api_key=secrets.azure_openai.api_key,
+            api_version=llm_config.azure_openai_api_version,
+        )
+    if name == "openai":
+        if secrets.openai is None:
+            # Shouldn't happen — _load_secrets gates on the same
+            # condition — but guard for clarity / future-refactor safety.
+            raise ConfigError(
+                "llm.backend=openai but no OpenAICredentials were loaded (check the iac-cartographer/openai secret)"
+            )
+        return OpenAIBackend(
+            api_key=secrets.openai.api_key,
+            base_url=llm_config.openai_base_url,
+            organization=llm_config.openai_organization,
         )
     raise ConfigError(f"unknown llm.backend: {name!r}")
 
@@ -578,6 +675,10 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         secrets_provider,
         config.llm.backend,
         need_bitbucket=bool(config.discovery.bitbucket_workspaces),
+        # Azure OpenAI's API-key secret is needed only when the backend
+        # is active AND `use_aad` is off. AAD deployments authenticate
+        # via DefaultAzureCredential and don't need a stored key.
+        need_azure_openai=(config.llm.backend == "azure_openai" and not config.llm.azure_openai_use_aad),
     )
     slack = SlackNotifier(secrets.slack, channel=config.slack.channel)
     llm_backend = _build_llm_backend(config.llm, secrets)

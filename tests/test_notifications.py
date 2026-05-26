@@ -138,6 +138,38 @@ async def test_dispatcher_close_invokes_every_channel() -> None:
     assert b.close_count == 1
 
 
+async def test_dispatcher_close_isolates_a_raising_channels_cleanup() -> None:
+    """A channel whose `close()` raises (e.g. httpx aclose() on an
+    already-broken connection) must not prevent the other channels
+    from closing. Same isolation contract the `notify` path has,
+    applied to teardown. Without this, a single broken channel could
+    leak open clients on every shutdown."""
+
+    class _CloseRaiser(NotificationChannel):
+        name = "close-raiser"
+
+        async def notify(self, level: NotificationLevel, message: str) -> None:
+            pass
+
+        async def close(self) -> None:
+            raise RuntimeError("aclose() blew up")
+
+    raiser = _CloseRaiser()
+    survivor = _RecordingChannel("survivor")
+    d = NotificationDispatcher(
+        [
+            (raiser, set(NotificationLevel)),
+            (survivor, set(NotificationLevel)),
+        ]
+    )
+
+    # Must not raise — the dispatcher's close() swallows per-channel
+    # cleanup exceptions and logs them at DEBUG.
+    await d.close()
+    # And the survivor's close was still invoked.
+    assert survivor.close_count == 1
+
+
 # ── build_dispatcher factory ──────────────────────────────────────────
 
 

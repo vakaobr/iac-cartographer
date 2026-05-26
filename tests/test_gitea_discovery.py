@@ -213,3 +213,71 @@ async def test_repo_metadata_host_field_is_gitea() -> None:
     result = await d.discover()
     assert isinstance(result[0], RepoMetadata)
     assert result[0].host == "gitea"
+
+
+# ── Pagination edge cases ────────────────────────────────────────────
+
+
+@respx.mock
+async def test_pagination_stops_on_empty_batch_when_link_header_missing() -> None:
+    """Older Gitea versions don't send a `Link` header. The publisher
+    falls back to comparing batch size against the page limit — and
+    an empty batch on a fresh page (operator paginating past the end)
+    must terminate cleanly rather than spin until MAX_PAGES."""
+    page1 = [_repo_stub(f"r-{i}") for i in range(50)]  # exactly full → ask for page 2
+    respx.get(f"{GITEA_BASE}/api/v1/orgs/acme/repos", params={"page": 1, "limit": 50}).mock(
+        return_value=httpx.Response(200, json=page1)  # no Link header at all
+    )
+    # Page 2: empty list — terminator on the size-fallback path.
+    respx.get(f"{GITEA_BASE}/api/v1/orgs/acme/repos", params={"page": 2, "limit": 50}).mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    respx.get(url__regex=rf"^{GITEA_BASE}/api/v1/repos/acme/.+/branches/main$").mock(
+        return_value=httpx.Response(200, json=_branch_payload())
+    )
+
+    d = GiteaDiscovery(GiteaCredentials(token="t"), orgs=["acme"], base_url=GITEA_BASE)
+    result = await d.discover()
+    # Only the 50 from page 1 — page 2's empty list short-circuited.
+    assert len(result) == 50
+
+
+@respx.mock
+async def test_pagination_stops_when_batch_below_page_limit() -> None:
+    """When Gitea returns a page that's shorter than `limit` AND no
+    `rel=\"next\"` Link header, we conclude we've seen the last page
+    and stop — without making a redundant call for an empty page+1."""
+    # 30 < 50 (limit) → last-page heuristic kicks in.
+    page1 = [_repo_stub(f"r-{i}") for i in range(30)]
+    route_p1 = respx.get(f"{GITEA_BASE}/api/v1/orgs/acme/repos", params={"page": 1, "limit": 50}).mock(
+        return_value=httpx.Response(200, json=page1)
+    )
+    # If the publisher *did* request page 2, this route would intercept it.
+    # Mounting it with assert_all_called=False lets us check it never fired.
+    route_p2 = respx.get(f"{GITEA_BASE}/api/v1/orgs/acme/repos", params={"page": 2, "limit": 50}).mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    respx.get(url__regex=rf"^{GITEA_BASE}/api/v1/repos/acme/.+/branches/main$").mock(
+        return_value=httpx.Response(200, json=_branch_payload())
+    )
+
+    d = GiteaDiscovery(GiteaCredentials(token="t"), orgs=["acme"], base_url=GITEA_BASE)
+    result = await d.discover()
+    assert len(result) == 30
+    # Page 1 hit, page 2 never requested.
+    assert route_p1.called
+    assert not route_p2.called
+
+
+@respx.mock
+async def test_pagination_raises_on_unexpected_payload_shape() -> None:
+    """Gitea's contract is to return a plain list on success. An object
+    payload (e.g. error wrapped in `{"errors": [...]}` returned with
+    a 200) is a contract violation — surface loudly rather than
+    silently producing zero repos."""
+    respx.get(f"{GITEA_BASE}/api/v1/orgs/acme/repos").mock(
+        return_value=httpx.Response(200, json={"errors": ["server hiccup"]})
+    )
+    d = GiteaDiscovery(GiteaCredentials(token="t"), orgs=["acme"], base_url=GITEA_BASE)
+    with pytest.raises(DiscoveryError, match=r"non-list payload"):
+        await d.discover()

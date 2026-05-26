@@ -254,6 +254,33 @@ json:
   output_dir: "./iac-inventory-json"
 
 slack:
+  # Legacy single-channel notification config. When `notifications:`
+  # (below) is unset / empty, this block + the `iac-cartographer/slack`
+  # secret act as the sole destination at all three severities.
+  # Existing deployments need no changes — leave `notifications:` empty
+  # and this keeps working.
+  #
   # #channel-name or a Slack channel ID (C0...). The bot token from
   # `iac-cartographer/slack` secret must be invited to this channel.
   channel: "#alerts"
+
+# Multi-channel notifications. When non-empty, the dispatcher fans every
+# pipeline event out to each listed channel concurrently and honours
+# each entry's `levels:` filter. When non-empty, the legacy `slack:`
+# block above is IGNORED — you've opted into explicit routing. Leave
+# this list empty (default) to keep the single-Slack back-compat path.
+#
+# Channel kinds shipped today:
+#   "slack"  → Slack bot-token `chat.postMessage`. Same credentials as
+#              the legacy block (`iac-cartographer/slack` secret).
+# Coming in follow-up PRs: "teams", "rocketchat", "mattermost",
+# "email", "sns", "webhook", "pagerduty", "opsgenie", "discord",
+# "stdout". See docs/backends/notifications.md for the roadmap.
+notifications: []
+  # Example — two Slack channels, one for chat / one for pager-style:
+  # - kind: slack
+  #   channel: "#infra-info"
+  #   # levels defaults to all three when omitted
+  # - kind: slack
+  #   channel: "#infra-oncall"
+  #   levels: [error]

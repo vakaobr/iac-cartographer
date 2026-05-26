@@ -86,6 +86,10 @@ from iac_cartographer.models import (
     SlackCredentials,
 )
 from iac_cartographer.narrator import detect_suspicious_phrases, placeholder_narrative, summarize
+from iac_cartographer.notifications import (
+    NotificationDispatcher,
+    build_dispatcher,
+)
 from iac_cartographer.publishers import (
     ConfluencePublisher,
     LocalHtmlPublisher,
@@ -95,7 +99,6 @@ from iac_cartographer.publishers import (
 )
 from iac_cartographer.renderer import OVERVIEW_TITLE, compute_sha
 from iac_cartographer.secrets import SecretsProvider, build_provider
-from iac_cartographer.slack import SlackNotifier
 
 logger = logging.getLogger("iac_cartographer.cli")
 
@@ -690,7 +693,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # via DefaultAzureCredential and don't need a stored key.
         need_azure_openai=(config.llm.backend == "azure_openai" and not config.llm.azure_openai_use_aad),
     )
-    slack = SlackNotifier(secrets.slack, channel=config.slack.channel)
+    notifier: NotificationDispatcher = build_dispatcher(config, slack_creds=secrets.slack)
     llm_backend = _build_llm_backend(config.llm, secrets)
 
     outcome = RunOutcome()
@@ -727,7 +730,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 )
             except CartographerError as exc:
                 logger.exception("preflight: confluence parent page unreachable")
-                await slack.error(
+                await notifier.error(
                     f"iac-cartographer: preflight failed — Confluence parent page "
                     f"({config.confluence.parent_page_id_ssm_path}) unreachable: {exc}"
                 )
@@ -738,7 +741,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 # of a false-negative preflight (running a doomed pipeline) is
                 # higher than the cost of an over-eager fail (operator retries).
                 logger.exception("preflight: unexpected error during Confluence preflight")
-                await slack.error(f"iac-cartographer: preflight failed — {type(exc).__name__}: {exc}")
+                await notifier.error(f"iac-cartographer: preflight failed — {type(exc).__name__}: {exc}")
                 return 2
 
         # ── Discovery ────────────────────────────────────────────────────
@@ -748,7 +751,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         except CartographerError as exc:
             logger.exception("discovery failed")
             if not args.dry_run:
-                await slack.error(f"iac-cartographer: discovery failed — {exc}")
+                await notifier.error(f"iac-cartographer: discovery failed — {exc}")
             return 2
 
         repos = _filter_repos(repos, args.repos)
@@ -756,7 +759,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         if not repos:
             logger.error("no repos to process after filtering")
             if not args.dry_run:
-                await slack.error("iac-cartographer: no repos to process after filtering")
+                await notifier.error("iac-cartographer: no repos to process after filtering")
             return 2
 
         # ── Per-repo pipeline ────────────────────────────────────────────
@@ -822,7 +825,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 # can usually skip the CloudWatch trip. Truncated to keep the
                 # message readable; full list is in the per-repo ERROR lines.
                 sample = next(iter(failed.values()))[:300] if failed else ""
-                await slack.error(
+                await notifier.error(
                     f"iac-cartographer: every repo failed ({len(failed)} repos); no pages updated. First error: {sample}"
                 )
             return 1
@@ -914,13 +917,13 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                     review_lines
                 )
             if all_failures or suspicious_repos:
-                await slack.warn(slack_msg)
+                await notifier.warn(slack_msg)
             else:
-                await slack.info(slack_msg)
+                await notifier.info(slack_msg)
 
         return 1 if all_failures else 0
     finally:
-        await slack.close()
+        await notifier.close()
 
 
 # ---------------------------------------------------------------------------

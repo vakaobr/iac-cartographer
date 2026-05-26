@@ -66,6 +66,12 @@ llm:
   #                 Application Default Credentials — workload identity
   #                 in cluster, ADC for local dev, SA key for batch jobs).
   #                 Requires `pip install iac-cartographer[gcp]`.
+  #   "azure_openai" → GPT family on Azure OpenAI (auth via API key in
+  #                 the `iac-cartographer/azure_openai` secret, OR
+  #                 Azure AD / managed identity when use_aad is true).
+  #                 First non-Claude backend — GPT-4 emits invalid
+  #                 JSON slightly more often than Claude; the backend
+  #                 retries once. Requires `pip install iac-cartographer[azure]`.
   backend: "bedrock"
 
   # Model identifier. Backend-specific:
@@ -97,6 +103,25 @@ llm:
   # Vertex-only: Vertex AI region. Pick one where Claude is available
   # (us-east5, europe-west1, asia-southeast1, …).
   vertex_region: "europe-west1"
+
+  # Azure OpenAI-only: resource endpoint URL.
+  # Required when backend=azure_openai.
+  # azure_openai_endpoint: "https://my-resource.openai.azure.com/"
+
+  # Azure OpenAI-only: deployment NAME from Azure OpenAI Studio.
+  # Required when backend=azure_openai. `model_id` is ignored for this
+  # backend (Azure routes by deployment name, not model name).
+  # azure_openai_deployment: "my-gpt4-deployment"
+
+  # Azure OpenAI-only: API version. Bump as Azure releases new versions.
+  azure_openai_api_version: "2024-10-21"
+
+  # Azure OpenAI-only: skip the `iac-cartographer/azure_openai` secret
+  # and authenticate via Azure AD / managed identity instead. Workload
+  # identity in cluster, IMDS on Azure VMs, or `az login` ADC for
+  # local dev. The AAD-bound identity needs `Cognitive Services OpenAI
+  # User` on the resource.
+  azure_openai_use_aad: false
 
 publisher:
   # Which backend renders + writes the inventory.

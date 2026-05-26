@@ -717,3 +717,116 @@ def test_build_llm_backend_vertex_requires_project_id() -> None:
     )
     with pytest.raises(ConfigError, match="vertex_project_id"):
         _build_llm_backend(llm_cfg, secrets)
+
+
+def test_build_llm_backend_azure_openai_with_api_key() -> None:
+    """API-key auth path: factory wires up the secret correctly."""
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.llm import AzureOpenAIBackend
+    from iac_cartographer.models import (
+        AzureOpenAICredentials,
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(
+        backend="azure_openai",
+        azure_openai_endpoint="https://my-resource.openai.azure.com/",
+        azure_openai_deployment="my-gpt4",
+        azure_openai_api_version="2024-10-21",
+    )
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+        azure_openai=AzureOpenAICredentials(api_key="sk-azure-..."),
+    )
+    backend = _build_llm_backend(llm_cfg, secrets)
+    assert isinstance(backend, AzureOpenAIBackend)
+    assert backend._deployment == "my-gpt4"
+    assert backend._use_aad is False
+    assert backend._api_key == "sk-azure-..."
+
+
+def test_build_llm_backend_azure_openai_with_aad() -> None:
+    """use_aad=True path: factory skips the credential bundle."""
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.llm import AzureOpenAIBackend
+    from iac_cartographer.models import (
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(
+        backend="azure_openai",
+        azure_openai_endpoint="https://my-resource.openai.azure.com/",
+        azure_openai_deployment="my-gpt4",
+        azure_openai_use_aad=True,
+    )
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+        # azure_openai stays None — AAD doesn't need it
+    )
+    backend = _build_llm_backend(llm_cfg, secrets)
+    assert isinstance(backend, AzureOpenAIBackend)
+    assert backend._use_aad is True
+    assert backend._api_key is None
+
+
+def test_build_llm_backend_azure_openai_missing_endpoint() -> None:
+    """Both endpoint + deployment are required even in AAD mode —
+    they're routing info, not credentials."""
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.constants import ConfigError
+    from iac_cartographer.models import (
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(backend="azure_openai", azure_openai_deployment="my-gpt4")
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+    )
+    with pytest.raises(ConfigError, match="azure_openai_endpoint"):
+        _build_llm_backend(llm_cfg, secrets)
+
+
+def test_build_llm_backend_azure_openai_missing_deployment() -> None:
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.constants import ConfigError
+    from iac_cartographer.models import (
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(
+        backend="azure_openai",
+        azure_openai_endpoint="https://my-resource.openai.azure.com/",
+    )
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+    )
+    with pytest.raises(ConfigError, match="azure_openai_deployment"):
+        _build_llm_backend(llm_cfg, secrets)

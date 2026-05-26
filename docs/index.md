@@ -3,7 +3,10 @@ title: iac-cartographer
 description: Fleet-level documentation for your Terraform / IaC estate.
 ---
 
-![iac-cartographer banner](banner.png){ .img-banner }
+<picture>
+  <source srcset="banner.webp" type="image/webp">
+  <img src="banner.png" alt="iac-cartographer banner" style="width: 100%; max-width: 100%;">
+</picture>
 
 # iac-cartographer
 

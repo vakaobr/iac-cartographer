@@ -188,3 +188,96 @@ unchanged pages skip the rewrite entirely.
 - **Block content caps at 2000 chars** per rich-text run. The
   renderer truncates aggressively (1900 chars) to stay below the
   cap against pathological narrative outputs.
+
+## GitHub Wiki
+
+Writes the inventory as Markdown files to a repo's GitHub Wiki —
+operators who already use GitHub for code + issue tracking get a
+zero-extra-platform docs surface, browsable at
+`github.com/<owner>/<repo>/wiki`.
+
+```yaml
+publisher:
+  kind: github_wiki
+
+github_wiki:
+  owner: "acme-org"                                # GitHub user / org
+  repo: "infrastructure"                           # Repo whose wiki to publish to
+  commit_author_name: "iac-cartographer"           # default; override for bot identity
+  commit_author_email: "iac-cartographer@noreply"  # default
+```
+
+Wiki publishing is **git-based**, not API-based. There is no GitHub
+REST API for editing wiki content (that endpoint was deprecated
+years ago); the canonical path is to clone the wiki repository at
+`<owner>/<repo>.wiki.git`, rewrite the Markdown files in the
+working tree, and `git commit` + `git push`. The publisher handles
+all of that — operators just need to make sure:
+
+1. The repo's wiki is **enabled** in Settings → Features → Wikis.
+2. The wiki has at least one page (visit `/wiki` once and click
+   "Create the first page"). Without that, `<repo>.wiki.git`
+   doesn't yet exist on the remote and the clone fails.
+3. The token in `iac-cartographer/github` has `public_repo` (public
+   targets) or `repo` (private targets) — same token + scope the
+   GitHub discovery source uses.
+
+### Reusing the `iac-cartographer/github` secret
+
+This publisher does **not** need its own credential entry. The
+existing `iac-cartographer/github` secret (created for the GitHub
+discovery source) carries the same token format — it's loaded once
+at startup and handed to whichever component needs it.
+
+### Layout
+
+```
+Home.md                            # GitHub's default wiki landing page
+acme-org__main-cluster.md          # one file per discovered repo
+acme-org__auth-service.md          # full_name slugged with "__"
+…
+```
+
+Slashes in `full_name` become `__` in the filename — `acme-org/main-cluster`
+→ `acme-org__main-cluster.md`. GitHub Wiki renders the file as a
+page titled `acme-org__main-cluster` (clickable from the sidebar).
+This matches the local-markdown publisher's slug convention so the
+Markdown body is byte-identical between the two.
+
+### Banner-SHA idempotency
+
+Same shape as the local-markdown publisher: an HTML comment at the
+top of each file (`<!-- iac-cartographer-sha: <hex> -->`). The
+next run reads the file, parses the SHA, and skips the rewrite when
+it matches. Unchanged files leave the wiki repo untouched — no
+zombie commits with empty diffs.
+
+### Commit behaviour
+
+- All file rewrites happen in the clone's working tree during
+  `publish_child` / `publish_overview` calls.
+- At `__aexit__`, the publisher runs `git add -A` + checks
+  `git diff --cached --quiet`. If the tree matches HEAD (every
+  repo was a SHA-match short-circuit), commit + push are skipped
+  entirely.
+- Otherwise one commit goes out per run, message
+  `iac-cartographer: update inventory`. The author identity is
+  set per-commit (not via global `git config`), so the host's
+  git config stays clean.
+
+### Operator's commit history
+
+Wiki commits are visible in the wiki's git history — visible to
+anyone with read access to the repo. This is intentional: it's
+auditable evidence of when the inventory last refreshed and what
+changed each run. For deployments where this matters, set
+`commit_author_name` / `commit_author_email` to a recognisable
+bot identity (e.g. `github-actions[bot]@users.noreply.github.com`).
+
+### When to use this vs the local-markdown publisher
+
+| Use this when | Use `markdown` when |
+|---|---|
+| Your team's docs live on GitHub already; an extra `/wiki` tab is the discoverable home. | You run a static-site generator (mkdocs / Hugo / Docusaurus) and want to feed the rendered output into its build. |
+| You want the inventory always-live without running a docs-build CI job. | You want to commit the rendered output to a docs repo and have PRs show diffs before publishing. |
+| You're fine with GitHub-hosted Markdown rendering (no custom CSS / theming / search). | You need a custom theme, full-text search, or other capabilities only a real static-site generator offers. |

@@ -194,6 +194,11 @@ publisher:
   #                  Credentials: `iac-cartographer/notion` secret as
   #                  `{"integration_token": "secret_..."}`.
   #                  Requires `pip install iac-cartographer[notion]`.
+  #   "github_wiki"→ Markdown files git-pushed to a repo's GitHub Wiki.
+  #                  Layout matches the local-markdown publisher; reuses
+  #                  the existing `iac-cartographer/github` secret (no
+  #                  extra credential to manage). The wiki must already
+  #                  exist (visit /wiki and create one page first).
   kind: "confluence"
 
 secrets:
@@ -282,6 +287,19 @@ notion:
   # with cross-links. SHA-callout idempotency at the top of every
   # page (🔖 iac-cartographer SHA: <hex>).
   parent_page_id: "11111111-1111-1111-1111-111111111111"
+
+github_wiki:
+  # Only used when `publisher.kind == "github_wiki"`. Target repo for
+  # the wiki; the publisher writes Markdown files to
+  # `<owner>/<repo>.wiki.git`. The wiki must already be enabled +
+  # initialised with at least one page. Reuses the existing
+  # `iac-cartographer/github` secret (same token as GitHub discovery).
+  owner: "acme-org"
+  repo: "infrastructure"
+  # Author identity baked into each commit. Override for service-account
+  # deployments (e.g. `github-actions[bot]@users.noreply.github.com`).
+  commit_author_name: "iac-cartographer"
+  commit_author_email: "iac-cartographer@noreply"
 
 slack:
   # Legacy single-channel notification config. When `notifications:`

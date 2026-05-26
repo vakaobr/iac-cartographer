@@ -103,6 +103,7 @@ from iac_cartographer.notifications import (
 )
 from iac_cartographer.publishers import (
     ConfluencePublisher,
+    GitHubWikiPublisher,
     LocalHtmlPublisher,
     LocalJsonPublisher,
     LocalMarkdownPublisher,
@@ -671,6 +672,16 @@ def _build_publisher(
         if not config.notion.parent_page_id:
             raise ConfigError("publisher.kind=notion but notion.parent_page_id is empty")
         return NotionPublisher(secrets.notion, parent_page_id=config.notion.parent_page_id)
+    if kind == "github_wiki":
+        if not config.github_wiki.owner or not config.github_wiki.repo:
+            raise ConfigError("publisher.kind=github_wiki but github_wiki.owner / github_wiki.repo are empty")
+        return GitHubWikiPublisher(
+            secrets.github,
+            owner=config.github_wiki.owner,
+            repo=config.github_wiki.repo,
+            commit_author_name=config.github_wiki.commit_author_name,
+            commit_author_email=config.github_wiki.commit_author_email,
+        )
     raise ConfigError(f"unknown publisher.kind: {kind!r}")
 
 

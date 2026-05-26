@@ -44,7 +44,8 @@ short-circuit), so it's safe to run as often as you like.
                         ▼
         ┌────────────────────────────────┐
         │ Publisher (banner-SHA          │   Confluence (ADF) · Notion
-        │  idempotent republish)         │   Markdown · HTML · JSON
+        │  idempotent republish)         │   GitHub Wiki
+        │                                │   Markdown · HTML · JSON
         └───────────────┬────────────────┘
                         ▼
         ┌────────────────────────────────┐
@@ -145,8 +146,9 @@ Requirements:
 * Python 3.12+
 * [`terraform-docs`](https://terraform-docs.io) on your PATH
 * A publishing target — either a Confluence Cloud space, a Notion
-  parent page shared with an internal integration, or a writable
-  directory if you're using the Markdown / HTML / JSON publishers
+  parent page shared with an internal integration, a GitHub repo
+  with the wiki enabled, or a writable directory if you're using
+  the Markdown / HTML / JSON publishers
 * An LLM backend — pick the one your environment already has credentials for:
   * **`bedrock`** *(default)* — AWS credentials with `bedrock:InvokeModel` on a Claude model
   * **`anthropic`** — an Anthropic API key (for deployments without Bedrock access)
@@ -277,12 +279,13 @@ lives under [`examples/runtime/`](examples/runtime/):
 
 ## Publishing locally instead of Confluence
 
-Five publisher backends ship today — pick with `publisher.kind`:
+Six publisher backends ship today — pick with `publisher.kind`:
 
 | Backend | When to use |
 |---|---|
 | `confluence` *(default)* | You already have Confluence; you want the inventory cross-linked with the rest of your wiki. |
 | `notion` | Your team's docs live in Notion. Each repo becomes a sub-page of a configured parent; an Overview sub-page carries the aggregate summary + cross-links. Requires `pip install iac-cartographer[notion]`. |
+| `github_wiki` | Your team's docs surface lives on GitHub already. The inventory becomes Markdown pages git-pushed to `<owner>/<repo>.wiki.git`, browsable at `github.com/<owner>/<repo>/wiki`. Reuses the existing GitHub token. |
 | `markdown` | You run a static-site generator (mkdocs / Hugo / Docusaurus / Jekyll) and want to feed the rendered Markdown into its build. Or you're committing the output to a docs repo so PRs show diffs. |
 | `html` | You want **self-contained HTML files** with no build step — open them directly in a browser, zip-and-email to a stakeholder, upload to S3 + CloudFront / GitHub Pages, print to PDF for an audit. Embedded CSS, no JS, no external fonts. |
 | `json` | You want a **machine-readable feed** for Backstage catalog imports, internal CMDBs, dashboards, or custom drift-detection tooling. `index.json` carries one row per repo + aggregates; per-repo files carry the full inventory. |
@@ -414,7 +417,7 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 
 The five pluggable seams:
 
-* **Publishers** — Confluence, Notion, local Markdown, standalone HTML, machine-readable JSON.
+* **Publishers** — Confluence, Notion, GitHub Wiki, local Markdown, standalone HTML, machine-readable JSON.
 * **LLM** — AWS Bedrock, Anthropic API direct, Vertex AI (Claude on GCP), Azure OpenAI (GPT on Azure), OpenAI direct (GPT via api.openai.com / OpenAI-compatible gateways), Ollama (local LLM).
 * **Discovery** — GitLab groups, GitHub orgs, Bitbucket workspaces, Gitea / Forgejo orgs (self-hosted), curated YAML/JSON file.
 * **Secrets** — AWS Secrets Manager + SSM, process env vars (with `.env` autoload), HashiCorp Vault KV v2.
@@ -433,7 +436,6 @@ Plus the Phase 3 distribution + onboarding wins:
 
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
-* **New publishers** — GitHub Wiki.
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
 * **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.
 * **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.

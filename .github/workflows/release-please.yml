@@ -1,0 +1,43 @@
+name: Release Please
+
+# release-please watches `main` for Conventional Commits (feat:, fix:, etc.)
+# and maintains a single open "release PR" that bumps the version + updates
+# CHANGELOG.md. Merging that PR creates a `vX.Y.Z` tag + GitHub Release,
+# which in turn triggers `release-pypi.yml` (tag-driven) and
+# `release-ghcr.yml` (tag-driven). One source of truth: commit message
+# conventions on `main`.
+#
+# Maintainer notes:
+#   * No secrets required — uses the default `GITHUB_TOKEN`.
+#   * Authoring rules: use `feat:`, `fix:`, `feat!:`/`fix!:` (breaking),
+#     or scoped equivalents (`feat(publishers):`, `fix(notifications):`).
+#     Non-user-facing types (`ci:`, `chore:`, `build:`, `test:`, `style:`)
+#     are hidden from the changelog. See `release-please-config.json`.
+#   * The version source of truth is `.release-please-manifest.json`.
+#     `pyproject.toml` is updated automatically via the `extra-files`
+#     entry in `release-please-config.json`.
+
+on:
+  push:
+    branches: [main]
+  # Manual trigger for one-off reconciliation (e.g. after a manual hotfix
+  # or to recreate the release PR if it got closed).
+  workflow_dispatch:
+
+permissions:
+  contents: write       # tag + release + commit version bump on the PR branch
+  pull-requests: write  # open / update the release PR
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Maintain release PR + cut tags
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

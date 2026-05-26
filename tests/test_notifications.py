@@ -292,6 +292,94 @@ def test_build_dispatcher_rejects_teams_kind_without_creds() -> None:
         build_dispatcher(config, secrets=NotificationSecrets())
 
 
+def test_build_dispatcher_wires_email_channel() -> None:
+    """kind: email → EmailChannel with SMTP config + loaded credentials."""
+    from iac_cartographer.models import EmailCredentials
+    from iac_cartographer.notifications import EmailChannel
+
+    config = AppConfig.model_validate(
+        {
+            "notifications": [
+                {
+                    "kind": "email",
+                    "smtp_host": "smtp.example.com",
+                    "smtp_port": 587,
+                    "from_address": "noreply@example.com",
+                    "to_addresses": ["ops@example.com"],
+                }
+            ]
+        }
+    )
+    secrets = NotificationSecrets(email=EmailCredentials(username="u", password="p"))
+    d = build_dispatcher(config, secrets=secrets)
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, EmailChannel)
+    assert channel._smtp_host == "smtp.example.com"
+    assert channel._to == ["ops@example.com"]
+    assert channel._username == "u"
+
+
+def test_build_dispatcher_wires_sns_channel_without_secret() -> None:
+    """kind: sns → SnsChannel using only config (no secret to load —
+    auth via the AWS credential chain)."""
+    from iac_cartographer.notifications import SnsChannel
+
+    config = AppConfig.model_validate(
+        {
+            "notifications": [
+                {
+                    "kind": "sns",
+                    "topic_arn": "arn:aws:sns:eu-central-1:000:t",
+                    "region": "eu-central-1",
+                }
+            ]
+        }
+    )
+    d = build_dispatcher(config, secrets=NotificationSecrets())
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, SnsChannel)
+    assert channel._topic_arn == "arn:aws:sns:eu-central-1:000:t"
+    assert channel._region == "eu-central-1"
+
+
+def test_build_dispatcher_rejects_email_kind_without_creds() -> None:
+    config = AppConfig.model_validate(
+        {
+            "notifications": [
+                {
+                    "kind": "email",
+                    "smtp_host": "smtp.example.com",
+                    "from_address": "noreply@example.com",
+                    "to_addresses": ["ops@example.com"],
+                }
+            ]
+        }
+    )
+    with pytest.raises(ConfigError, match=r"notifications.*email"):
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_email_config_requires_at_least_one_recipient() -> None:
+    """to_addresses: [] is a misconfiguration — Pydantic rejects at validation."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        AppConfig.model_validate(
+            {
+                "notifications": [
+                    {
+                        "kind": "email",
+                        "smtp_host": "smtp.example.com",
+                        "from_address": "noreply@example.com",
+                        "to_addresses": [],
+                    }
+                ]
+            }
+        )
+
+
 def test_build_dispatcher_mixed_kinds() -> None:
     """All four kinds in one list — each instantiates its own channel
     type and the dispatcher fans events across them in order."""

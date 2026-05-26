@@ -29,14 +29,17 @@ from typing import TYPE_CHECKING
 from iac_cartographer.constants import ConfigError
 from iac_cartographer.notifications.base import NotificationChannel, NotificationLevel
 from iac_cartographer.notifications.dispatcher import NotificationDispatcher
+from iac_cartographer.notifications.email import EmailChannel
 from iac_cartographer.notifications.slack import SlackChannel
 from iac_cartographer.notifications.slack_webhook import SlackWebhookChannel
+from iac_cartographer.notifications.sns import SnsChannel
 from iac_cartographer.notifications.teams import TeamsChannel
 from iac_cartographer.notifications.webhook import GenericWebhookChannel
 
 if TYPE_CHECKING:
     from iac_cartographer.models import (
         AppConfig,
+        EmailCredentials,
         SlackCredentials,
         SlackWebhookCredentials,
         TeamsCredentials,
@@ -61,6 +64,9 @@ class NotificationSecrets:
     webhook: WebhookCredentials | None = None
     slack_webhook: SlackWebhookCredentials | None = None
     teams: TeamsCredentials | None = None
+    email: EmailCredentials | None = None
+    # No `sns` field — SNS uses the AWS credential chain (identity-based),
+    # not a stored secret. See `SnsChannel` for the auth flow.
 
 
 def build_dispatcher(
@@ -148,10 +154,34 @@ def _build_channel(
             )
         return TeamsChannel(secrets.teams)
 
+    if kind == "email":
+        if secrets.email is None:
+            raise ConfigError(
+                "notifications[].kind=email but no EmailCredentials were loaded "
+                "(check the iac-cartographer/email secret)"
+            )
+        return EmailChannel(
+            secrets.email,
+            smtp_host=entry.smtp_host,
+            smtp_port=getattr(entry, "smtp_port", 587),
+            from_address=entry.from_address,
+            to_addresses=entry.to_addresses,
+            use_tls=getattr(entry, "use_tls", True),
+            subject_prefix=getattr(entry, "subject_prefix", "[iac-cartographer]"),
+        )
+
+    if kind == "sns":
+        # Identity-based — no `secrets.sns` field to check.
+        return SnsChannel(
+            topic_arn=entry.topic_arn,
+            region=getattr(entry, "region", None),
+        )
+
     raise ConfigError(f"unknown notifications[].kind: {kind!r}")
 
 
 __all__ = [
+    "EmailChannel",
     "GenericWebhookChannel",
     "NotificationChannel",
     "NotificationDispatcher",
@@ -159,6 +189,7 @@ __all__ = [
     "NotificationSecrets",
     "SlackChannel",
     "SlackWebhookChannel",
+    "SnsChannel",
     "TeamsChannel",
     "build_dispatcher",
 ]

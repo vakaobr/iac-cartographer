@@ -63,6 +63,13 @@ azure = [
 openai = [
     "openai>=1.50",
 ]
+# `pip install iac-cartographer[email]` enables `notifications[].kind: email`
+# (SMTP via aiosmtplib). Other notification channels (slack, webhook,
+# slack_webhook, teams, sns) require no extra — they reuse the base
+# httpx / boto3 pins.
+email = [
+    "aiosmtplib>=3.0",
+]
 # `pip install -e ".[docs]"` to build the mkdocs site locally:
 #   mkdocs serve   # http://127.0.0.1:8000
 #   mkdocs build --strict

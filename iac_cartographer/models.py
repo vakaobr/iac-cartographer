@@ -454,9 +454,77 @@ class TeamsNotificationConfig(_BaseNotificationConfig):
     kind: Literal["teams"] = "teams"
 
 
+class EmailNotificationConfig(_BaseNotificationConfig):
+    """SMTP-backed email channel.
+
+    Sends multipart/alternative messages with an HTML body (severity
+    rendered as a coloured header) and a plain-text fallback. Tuned
+    for the operator-inbox shape: scannable subject + full message
+    in the body.
+
+    Credentials come from the `iac-cartographer/email` secret as
+    `{"username": "...", "password": "..."}`. Most managed providers
+    fit this shape (Postmark, SendGrid, Mailgun, AWS SES SMTP
+    credentials, internal Postfix relays).
+
+    Requires `pip install 'iac-cartographer[email]'` — the
+    `aiosmtplib` SDK is lazy-imported on first send and the channel
+    logs + skips if the dep is missing (so a misconfigured channel
+    doesn't sink the run).
+    """
+
+    kind: Literal["email"] = "email"
+    # SMTP server hostname (e.g. `smtp.sendgrid.net`).
+    smtp_host: str
+    # Submission port. 587 = STARTTLS (default); 465 = legacy implicit
+    # TLS is NOT supported — open an issue if you need it.
+    smtp_port: int = 587
+    # Envelope sender. Authenticate as `creds.username` but send from
+    # this address (often a no-reply alias on the same domain).
+    from_address: str
+    # Recipient list. Multiple addresses fan out via the SMTP server's
+    # `RCPT TO` — typically a small list (oncall@, devops@). For
+    # large fan-out, use SNS or a distribution list on your mail
+    # server.
+    to_addresses: list[str] = Field(min_length=1)
+    # Set to `false` only for in-cluster relays that are already on an
+    # authenticated network. Never on the public internet.
+    use_tls: bool = True
+    # Replaces `[iac-cartographer]` in the subject line. Useful when
+    # multiple iac-cartographer deployments share an inbox (per-region
+    # or per-tenant prefixes — `[iac-cart-eu]`, `[iac-cart-prod]`).
+    subject_prefix: str = "[iac-cartographer]"
+
+
+class SnsNotificationConfig(_BaseNotificationConfig):
+    """AWS SNS topic publish channel.
+
+    Identity-based (no `iac-cartographer/sns` secret) — uses the
+    standard AWS credential chain. The IAM principal running
+    iac-cartographer needs `sns:Publish` on the topic ARN.
+
+    SNS handles downstream fanout (email, SMS, Lambda, SQS, HTTPS,
+    mobile push) so you can subscribe many endpoints to one topic
+    from one place. Each message carries a `level` MessageAttribute
+    so SNS filter policies can route info → Lambda, error → email.
+    """
+
+    kind: Literal["sns"] = "sns"
+    # ARN of the SNS topic to publish to.
+    topic_arn: str
+    # AWS region. When unset, boto3's default resolution applies
+    # (env var, profile, instance metadata).
+    region: str | None = None
+
+
 # Discriminated union — extend as new channels ship.
 NotificationConfig = (
-    SlackNotificationConfig | WebhookNotificationConfig | SlackWebhookNotificationConfig | TeamsNotificationConfig
+    SlackNotificationConfig
+    | WebhookNotificationConfig
+    | SlackWebhookNotificationConfig
+    | TeamsNotificationConfig
+    | EmailNotificationConfig
+    | SnsNotificationConfig
 )
 
 
@@ -729,3 +797,21 @@ class TeamsCredentials(_Strict):
     """
 
     url: str
+
+
+class EmailCredentials(_Strict):
+    """SMTP username + password — `iac-cartographer/email` secret.
+
+    Most managed SMTP providers fit this shape. Some quirks:
+
+      * **AWS SES** — the SMTP credentials are NOT your IAM
+        access-key pair; generate dedicated SMTP credentials via the
+        SES console.
+      * **SendGrid** — `username` is the literal string `"apikey"`,
+        `password` is the SendGrid API key.
+      * **Postmark** — `username` is your server token, `password` is
+        the same token.
+    """
+
+    username: str
+    password: str

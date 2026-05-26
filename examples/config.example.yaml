@@ -290,16 +290,35 @@ slack:
 #                     legacy Office 365 Connector webhooks.
 #                     Credentials: `iac-cartographer/teams` secret as
 #                     `{"url": "https://..."}`.
-# Coming in follow-up PRs: "email" (SMTP), "sns" (AWS), "pagerduty" /
-# "opsgenie" (errors-only escalation), "discord", "stdout" (JSONL).
+#   "email"         → SMTP via aiosmtplib. Multipart/alternative with an
+#                     HTML severity-coloured header + plain-text fallback.
+#                     Requires `pip install iac-cartographer[email]`.
+#                     Credentials: `iac-cartographer/email` secret as
+#                     `{"username": "...", "password": "..."}`.
+#   "sns"           → AWS SNS topic publish. Identity-based (no stored
+#                     secret) — auth via the AWS credential chain.
+#                     IAM principal needs `sns:Publish` on the topic.
+#                     `level` MessageAttribute lets downstream SNS
+#                     filter policies route per-severity.
+# Coming in follow-up PRs: "pagerduty" / "opsgenie" (errors-only
+# escalation), "discord", "stdout" (JSONL).
 # See docs/backends/notifications.md for the full roadmap.
 notifications: []
-  # Example — chat + error-only Teams escalation + custom webhook:
+  # Example — chat (info) + Teams (error) + email + SNS for downstream fanout:
   # - kind: slack
   #   channel: "#infra-info"
   #   # levels defaults to all three when omitted
   # - kind: teams
   #   levels: [error]
+  # - kind: email
+  #   smtp_host: "smtp.sendgrid.net"
+  #   from_address: "iac-cartographer@example.com"
+  #   to_addresses:
+  #     - "oncall@example.com"
+  #   levels: [error]
+  # - kind: sns
+  #   topic_arn: "arn:aws:sns:eu-central-1:123456789012:iac-cartographer"
+  #   region: "eu-central-1"
   # - kind: webhook
   #   extra_headers:
   #     Authorization: "Bearer my-internal-token"

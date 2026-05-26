@@ -71,8 +71,8 @@ PagerDuty / Opsgenie, Discord, and stdout/JSONL.
 | `webhook` | Shipped | Generic JSON POST with our own stable schema (`{schema, level, message, ts, source}`). Catch-all for custom endpoints. |
 | `slack_webhook` | Shipped | Slack-compatible incoming webhook. Drop-in for native Slack incoming webhooks, RocketChat, and Mattermost. |
 | `teams` | Shipped | Microsoft Teams workflow webhook + Adaptive Card v1.4. Severity → colour mapping (good / warning / attention). |
-| `email` | Coming next | SMTP via `aiosmtplib`. |
-| `sns` | Coming next | AWS SNS topic publish — fits the existing AWS-first deployment story. |
+| `email` | Shipped | SMTP via `aiosmtplib`. Multipart/alternative with HTML severity-coloured header + plain-text fallback. |
+| `sns` | Shipped | AWS SNS topic publish — identity-based (no stored secret). SNS fans downstream to email / SMS / Lambda / SQS / HTTPS / mobile push. |
 | `pagerduty` / `opsgenie` | Coming next | Errors-only escalation. |
 | `discord` | Coming next | Community / homelab. |
 | `stdout` | Coming next | JSON Lines on stdout — air-gapped + CI friendly. |
@@ -172,6 +172,87 @@ distinguishable in the Teams channel:
 
 Unicode emojis are used in the header text rather than Slack-style
 `:emoji:` shortcodes — Teams does NOT render the shortcode form.
+
+## Email (SMTP)
+
+Sends operator-facing email — multipart/alternative with an HTML body
+that renders severity as a coloured header and a plain-text fallback
+for terminal mail clients. Tuned for the inbox shape: scannable
+subject (`[iac-cartographer][ERROR] kaboom…`), full message inside the
+body.
+
+```yaml
+notifications:
+  - kind: email
+    smtp_host: "smtp.sendgrid.net"
+    smtp_port: 587                          # default
+    from_address: "iac-cartographer@example.com"
+    to_addresses:
+      - "ops@example.com"
+      - "devops@example.com"
+    use_tls: true                           # default; only false for in-cluster relays
+    subject_prefix: "[iac-cartographer]"    # default; override for multi-deployment inboxes
+    levels: [warn, error]                   # default = all three
+```
+
+**Requires `pip install 'iac-cartographer[email]'`** — pulls in
+`aiosmtplib` for async SMTP. If the dep is missing the channel logs
+and skips (a misconfigured channel does NOT sink the run).
+
+Credentials live in the `iac-cartographer/email` secret as
+`{"username": "...", "password": "..."}`. Provider quirks:
+
+| Provider | `username` | `password` |
+|---|---|---|
+| AWS SES | SES SMTP-credential username (NOT your IAM access key) | SES SMTP-credential password |
+| SendGrid | the literal string `apikey` | your SendGrid API key |
+| Postmark | your server token | the same server token |
+| Mailgun | your SMTP login | your SMTP password |
+| Internal Postfix relay | `username` configured on the relay | matching password |
+
+Transport: STARTTLS on port 587 (modern SMTP submission). Port 465
+(legacy implicit TLS) is **not** supported — open an issue if you need
+it.
+
+## AWS SNS
+
+Publishes pipeline events to an SNS topic. SNS handles downstream
+fanout — subscribe email, SMS, Lambda, SQS, HTTPS endpoints, and
+mobile-push channels to the same topic from one place. Particularly
+useful in AWS-first deployments where SNS already wires multiple
+notification flows.
+
+```yaml
+notifications:
+  - kind: sns
+    topic_arn: "arn:aws:sns:eu-central-1:123456789012:iac-cartographer-events"
+    region: "eu-central-1"                  # optional; defaults to boto3 chain
+    levels: [error]                         # e.g. errors-only escalation
+```
+
+**Identity-based — no `iac-cartographer/sns` secret.** Auth comes from
+the standard AWS credential chain (env vars, instance profile, IRSA /
+workload identity on EKS, IAM role on ECS task). The principal needs
+`sns:Publish` on the topic ARN. Same zero-secret-rotation experience
+the Bedrock LLM backend has.
+
+Each message carries two `MessageAttributes`:
+
+```
+level:  String  =  "info" | "warn" | "error"
+source: String  =  "iac-cartographer"
+```
+
+SNS filter policies can route per-severity downstream — e.g. an email
+subscription that fires only when `level=error`, plus a Lambda
+subscription that fires on all three for archival. The SNS `Subject`
+field carries `[iac-cartographer][LEVEL] {first 60 chars}` (capped at
+the SNS 100-char limit) so inbox-style subscribers stay scannable.
+
+Transport: `boto3` (already a base install dependency for AWS Secrets
+Manager / SSM / Bedrock). The SNS client is synchronous, so `publish()`
+runs in a thread via `asyncio.to_thread()` to keep the dispatcher's
+concurrent fanout from blocking on the network round-trip.
 
 ## Slack (concrete reference)
 

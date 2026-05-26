@@ -76,6 +76,7 @@ from iac_cartographer.models import (
     AzureOpenAICredentials,
     BitbucketCredentials,
     ConfluenceCredentials,
+    EmailCredentials,
     GithubCredentials,
     GitlabCredentials,
     LLMConfig,
@@ -207,6 +208,9 @@ class LoadedSecrets:
     webhook: WebhookCredentials | None = None
     slack_webhook: SlackWebhookCredentials | None = None
     teams: TeamsCredentials | None = None
+    # `email` is only populated when any `notifications[].kind == "email"`.
+    # SMTP username + password from the `iac-cartographer/email` secret.
+    email: EmailCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -228,6 +232,9 @@ BITBUCKET_SECRET_NAME = "iac-cartographer/bitbucket"  # noqa: S105
 WEBHOOK_SECRET_NAME = "iac-cartographer/webhook"  # noqa: S105
 SLACK_WEBHOOK_SECRET_NAME = "iac-cartographer/slack_webhook"  # noqa: S105
 TEAMS_SECRET_NAME = "iac-cartographer/teams"  # noqa: S105
+# Email channel SMTP credentials: `{"username": "...", "password": "..."}`.
+# No `sns` secret — SNS auth comes from the AWS credential chain.
+EMAIL_SECRET_NAME = "iac-cartographer/email"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -265,6 +272,7 @@ def _load_secrets(
     need_webhook: bool = False,
     need_slack_webhook: bool = False,
     need_teams: bool = False,
+    need_email: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -387,6 +395,19 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"teams secret payload failed schema validation: {exc}") from exc
 
+    email_creds: EmailCredentials | None = None
+    if need_email:
+        try:
+            email_raw = provider.get_secret(EMAIL_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=email but the {EMAIL_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            email_creds = EmailCredentials.model_validate(email_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"email secret payload failed schema validation: {exc}") from exc
+
     try:
         return LoadedSecrets(
             confluence=ConfluenceCredentials.model_validate(confluence_raw),
@@ -400,6 +421,7 @@ def _load_secrets(
             webhook=webhook_creds,
             slack_webhook=slack_webhook_creds,
             teams=teams_creds,
+            email=email_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -764,6 +786,8 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         need_webhook="webhook" in notification_kinds,
         need_slack_webhook="slack_webhook" in notification_kinds,
         need_teams="teams" in notification_kinds,
+        need_email="email" in notification_kinds,
+        # No `need_sns`: SNS uses the AWS credential chain, no secret to load.
     )
     notifier: NotificationDispatcher = build_dispatcher(
         config,
@@ -772,6 +796,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
             webhook=secrets.webhook,
             slack_webhook=secrets.slack_webhook,
             teams=secrets.teams,
+            email=secrets.email,
         ),
     )
     llm_backend = _build_llm_backend(config.llm, secrets)

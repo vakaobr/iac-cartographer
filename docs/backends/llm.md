@@ -155,13 +155,65 @@ to one of the Claude backends (Bedrock / Anthropic / Vertex) for
 better narrative quality. The publisher output is structurally
 complete on schema failure (the page renders with `narrative=None`).
 
+## OpenAI direct
+
+Sibling of `azure_openai` — same SDK, same prompt scaffolding, same
+`json_object` response_format. The differences are routing-only:
+auth via API key (not AAD), `model_id` actually drives the request
+(no deployment indirection), endpoint base URL overridable for
+OpenAI-compatible gateways and proxies.
+
+```yaml
+llm:
+  backend: openai
+  model_id: "gpt-4o"                           # OpenAI model name
+  max_tokens: 4096
+  openai_base_url: "https://api.openai.com/v1"   # override for gateways
+  # openai_organization: "org-..."             # rarely needed
+```
+
+**Requires the `[openai]` optional dependency group:**
+
+```bash
+pip install 'iac-cartographer[openai]'
+```
+
+Pulls in the same `openai` SDK that the `[azure]` extra uses — if you
+already installed `[azure]` for the Azure OpenAI backend, you don't
+need `[openai]` too.
+
+Requires the `iac-cartographer/openai` secret:
+
+```json
+{"api_key": "..."}
+```
+
+### Custom endpoint / OpenAI-compatible gateways
+
+The `openai_base_url` field defaults to `https://api.openai.com/v1`
+but accepts any OpenAI-compatible endpoint. Useful for:
+
+- **LiteLLM proxies** that aggregate multiple LLM providers behind a
+  single OpenAI-shaped interface.
+- **Internal LLM gateways** that add rate limiting, audit logging,
+  or PII redaction in front of the upstream provider.
+- **Self-hosted models with an OpenAI-compatible REST API** —
+  vLLM, llama.cpp's server, OpenLLM, etc. (For Ollama specifically,
+  use `llm.backend: ollama` once that ships — it has zero-auth
+  defaults that fit Ollama better.)
+
+The same narrative-quality caveat applies as for Azure OpenAI: GPT-4
+emits invalid JSON slightly more often than Claude, and the narrator's
+retry-once path catches the rest.
+
 ## When to use which
 
 | Backend | Pick when |
 |---|---|
 | `bedrock` | You're on AWS, have IAM-bound compute (ECS task role, IRSA, Lambda role, etc.), and want zero-secret-rotation. |
 | `vertex` | You're on GCP — workload identity gives the same zero-secret-rotation experience Bedrock does on AWS. Same Claude models, same prompt, no provider-shift in narrative quality. |
-| `azure_openai` | You're on Azure and need everything to stay in-tenant. AAD mode gives the same zero-secret-rotation experience. Note: GPT-4 emits invalid JSON slightly more often than Claude — the backend retries once. |
+| `azure_openai` | You're on Azure and need everything to stay in-tenant. AAD mode gives the same zero-secret-rotation experience. |
+| `openai` | You want GPT-4 without the Azure-specific deployment shape, or you're routing through a LiteLLM / internal gateway / self-hosted OpenAI-compatible endpoint. |
 | `anthropic` | You're not on AWS, you don't have Bedrock model access (it's per-account opt-in), or you want lower latency from the EU. |
 
 ## Skipping the LLM entirely

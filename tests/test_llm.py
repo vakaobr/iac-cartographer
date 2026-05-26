@@ -515,3 +515,136 @@ def test_azure_openai_backend_handles_missing_usage() -> None:
 
     response = backend.invoke(model_id="x", system_prompt="s", user_blocks=[], max_tokens=100)
     assert response == LLMResponse(text="no usage", input_tokens=0, output_tokens=0)
+
+
+# ─── OpenAIBackend ─────────────────────────────────────────────────────
+
+
+def test_openai_backend_rejects_empty_api_key() -> None:
+    from iac_cartographer.llm import OpenAIBackend
+
+    with pytest.raises(ValueError, match="api_key is required"):
+        OpenAIBackend(api_key="")
+
+
+def test_openai_backend_raises_install_hint_when_sdk_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Same install-hint contract as the Azure / Vertex backends."""
+    import builtins
+
+    from iac_cartographer.llm import LLMBackendImportError, OpenAIBackend
+
+    real_import = builtins.__import__
+
+    def _fail_openai(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "openai" or name.startswith("openai."):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fail_openai)
+    backend = OpenAIBackend(api_key="sk-...")
+
+    with pytest.raises(LLMBackendImportError, match=r"iac-cartographer\[openai\]"):
+        backend.invoke(model_id="gpt-4o", system_prompt="s", user_blocks=[], max_tokens=100)
+
+
+def test_openai_backend_invokes_and_normalises_response() -> None:
+    """End-to-end with a mocked SDK client. Same shape assertions as
+    the Azure OpenAI test, just with `model` actually used (no
+    deployment indirection) and base_url override path covered."""
+    from iac_cartographer.llm import OpenAIBackend
+
+    captured: dict[str, Any] = {}
+
+    class _Msg:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class _Choice:
+        def __init__(self, content: str) -> None:
+            self.message = _Msg(content)
+
+    class _Usage:
+        def __init__(self, p: int, c: int) -> None:
+            self.prompt_tokens = p
+            self.completion_tokens = c
+
+    class _Completion:
+        def __init__(self) -> None:
+            self.choices = [_Choice("hello from openai")]
+            self.usage = _Usage(p=1234, c=42)
+
+    class _ChatCompletions:
+        def create(self, **kwargs: Any) -> _Completion:
+            captured["kwargs"] = kwargs
+            return _Completion()
+
+    class _Chat:
+        def __init__(self) -> None:
+            self.completions = _ChatCompletions()
+
+    class _FakeClient:
+        def __init__(self, **kwargs: Any) -> None:
+            captured["client_kwargs"] = kwargs
+            self.chat = _Chat()
+
+    backend = OpenAIBackend(
+        api_key="sk-test",
+        base_url="https://openai.example.com/v1",
+        organization="org-123",
+    )
+    backend._client = _FakeClient(api_key="sk-test", base_url="https://openai.example.com/v1", organization="org-123")
+
+    response = backend.invoke(
+        model_id="gpt-4o",
+        system_prompt="you are a system prompt",
+        user_blocks=[
+            {"type": "text", "text": "block-a "},
+            {"type": "text", "text": "block-b"},
+        ],
+        max_tokens=4096,
+    )
+
+    assert response == LLMResponse(text="hello from openai", input_tokens=1234, output_tokens=42)
+    kwargs = captured["kwargs"]
+    # model_id flows straight through (no Azure-style deployment indirection)
+    assert kwargs["model"] == "gpt-4o"
+    assert kwargs["response_format"] == {"type": "json_object"}
+    assert kwargs["messages"][0] == {"role": "system", "content": "you are a system prompt"}
+    assert kwargs["messages"][1] == {"role": "user", "content": "block-a block-b"}
+
+
+def test_openai_backend_handles_missing_usage() -> None:
+    from iac_cartographer.llm import OpenAIBackend
+
+    class _Msg:
+        def __init__(self, content: str) -> None:
+            self.content = content
+
+    class _Choice:
+        def __init__(self, content: str) -> None:
+            self.message = _Msg(content)
+
+    class _Completion:
+        def __init__(self) -> None:
+            self.choices = [_Choice("no usage")]
+            self.usage = None
+
+    class _ChatCompletions:
+        def create(self, **kwargs: Any) -> _Completion:
+            return _Completion()
+
+    class _Chat:
+        def __init__(self) -> None:
+            self.completions = _ChatCompletions()
+
+    class _FakeClient:
+        def __init__(self, **_: Any) -> None:
+            self.chat = _Chat()
+
+    backend = OpenAIBackend(api_key="sk-...")
+    backend._client = _FakeClient()
+
+    response = backend.invoke(model_id="gpt-4o", system_prompt="s", user_blocks=[], max_tokens=100)
+    assert response == LLMResponse(text="no usage", input_tokens=0, output_tokens=0)

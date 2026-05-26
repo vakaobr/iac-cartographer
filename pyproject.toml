@@ -57,6 +57,12 @@ azure = [
     "openai>=1.50",
     "azure-identity>=1.18",
 ]
+# `pip install iac-cartographer[openai]` enables `llm.backend: openai`
+# (GPT family via api.openai.com). Same SDK as the `[azure]` extra;
+# installing either is enough if you only need one.
+openai = [
+    "openai>=1.50",
+]
 # `pip install -e ".[docs]"` to build the mkdocs site locally:
 #   mkdocs serve   # http://127.0.0.1:8000
 #   mkdocs build --strict

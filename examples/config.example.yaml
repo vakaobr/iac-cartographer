@@ -72,6 +72,10 @@ llm:
   #                 First non-Claude backend — GPT-4 emits invalid
   #                 JSON slightly more often than Claude; the backend
   #                 retries once. Requires `pip install iac-cartographer[azure]`.
+  #   "openai"    → GPT family via api.openai.com or any OpenAI-compatible
+  #                 gateway (LiteLLM, internal gateway, self-hosted vLLM).
+  #                 Auth via the `iac-cartographer/openai` secret.
+  #                 Requires `pip install iac-cartographer[openai]`.
   backend: "bedrock"
 
   # Model identifier. Backend-specific:
@@ -122,6 +126,14 @@ llm:
   # local dev. The AAD-bound identity needs `Cognitive Services OpenAI
   # User` on the resource.
   azure_openai_use_aad: false
+
+  # OpenAI-only: API base URL. Override to point at an OpenAI-compatible
+  # gateway / proxy (LiteLLM, internal gateway, self-hosted vLLM).
+  openai_base_url: "https://api.openai.com/v1"
+
+  # OpenAI-only: org ID for accounts with multi-org billing. Leave
+  # null/unset for most accounts.
+  # openai_organization: "org-..."
 
 publisher:
   # Which backend renders + writes the inventory.

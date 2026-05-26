@@ -5,16 +5,19 @@ these user blocks, give me back text + token counts". Anything more
 specific to a particular provider (auth, endpoint, response shape) lives
 behind the `LLMBackend` ABC defined here.
 
-Four implementations ship by default:
+Five implementations ship by default:
 
   * `BedrockBackend`     — Claude on AWS Bedrock. Auth via boto3
     credential chain; no API key handling.
   * `AnthropicBackend`   — Claude on api.anthropic.com. Auth via API key.
   * `VertexBackend`      — Claude on Vertex AI / Google Cloud. Auth via
     Google ADC. Requires the `[gcp]` optional dependency group.
-  * `AzureOpenAIBackend` — GPT models on Azure OpenAI. First non-Claude
-    backend. Auth via API key or Azure AD / managed identity. Requires
-    the `[azure]` optional dependency group.
+  * `AzureOpenAIBackend` — GPT models on Azure OpenAI. Auth via API
+    key or Azure AD / managed identity. Requires the `[azure]`
+    optional dependency group.
+  * `OpenAIBackend`      — GPT models via api.openai.com (or any
+    OpenAI-compatible gateway). Auth via API key. Requires the
+    `[openai]` optional dependency group.
 
 The three Claude backends (Bedrock, Anthropic, Vertex) speak the
 Anthropic Messages API request format internally; the backends
@@ -470,6 +473,99 @@ class AzureOpenAIBackend(LLMBackend):
         )
 
 
+# ─── OpenAI direct (GPT family via api.openai.com) ───────────────────
+
+
+class OpenAIBackend(LLMBackend):
+    """Invoke OpenAI models via the public `api.openai.com` endpoint.
+
+    Sibling of `AzureOpenAIBackend` — same chat.completions request
+    shape, same JSON-object response_format nudge, same prompt-vs-
+    completion-tokens normalisation. Differences:
+      * Auth uses an API key (`x-api-key`-equivalent header set by the
+        SDK), not AAD.
+      * `model_id` actually routes the request (no deployment indirection).
+      * Endpoint base URL is overridable for OpenAI-compatible proxies
+        and gateways (Azure API Management routes, internal LLM
+        gateways, LiteLLM, etc.).
+
+    Requires the `[openai]` optional dependency group:
+
+        pip install 'iac-cartographer[openai]'
+
+    The same `openai` SDK that AzureOpenAIBackend uses — installing
+    either extra is enough if you only need one.
+    """
+
+    DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        organization: str | None = None,
+    ) -> None:
+        if not api_key:
+            raise ValueError("OpenAIBackend: api_key is required")
+        self._api_key = api_key
+        self._base_url = base_url.rstrip("/")
+        self._organization = organization
+        self._client: Any | None = None  # lazy
+
+    def _get_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        try:
+            from openai import OpenAI  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise LLMBackendImportError(
+                "OpenAIBackend requires the [openai] optional dependency group. "
+                "Install with: pip install 'iac-cartographer[openai]'"
+            ) from exc
+        kwargs: dict[str, Any] = {"api_key": self._api_key, "base_url": self._base_url}
+        if self._organization:
+            kwargs["organization"] = self._organization
+        self._client = OpenAI(**kwargs)
+        return self._client
+
+    def invoke(
+        self,
+        *,
+        model_id: str,
+        system_prompt: str,
+        user_blocks: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> LLMResponse:
+        # Flatten Anthropic-style user_blocks into one OpenAI chat
+        # message string. Same as AzureOpenAIBackend.
+        user_content = "".join(b.get("text", "") for b in user_blocks if b.get("type") == "text")
+
+        client = self._get_client()
+        completion = client.chat.completions.create(
+            model=model_id,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            response_format={"type": "json_object"},
+        )
+
+        choices = getattr(completion, "choices", None) or []
+        text = ""
+        if choices:
+            message = getattr(choices[0], "message", None)
+            text = getattr(message, "content", None) or ""
+
+        usage = getattr(completion, "usage", None)
+        return LLMResponse(
+            text=text,
+            input_tokens=int(getattr(usage, "prompt_tokens", 0) or 0) if usage else 0,
+            output_tokens=int(getattr(usage, "completion_tokens", 0) or 0) if usage else 0,
+        )
+
+
 class LLMBackendImportError(ImportError):
     """Raised when a backend's optional dependency group isn't installed.
 
@@ -484,5 +580,6 @@ __all__ = [
     "LLMBackend",
     "LLMBackendImportError",
     "LLMResponse",
+    "OpenAIBackend",
     "VertexBackend",
 ]

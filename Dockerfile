@@ -3,9 +3,17 @@
 # Runs `iac-cartographer --once` per invocation. Designed to be triggered by
 # whatever scheduler your platform uses (EventBridge Scheduler on ECS, a
 # Kubernetes CronJob, a GitHub Actions schedule, plain `cron`, ...).
-# amd64 only — multi-arch buildx is an exercise for the reader.
+#
+# Multi-arch: amd64 + arm64. `TARGETARCH` is automatically populated by
+# Docker buildx (`linux/amd64` → `amd64`, `linux/arm64` → `arm64`). The
+# default value preserves the legacy plain `docker build` behaviour on
+# amd64 hosts.
 
 FROM python:3.14-slim AS runtime
+
+# Set automatically by buildx for each target platform; defaulted to
+# `amd64` so plain `docker build` (without buildx) keeps working.
+ARG TARGETARCH=amd64
 
 # terraform-docs is pinned to a specific release. Bump deliberately —
 # unpinned versions could change the JSON output shape and break the
@@ -22,7 +30,9 @@ ENV PYTHONUNBUFFERED=1 \
 #   ca-certificates  — TLS to GitLab / GitHub / Confluence / Slack / Bedrock
 #   curl + tar       — fetch + extract pinned terraform-docs release
 # We intentionally do NOT install terraform itself — terraform-docs has its
-# own HCL parser.
+# own HCL parser. terraform-docs publishes per-arch tarballs at the URL
+# pattern `terraform-docs-${VERSION}-linux-${TARGETARCH}.tar.gz`, so the
+# same RUN block works on amd64 + arm64 without conditionals.
 # hadolint ignore=DL3008
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -31,7 +41,7 @@ RUN apt-get update \
       curl \
  && rm -rf /var/lib/apt/lists/* \
  && curl -fsSL \
-      "https://terraform-docs.io/dl/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz" \
+      "https://terraform-docs.io/dl/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-${TARGETARCH}.tar.gz" \
       -o /tmp/terraform-docs.tar.gz \
  && tar -xzf /tmp/terraform-docs.tar.gz -C /usr/local/bin terraform-docs \
  && rm /tmp/terraform-docs.tar.gz \

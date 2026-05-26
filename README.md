@@ -374,7 +374,7 @@ The four pluggable seams that were the original Phase 2 push:
 Plus the Phase 3 distribution + onboarding wins:
 
 * **PyPI release workflow** — OIDC trusted publishing, tag-driven, version-match guard. Cuts a release on `git tag v*`.
-* **Container image** — `ghcr.io/vakaobr/iac-cartographer` with cosign keyless signing + SPDX SBOM on every tag push.
+* **Container image** — `ghcr.io/vakaobr/iac-cartographer` with cosign keyless signing + SPDX SBOM on every tag push. Multi-arch (`linux/amd64` + `linux/arm64`).
 * **Helm chart** — [`charts/iac-cartographer/`](charts/iac-cartographer/) for k8s CronJob deployments with workload-identity bindings.
 * **`iac-cartographer --init` scaffolder** — interactive starter `config.yaml` + `.env` for any backend combination.
 * **Zero-credentials demo** — `./examples/demo/run.sh` clones three public Terraform repos and produces real Markdown output without any tokens.
@@ -388,7 +388,6 @@ Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome o
 * **New LLM backends** — OpenAI, Ollama (local).
 * **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
 * **Terraform module** — for the ECS Fargate + EventBridge deployment path the project was extracted from.
-* **Multi-arch container image** — `linux/arm64` alongside `linux/amd64` for Apple Silicon devs + arm64 k8s nodes.
 * **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.
 * **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.
 * **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.

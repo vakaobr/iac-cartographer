@@ -70,6 +70,12 @@ openai = [
 email = [
     "aiosmtplib>=3.0",
 ]
+# `pip install iac-cartographer[notion]` enables `publisher.kind: notion`.
+# The official notion-client SDK handles auth, pagination, and the
+# block-tree shape — much less code than rolling our own httpx wrapper.
+notion = [
+    "notion-client>=2.2",
+]
 # `pip install -e ".[docs]"` to build the mkdocs site locally:
 #   mkdocs serve   # http://127.0.0.1:8000
 #   mkdocs build --strict

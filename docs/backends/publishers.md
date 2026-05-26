@@ -122,3 +122,69 @@ Top-level shape:
 
 `schema_version` lets consumers pin to a major version and warn on
 drift. Additive changes (new optional fields) don't require a bump.
+
+## Notion
+
+Publishes each repo as a sub-page of a configured Notion parent page,
+plus an "Overview" sub-page carrying the aggregate summary + links
+to every repo's deep-dive page.
+
+```yaml
+publisher:
+  kind: notion
+
+notion:
+  # UUID of the parent Notion page. Operator pre-creates the page and
+  # shares it with the integration via the page's Connections menu.
+  parent_page_id: "11111111-1111-1111-1111-111111111111"
+```
+
+**Requires `pip install 'iac-cartographer[notion]'`** — the official
+`notion-client` SDK is lazy-imported on first publish so the base
+install doesn't pay for it. If the dep is missing the publisher
+raises at `__aenter__` with a clear pip-install hint.
+
+Credentials live in the `iac-cartographer/notion` secret as
+`{"integration_token": "secret_..."}`. Create the integration at
+[notion.so/profile/integrations](https://www.notion.so/profile/integrations)
+→ "+ New integration" → internal type → copy the secret.
+**Important:** an integration only sees pages it's been shared with —
+open the parent page in Notion, click `…` → Connections → add the
+integration.
+
+### Banner-SHA idempotency
+
+The very first block on every page we publish is a 🔖 callout with
+plain text `iac-cartographer SHA: <hex>`. The next run reads the
+first block, parses the SHA, and short-circuits the rewrite when it
+matches — same contract as the Confluence / Markdown / HTML / JSON
+publishers, just embedded in a Notion-native carrier (callout vs
+ADF version-string vs HTML comment vs JSON field).
+
+### Block-replacement caveat
+
+Notion's API has no "replace page body" operation. Updates go through:
+
+1. List the page's existing block children.
+2. Delete each one (archive=True).
+3. Append the new blocks.
+
+This means each update sends ~2N HTTP calls (N deletes + N inserts).
+For a typical iac-cartographer page (~15 blocks) that's ~30 calls
+per update — not free, but acceptable at the once-per-week cadence
+the runtime is designed for. The banner-SHA short-circuit means
+unchanged pages skip the rewrite entirely.
+
+### Notion-specific quirks
+
+- **Cross-page links** use the relative-URL form `/{page_uuid_no_dashes}`.
+  Rendered via rich-text `link` annotations on the overview's bullet
+  list.
+- **Title is the only built-in property** on regular (page-parent)
+  sub-pages. Custom properties exist only when the parent is a
+  database — operators who want a "Last Updated" or "Provider count"
+  column should switch their parent to a Notion database; that's a
+  follow-up the publisher could grow if there's demand.
+- **Block content caps at 2000 chars** per rich-text run. The
+  renderer truncates aggressively (1900 chars) to stay below the
+  cap against pathological narrative outputs.

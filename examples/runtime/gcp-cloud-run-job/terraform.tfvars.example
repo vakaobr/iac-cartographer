@@ -1,0 +1,52 @@
+# Copy to terraform.tfvars and edit. Required: project_id + config_yaml.
+
+project_id = "REPLACE_ME-my-gcp-project"
+
+region            = "europe-west1"
+schedule          = "0 6 * * 1"
+schedule_timezone = "Europe/Berlin"
+
+# Pin to a semver tag in production. Verify the cosign signature before
+# bumping:
+#   cosign verify ghcr.io/vakaobr/iac-cartographer:v0.1.0 \
+#     --certificate-identity-regexp '^https://github\.com/vakaobr/iac-cartographer' \
+#     --certificate-oidc-issuer 'https://token.actions.githubusercontent.com'
+image = "ghcr.io/vakaobr/iac-cartographer:v0.1.0"
+
+# Full iac-cartographer config.yaml body. Lives in Secret Manager and
+# gets mounted into the Job at /etc/iac-cartographer/config.yaml.
+#
+# `secrets.backend: env` makes the Job's env vars (sourced from Secret
+# Manager via the dynamic env block in main.tf) the credential source.
+# `llm.backend: anthropic` keeps the run off Vertex AI for now (Vertex
+# AI backend is on the roadmap). Swap for `bedrock` if you've granted
+# the Job's SA cross-cloud Bedrock access via Workload Identity
+# Federation.
+config_yaml = <<-YAML
+  discovery:
+    gitlab_group_ids: [15]
+    github_orgs: ["acme-org"]
+
+  secrets:
+    backend: env
+
+  llm:
+    backend: anthropic
+    model_id: claude-sonnet-4-5-20250929
+
+  publisher:
+    kind: confluence
+
+  confluence:
+    site: acme.atlassian.net
+    space_key: DOCS
+    parent_page_id: "REPLACE_ME-123456789"
+
+  slack:
+    channel: "#alerts"
+YAML
+
+labels = {
+  team        = "platform"
+  environment = "prod"
+}

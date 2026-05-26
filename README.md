@@ -266,13 +266,11 @@ lives under [`examples/runtime/`](examples/runtime/):
 |---|---|---|
 | [Helm chart](charts/iac-cartographer/) | Kubernetes `CronJob` (templated) | The recommended path for k8s. Values for schedule, namespace, image tag, secrets backend, resources, workload-identity binding. |
 | [`kubernetes-cronjob.yaml`](examples/runtime/kubernetes-cronjob.yaml) | Kubernetes `CronJob` (raw manifest) | Read-and-copy reference for the raw shape — useful for learning what the Helm chart renders to, or for clusters where Helm isn't available. |
+| [`aws-ecs-fargate/`](examples/runtime/aws-ecs-fargate/) | AWS ECS Fargate + EventBridge Scheduler (Terraform) | The reference deployment — what the project was extracted from. Managed services, IAM identity, ~€1/month for a 50-repo weekly fleet. |
+| [`gcp-cloud-run-job/`](examples/runtime/gcp-cloud-run-job/) | GCP Cloud Run Jobs + Cloud Scheduler (Terraform) | GCP-native batch path. Workload identity, per-second billing. |
+| [`azure-container-apps-job/`](examples/runtime/azure-container-apps-job/) | Azure Container Apps Jobs (Terraform) | Azure-native batch path. AAD / Managed Identity wiring. |
 | [`github-actions.yml`](examples/runtime/github-actions.yml) | GitHub Actions `schedule` | Lightweight setup with no infrastructure to own; secrets live in the GitHub repo settings. |
 | [`cron.sh`](examples/runtime/cron.sh) | Plain `cron` / `systemd-timer` | A single VM you already own. Docker-based, so no Python install needed on the host. |
-
-For the **ECS Fargate + EventBridge Scheduler** path the original deployment
-uses, the Terraform module is on the roadmap — for now the container image
-([`Dockerfile`](Dockerfile)) is the canonical artefact and you wire it up
-with the existing AWS recipes.
 
 ## Publishing locally instead of Confluence
 
@@ -434,7 +432,6 @@ Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome o
 * **New publishers** — Notion, GitHub Wiki.
 * **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
-* **Terraform module** — for the ECS Fargate + EventBridge deployment path the project was extracted from.
 * **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.
 * **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.
 * **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.

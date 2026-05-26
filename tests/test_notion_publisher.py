@@ -333,6 +333,183 @@ def test_notion_credentials_requires_integration_token() -> None:
         NotionCredentials.model_validate({})
 
 
+# ── replace_blocks pagination (archiving > 100 existing blocks) ──────
+
+
+async def test_replace_blocks_paginates_archive_when_page_has_more_than_100_blocks() -> None:
+    """When the page being updated has more blocks than fit in one
+    Notion list response (cap: 100/page), the publisher must follow
+    `next_cursor` across multiple list calls and collect every block
+    ID before deleting. Without the cursor follow, the second batch
+    of old blocks would survive the update and the page would mix
+    old + new content.
+    """
+    client = _mk_client()
+    page_block_ids_1 = [f"old-block-{i}" for i in range(100)]
+    page_block_ids_2 = [f"old-block-{i}" for i in range(100, 150)]
+    client.blocks.children.list.side_effect = [
+        # 1. parent's children.list → finds existing child page
+        {
+            "results": [{"id": CHILD_ID, "type": "child_page", "child_page": {"title": "acme/main"}}],
+            "has_more": False,
+        },
+        # 2. read_sha → old sha
+        {
+            "results": [
+                {"type": "callout", "callout": {"rich_text": [{"text": {"content": "iac-cartographer SHA: old"}}]}}
+            ],
+        },
+        # 3. _replace_blocks archive list, page 1 (100 blocks, has_more=True)
+        {
+            "results": [{"id": bid} for bid in page_block_ids_1],
+            "has_more": True,
+            "next_cursor": "archive-cursor-1",
+        },
+        # 4. _replace_blocks archive list, page 2 (50 more blocks, has_more=False)
+        {
+            "results": [{"id": bid} for bid in page_block_ids_2],
+            "has_more": False,
+        },
+    ]
+
+    pub = await _publisher_with_client(client)
+    result = await pub.publish_child(
+        _inv(),
+        sha="new",
+        updated_at=datetime(2026, 5, 26, tzinfo=UTC),
+        pipeline_url=None,
+    )
+
+    assert result.action == "updated"
+    # The publisher must have followed the cursor on the second archive list call.
+    archive_calls = client.blocks.children.list.await_args_list[2:]
+    assert archive_calls[0].kwargs.get("start_cursor") is None
+    assert archive_calls[1].kwargs["start_cursor"] == "archive-cursor-1"
+    # All 150 old blocks were deleted (not just the first 100).
+    assert client.blocks.delete.await_count == 150
+    deleted_ids = {call.kwargs["block_id"] for call in client.blocks.delete.await_args_list}
+    assert deleted_ids == set(page_block_ids_1 + page_block_ids_2)
+
+
+# ── publish_overview existing-page paths ──────────────────────────────
+
+
+async def test_publish_overview_skips_write_when_sha_unchanged() -> None:
+    """Banner-SHA short-circuit on the overview page itself, mirroring
+    the per-child page short-circuit. Same idempotency contract.
+
+    NB: the SHA regex in notion_renderer is `[0-9a-f]+`, so the
+    mocked banner content + the `sha=` arg must be valid hex —
+    "sha-overview" wouldn't match and would silently fall through
+    to the update path."""
+    client = _mk_client()
+    matching_sha = "deadbeef1234"
+    client.blocks.children.list.side_effect = [
+        # parent.children.list → finds existing "Overview" sub-page
+        {
+            "results": [{"id": "overview-id", "type": "child_page", "child_page": {"title": "Overview"}}],
+            "has_more": False,
+        },
+        # read_sha on the overview page → matching sha (hex)
+        {
+            "results": [
+                {
+                    "type": "callout",
+                    "callout": {"rich_text": [{"text": {"content": f"iac-cartographer SHA: {matching_sha}"}}]},
+                }
+            ],
+        },
+    ]
+
+    pub = await _publisher_with_client(client)
+    inv = _inv()
+    result = await pub.publish_overview(
+        [inv],
+        {inv.meta.full_name: CHILD_ID},
+        sha=matching_sha,
+        updated_at=datetime(2026, 5, 26, tzinfo=UTC),
+        pipeline_url=None,
+    )
+
+    assert result.action == "unchanged"
+    assert result.page_id == "overview-id"
+    # Skipped both the archive list and any append.
+    client.pages.create.assert_not_awaited()
+    client.blocks.children.append.assert_not_awaited()
+    client.blocks.delete.assert_not_awaited()
+
+
+async def test_publish_overview_replaces_blocks_when_sha_differs() -> None:
+    """When the overview page exists with a different SHA, archive +
+    re-append the new content (same path as the per-child update)."""
+    client = _mk_client()
+    client.blocks.children.list.side_effect = [
+        # parent.children.list → finds existing overview
+        {
+            "results": [{"id": "overview-id", "type": "child_page", "child_page": {"title": "Overview"}}],
+            "has_more": False,
+        },
+        # read_sha → old sha
+        {
+            "results": [
+                {"type": "callout", "callout": {"rich_text": [{"text": {"content": "iac-cartographer SHA: old"}}]}}
+            ],
+        },
+        # _replace_blocks archive list
+        {"results": [{"id": "old-block-1"}, {"id": "old-block-2"}], "has_more": False},
+    ]
+
+    pub = await _publisher_with_client(client)
+    inv = _inv()
+    result = await pub.publish_overview(
+        [inv],
+        {inv.meta.full_name: CHILD_ID},
+        sha="sha-overview-new",
+        updated_at=datetime(2026, 5, 26, tzinfo=UTC),
+        pipeline_url=None,
+    )
+
+    assert result.action == "updated"
+    assert result.page_id == "overview-id"
+    assert client.blocks.delete.await_count == 2
+    # New blocks appended; first block carries the new SHA.
+    appended = client.blocks.children.append.await_args.kwargs["children"]
+    assert "iac-cartographer SHA: sha-overview-new" in appended[0]["callout"]["rich_text"][0]["text"]["content"]
+
+
+# ── _find_child_by_title protective bound ─────────────────────────────
+
+
+async def test_find_child_caps_pagination_at_50_pages() -> None:
+    """`_find_child_by_title` is bounded at 50 page-walk iterations as
+    defence against a misbehaving Notion API returning a perpetual
+    `has_more=True` (would otherwise infinite-loop). After 50 unmatched
+    pages it returns None, which surfaces upstream as "no existing
+    child" — the publisher then attempts to create rather than hang."""
+    client = _mk_client()
+    # Every list call returns one non-matching child + has_more=True with
+    # a fresh cursor — simulates the pathological "never exhausts" case.
+    client.blocks.children.list.return_value = {
+        "results": [{"id": "wrong", "type": "child_page", "child_page": {"title": "not-the-match"}}],
+        "has_more": True,
+        "next_cursor": "perpetual-cursor",
+    }
+    client.pages.create.return_value = {"id": "new-page-id"}
+
+    pub = await _publisher_with_client(client)
+    result = await pub.publish_child(
+        _inv(),
+        sha="abc",
+        updated_at=datetime(2026, 5, 26, tzinfo=UTC),
+        pipeline_url=None,
+    )
+
+    # The bound kicked in: 50 list calls, then "no existing" → create path.
+    assert client.blocks.children.list.await_count == 50
+    assert result.action == "created"
+    assert result.page_id == "new-page-id"
+
+
 # Avoid type-checker complaint about unused SimpleNamespace import in
 # older test scaffolding.
 _ = SimpleNamespace

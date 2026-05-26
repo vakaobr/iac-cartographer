@@ -309,8 +309,16 @@ slack:
 #                     (US default; planes are NOT linked).
 #                     Credentials: `iac-cartographer/opsgenie` secret
 #                     as `{"api_key": "..."}`.
-# Coming in follow-up PRs: "discord", "stdout" (JSONL).
-# See docs/backends/notifications.md for the full roadmap.
+#   "discord"       → Discord Incoming Webhook. Per-channel.
+#                     Optional `username` / `avatar_url` per-message
+#                     overrides for multi-deployment identity.
+#                     Credentials: `iac-cartographer/discord` secret
+#                     as `{"url": "https://discord.com/api/webhooks/..."}`.
+#   "stdout"        → JSON Lines to stdout / stderr. No credentials,
+#                     no HTTP, no SDK. Useful for CI, air-gapped, or
+#                     local dev. Set `stream: "stderr"` to keep
+#                     stdout free for machine-parseable output.
+# See docs/backends/notifications.md for the full reference.
 notifications: []
   # Example — chat (info) + Teams (error) + email + SNS for downstream fanout:
   # - kind: slack
@@ -337,3 +345,7 @@ notifications: []
   # - kind: opsgenie             # Opsgenie alternative — pick one
   #   region: "us"               # or "eu"
   #   levels: [error]
+  # - kind: discord              # community / homelab chat
+  #   username: "iac-cartographer (prod)"
+  # - kind: stdout               # JSONL → CI log capture
+  #   stream: "stdout"           # or "stderr"

@@ -436,6 +436,56 @@ def test_opsgenie_config_rejects_unknown_region() -> None:
         AppConfig.model_validate({"notifications": [{"kind": "opsgenie", "region": "ap"}]})
 
 
+def test_build_dispatcher_wires_discord_channel() -> None:
+    """kind: discord → DiscordChannel with the loaded webhook URL."""
+    from iac_cartographer.models import DiscordCredentials
+    from iac_cartographer.notifications import DiscordChannel
+
+    config = AppConfig.model_validate(
+        {
+            "notifications": [
+                {
+                    "kind": "discord",
+                    "username": "iac-cartographer (prod)",
+                }
+            ]
+        }
+    )
+    secrets = NotificationSecrets(discord=DiscordCredentials(url="https://discord.com/api/webhooks/0/abc"))
+    d = build_dispatcher(config, secrets=secrets)
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, DiscordChannel)
+    assert channel._url == "https://discord.com/api/webhooks/0/abc"
+    assert channel._username == "iac-cartographer (prod)"
+
+
+def test_build_dispatcher_wires_stdout_channel_without_secret() -> None:
+    """kind: stdout → StdoutChannel built from config only (no secret)."""
+    from iac_cartographer.notifications import StdoutChannel
+
+    config = AppConfig.model_validate({"notifications": [{"kind": "stdout", "stream": "stderr"}]})
+    d = build_dispatcher(config, secrets=NotificationSecrets())
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, StdoutChannel)
+    assert channel._stream_name == "stderr"
+
+
+def test_build_dispatcher_rejects_discord_kind_without_creds() -> None:
+    config = AppConfig.model_validate({"notifications": [{"kind": "discord"}]})
+    with pytest.raises(ConfigError, match=r"notifications.*discord"):
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_stdout_config_rejects_unknown_stream() -> None:
+    """Only `stdout` and `stderr` are valid; anything else is a typo."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        AppConfig.model_validate({"notifications": [{"kind": "stdout", "stream": "syslog"}]})
+
+
 def test_build_dispatcher_mixed_kinds() -> None:
     """All four kinds in one list — each instantiates its own channel
     type and the dispatcher fans events across them in order."""

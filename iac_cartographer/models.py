@@ -563,6 +563,50 @@ class OpsgenieNotificationConfig(_BaseNotificationConfig):
     region: Literal["us", "eu"] = "us"
 
 
+class DiscordNotificationConfig(_BaseNotificationConfig):
+    """Discord webhook channel.
+
+    Posts `{"content": "<emoji> <message>"}` to a per-channel Discord
+    Incoming Webhook URL. Designed for community / homelab
+    deployments where Slack would be overkill.
+
+    Credentials come from the `iac-cartographer/discord` secret as
+    `{"url": "https://discord.com/api/webhooks/..."}`. The URL
+    embeds the webhook ID + token, so the URL IS the credential.
+
+    `username` and `avatar_url` are optional per-message overrides;
+    when set they replace the defaults baked into the webhook by
+    whoever created it in the Discord UI. Useful when one Discord
+    server hosts notifications from multiple deployments (per-env or
+    per-tenant identity).
+    """
+
+    kind: Literal["discord"] = "discord"
+    # Override the webhook's default username for messages from this
+    # channel. Defaults to None (= use the webhook's own setting).
+    username: str | None = None
+    # Override the webhook's default avatar image URL. Defaults to
+    # None (= use the webhook's own setting).
+    avatar_url: str | None = None
+
+
+class StdoutNotificationConfig(_BaseNotificationConfig):
+    """Stdout / stderr JSON Lines notification channel.
+
+    Emits one JSON line per notification to the configured stream.
+    Useful for CI runs, air-gapped deployments, and local dev where
+    chat / pager / SMTP destinations aren't available but a log
+    aggregator picks up stdout.
+
+    No credentials, no HTTP, no SDK — `print()` is the only I/O.
+    """
+
+    kind: Literal["stdout"] = "stdout"
+    # `"stdout"` (default) or `"stderr"`. Use `stderr` when stdout
+    # is reserved for machine-parseable pipeline output.
+    stream: Literal["stdout", "stderr"] = "stdout"
+
+
 # Discriminated union — extend as new channels ship.
 NotificationConfig = (
     SlackNotificationConfig
@@ -573,6 +617,8 @@ NotificationConfig = (
     | SnsNotificationConfig
     | PagerDutyNotificationConfig
     | OpsgenieNotificationConfig
+    | DiscordNotificationConfig
+    | StdoutNotificationConfig
 )
 
 
@@ -886,3 +932,14 @@ class OpsgenieCredentials(_Strict):
     """
 
     api_key: str
+
+
+class DiscordCredentials(_Strict):
+    """Discord webhook URL — `iac-cartographer/discord` secret.
+
+    The URL embeds the webhook ID + token, so the entire URL is the
+    credential. Create one via Discord channel settings →
+    Integrations → Webhooks → New Webhook.
+    """
+
+    url: str

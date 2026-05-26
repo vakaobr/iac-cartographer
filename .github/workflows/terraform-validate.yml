@@ -1,0 +1,92 @@
+name: Terraform validate
+
+# Static validation of the cloud runtime Terraform modules shipped under
+# `examples/runtime/<cloud>/`. Each module is a real adopter-facing
+# scaffold (AWS ECS Fargate + EventBridge, GCP Cloud Run Jobs + Cloud
+# Scheduler, Azure Container Apps Jobs), and a syntax error here means
+# the first thing a new adopter sees when they `terraform apply` is a
+# wall of red.
+#
+# `terraform init -backend=false` pulls providers without configuring a
+# remote backend (we don't want CI consuming a real backend or having
+# any cloud credentials). `terraform validate` then performs
+# provider-aware syntax + reference checking — catches things like
+# misspelled resource attributes, wrong types, undeclared variables.
+#
+# `terraform fmt -check -recursive` enforces canonical formatting so
+# every PR that touches HCL has it auto-formatted.
+#
+# Kept out of `ci.yml` so a terraform-provider outage doesn't turn the
+# Python CI badge red.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/runtime/aws-ecs-fargate/**"
+      - "examples/runtime/gcp-cloud-run-job/**"
+      - "examples/runtime/azure-container-apps-job/**"
+      - ".github/workflows/terraform-validate.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/runtime/aws-ecs-fargate/**"
+      - "examples/runtime/gcp-cloud-run-job/**"
+      - "examples/runtime/azure-container-apps-job/**"
+      - ".github/workflows/terraform-validate.yml"
+  # Weekly run catches provider regressions even when the modules haven't
+  # been touched (e.g. a new major aws provider release that breaks a
+  # `>= 5.x` pin).
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.10.0"
+
+jobs:
+  validate:
+    name: ${{ matrix.module }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # one cloud's provider hiccup shouldn't mask the others
+      matrix:
+        module:
+          - examples/runtime/aws-ecs-fargate
+          - examples/runtime/gcp-cloud-run-job
+          - examples/runtime/azure-container-apps-job
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Terraform ${{ env.TERRAFORM_VERSION }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          # CLI wrapper noise (the action's "stdout/stderr" prefixes)
+          # makes `terraform output -json` parsing fragile downstream;
+          # disable it now even though we don't currently parse outputs
+          # here — keeps the step diff minimal if we ever do.
+          terraform_wrapper: false
+
+      - name: terraform fmt --check --recursive
+        working-directory: ${{ matrix.module }}
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform init -backend=false
+        # No backend config — CI has no cloud credentials and we don't
+        # want to consume real state. `-backend=false` skips backend
+        # init entirely; provider download still happens so validate
+        # can resolve references.
+        working-directory: ${{ matrix.module }}
+        run: terraform init -backend=false -input=false
+
+      - name: terraform validate
+        working-directory: ${{ matrix.module }}
+        run: terraform validate -no-color

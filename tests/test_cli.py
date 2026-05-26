@@ -663,3 +663,57 @@ def test_read_repo_content_skips_dot_terraform(tmp_path: Path) -> None:
     _readme, hcl = _read_repo_content(tmp_path)
     assert "real" in hcl
     assert "SHOULD_NOT_APPEAR" not in hcl
+
+
+# ─── _build_llm_backend ──────────────────────────────────────────────
+
+
+def test_build_llm_backend_vertex_branch() -> None:
+    """Vertex backend doesn't need a credential bundle (auth via GCP
+    ADC). Just check the factory routes correctly when
+    `llm.backend: vertex` + a project_id are set."""
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.llm import VertexBackend
+    from iac_cartographer.models import (
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(backend="vertex", vertex_project_id="my-project", vertex_region="us-east5")
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+    )
+    backend = _build_llm_backend(llm_cfg, secrets)
+    assert isinstance(backend, VertexBackend)
+    assert backend._project_id == "my-project"
+    assert backend._region == "us-east5"
+
+
+def test_build_llm_backend_vertex_requires_project_id() -> None:
+    """Missing vertex_project_id is a config error, not a runtime
+    failure deep in the SDK."""
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.constants import ConfigError
+    from iac_cartographer.models import (
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(backend="vertex")  # vertex_project_id defaults to ""
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+    )
+    with pytest.raises(ConfigError, match="vertex_project_id"):
+        _build_llm_backend(llm_cfg, secrets)

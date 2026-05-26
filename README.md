@@ -367,7 +367,7 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 The four pluggable seams that were the original Phase 2 push:
 
 * **Publishers** — Confluence, local Markdown, standalone HTML, machine-readable JSON.
-* **LLM** — AWS Bedrock, Anthropic API direct.
+* **LLM** — AWS Bedrock, Anthropic API direct, Vertex AI (Claude on GCP).
 * **Discovery** — GitLab groups, GitHub orgs, Bitbucket workspaces, curated YAML/JSON file.
 * **Secrets** — AWS Secrets Manager + SSM, process env vars (with `.env` autoload), HashiCorp Vault KV v2.
 
@@ -385,7 +385,7 @@ Plus the Phase 3 distribution + onboarding wins:
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
 * **New publishers** — Notion, GitHub Wiki.
-* **New LLM backends** — OpenAI, Ollama (local).
+* **New LLM backends** — Azure OpenAI, OpenAI, Ollama (local).
 * **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
 * **Terraform module** — for the ECS Fargate + EventBridge deployment path the project was extracted from.
 * **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.

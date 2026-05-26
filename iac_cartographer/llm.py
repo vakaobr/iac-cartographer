@@ -5,7 +5,7 @@ these user blocks, give me back text + token counts". Anything more
 specific to a particular provider (auth, endpoint, response shape) lives
 behind the `LLMBackend` ABC defined here.
 
-Two implementations ship by default:
+Three implementations ship by default:
 
   * `BedrockBackend` — invokes Claude models via AWS Bedrock's
     InvokeModel API. Auth comes from boto3's standard credential chain
@@ -13,11 +13,17 @@ Two implementations ship by default:
   * `AnthropicBackend` — invokes Claude models against the Anthropic API
     directly (https://api.anthropic.com/v1/messages). Auth via an API
     key passed at construction.
+  * `VertexBackend` — invokes Claude models on Vertex AI (Google Cloud)
+    via the Anthropic SDK's `AnthropicVertex` client. Auth via Google
+    Application Default Credentials (workload identity in cluster, ADC
+    for local dev, service account key for batch jobs). Requires the
+    `[gcp]` optional dependency group.
 
-Both speak the Anthropic Messages API request format internally; the
-backends translate to/from the provider-specific quirks (Bedrock embeds
+All three speak the Anthropic Messages API request format internally;
+the backends translate to/from provider-specific quirks (Bedrock embeds
 the version in the body and elides `model`; Anthropic direct uses a
-header version and includes `model`).
+header version and includes `model`; Vertex uses
+`vertex-2023-10-16` as the version and encodes the model in the URL).
 
 Adding a new backend (OpenAI, Ollama, etc.) means subclassing
 `LLMBackend` and overriding `invoke()`.
@@ -218,9 +224,106 @@ class AnthropicBackend(LLMBackend):
         )
 
 
+# ─── Vertex AI (Claude on Google Cloud) ──────────────────────────────
+
+
+class VertexBackend(LLMBackend):
+    """Invoke Claude models on Vertex AI (Google Cloud).
+
+    Auth: Google Application Default Credentials. On a workload identity
+    binding (GKE, Cloud Run Job's runtime SA, Workload Identity Federation
+    from another cloud) no extra config is needed — the SDK picks up the
+    in-cluster token. For local dev, `gcloud auth application-default
+    login` populates ADC.
+
+    Implementation: thin wrapper around the official Anthropic SDK's
+    `AnthropicVertex` client. The SDK handles GCP auth + endpoint
+    construction + retry-on-5xx; the existing `AnthropicBackend` chose
+    raw httpx for minimalism but Vertex's auth flow (OAuth2 token + URL
+    composition) is too fiddly to redo by hand without leaning on
+    `google-auth`.
+
+    Requires the `[gcp]` optional dependency group:
+
+        pip install 'iac-cartographer[gcp]'
+    """
+
+    DEFAULT_REGION = "europe-west1"
+
+    def __init__(self, project_id: str, *, region: str = DEFAULT_REGION) -> None:
+        if not project_id:
+            raise ValueError("VertexBackend: project_id is required")
+        self._project_id = project_id
+        self._region = region
+        self._client: Any | None = None  # lazy — only instantiated on first invoke
+
+    def _get_client(self) -> Any:
+        """Lazy-import the Anthropic Vertex SDK on first use.
+
+        Failure here surfaces as a clean `LLMBackendImportError` so the
+        operator gets a pip-install hint instead of a generic
+        `ModuleNotFoundError` deep in the call stack."""
+        if self._client is not None:
+            return self._client
+        try:
+            from anthropic import AnthropicVertex  # type: ignore[import-not-found]
+        except ImportError as exc:
+            raise LLMBackendImportError(
+                "VertexBackend requires the [gcp] optional dependency group. "
+                "Install with: pip install 'iac-cartographer[gcp]'"
+            ) from exc
+        self._client = AnthropicVertex(project_id=self._project_id, region=self._region)
+        return self._client
+
+    def invoke(
+        self,
+        *,
+        model_id: str,
+        system_prompt: str,
+        user_blocks: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> LLMResponse:
+        client = self._get_client()
+        # AnthropicVertex's `messages.create()` accepts the same
+        # request shape as the direct Anthropic API; the SDK handles
+        # the `vertex-2023-10-16` version header + URL composition.
+        message = client.messages.create(
+            model=model_id,
+            max_tokens=max_tokens,
+            system=[
+                {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
+            ],
+            messages=[{"role": "user", "content": user_blocks}],
+        )
+
+        # SDK returns a Pydantic-modelled response, not a raw dict —
+        # extract via attributes. `content` is a list of typed blocks;
+        # text lives on `.text` for TextBlock entries.
+        parts: list[str] = []
+        for block in getattr(message, "content", None) or []:
+            text = getattr(block, "text", None)
+            if isinstance(text, str):
+                parts.append(text)
+        usage = getattr(message, "usage", None)
+        return LLMResponse(
+            text="".join(parts),
+            input_tokens=int(getattr(usage, "input_tokens", 0) or 0) if usage else 0,
+            output_tokens=int(getattr(usage, "output_tokens", 0) or 0) if usage else 0,
+        )
+
+
+class LLMBackendImportError(ImportError):
+    """Raised when a backend's optional dependency group isn't installed.
+
+    Carries a pip-install hint in the message so the operator knows how
+    to fix it without spelunking through the source."""
+
+
 __all__ = [
     "AnthropicBackend",
     "BedrockBackend",
     "LLMBackend",
+    "LLMBackendImportError",
     "LLMResponse",
+    "VertexBackend",
 ]

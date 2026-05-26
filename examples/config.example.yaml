@@ -62,12 +62,19 @@ llm:
   #   "anthropic" → Anthropic API direct (auth via the API key in the
   #                 iac-cartographer/anthropic secret). Use when you don't
   #                 have Bedrock access or want lower latency from the EU.
+  #   "vertex"    → Claude on Vertex AI / Google Cloud (auth via GCP
+  #                 Application Default Credentials — workload identity
+  #                 in cluster, ADC for local dev, SA key for batch jobs).
+  #                 Requires `pip install iac-cartographer[gcp]`.
   backend: "bedrock"
 
   # Model identifier. Backend-specific:
   #   bedrock:   inference-profile ID (e.g.
   #              "eu.anthropic.claude-sonnet-4-5-20250929-v1:0").
   #   anthropic: model name (e.g. "claude-sonnet-4-5-20250929").
+  #   vertex:    publisher-prefixed Claude model on Vertex AI (e.g.
+  #              "claude-sonnet-4-5@20240620"). See
+  #              https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude
   # Override to Haiku for cheap validation runs.
   model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
   max_tokens: 4096
@@ -76,12 +83,20 @@ llm:
   # of every child page on the next run (otherwise banner-SHA short-circuits).
   system_prompt_version: "v1"
 
-  # Bedrock-only: AWS region for the boto3 client. Ignored for backend=anthropic.
+  # Bedrock-only: AWS region for the boto3 client. Ignored for other backends.
   bedrock_region: "eu-central-1"
 
   # Anthropic-only: API base URL. Override to point at an internal proxy /
-  # gateway. Ignored for backend=bedrock.
+  # gateway. Ignored for other backends.
   anthropic_base_url: "https://api.anthropic.com"
+
+  # Vertex-only: GCP project hosting the Vertex AI Claude endpoint.
+  # Required when backend=vertex (cli refuses to start otherwise).
+  # vertex_project_id: "my-gcp-project"
+
+  # Vertex-only: Vertex AI region. Pick one where Claude is available
+  # (us-east5, europe-west1, asia-southeast1, …).
+  vertex_region: "europe-west1"
 
 publisher:
   # Which backend renders + writes the inventory.

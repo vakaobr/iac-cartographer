@@ -30,6 +30,8 @@ from iac_cartographer.constants import ConfigError
 from iac_cartographer.notifications.base import NotificationChannel, NotificationLevel
 from iac_cartographer.notifications.dispatcher import NotificationDispatcher
 from iac_cartographer.notifications.email import EmailChannel
+from iac_cartographer.notifications.opsgenie import OpsgenieChannel
+from iac_cartographer.notifications.pagerduty import PagerDutyChannel
 from iac_cartographer.notifications.slack import SlackChannel
 from iac_cartographer.notifications.slack_webhook import SlackWebhookChannel
 from iac_cartographer.notifications.sns import SnsChannel
@@ -40,6 +42,8 @@ if TYPE_CHECKING:
     from iac_cartographer.models import (
         AppConfig,
         EmailCredentials,
+        OpsgenieCredentials,
+        PagerDutyCredentials,
         SlackCredentials,
         SlackWebhookCredentials,
         TeamsCredentials,
@@ -65,6 +69,8 @@ class NotificationSecrets:
     slack_webhook: SlackWebhookCredentials | None = None
     teams: TeamsCredentials | None = None
     email: EmailCredentials | None = None
+    pagerduty: PagerDutyCredentials | None = None
+    opsgenie: OpsgenieCredentials | None = None
     # No `sns` field — SNS uses the AWS credential chain (identity-based),
     # not a stored secret. See `SnsChannel` for the auth flow.
 
@@ -177,6 +183,22 @@ def _build_channel(
             region=getattr(entry, "region", None),
         )
 
+    if kind == "pagerduty":
+        if secrets.pagerduty is None:
+            raise ConfigError(
+                "notifications[].kind=pagerduty but no PagerDutyCredentials were loaded "
+                "(check the iac-cartographer/pagerduty secret)"
+            )
+        return PagerDutyChannel(secrets.pagerduty)
+
+    if kind == "opsgenie":
+        if secrets.opsgenie is None:
+            raise ConfigError(
+                "notifications[].kind=opsgenie but no OpsgenieCredentials were loaded "
+                "(check the iac-cartographer/opsgenie secret)"
+            )
+        return OpsgenieChannel(secrets.opsgenie, region=getattr(entry, "region", "us"))
+
     raise ConfigError(f"unknown notifications[].kind: {kind!r}")
 
 
@@ -187,6 +209,8 @@ __all__ = [
     "NotificationDispatcher",
     "NotificationLevel",
     "NotificationSecrets",
+    "OpsgenieChannel",
+    "PagerDutyChannel",
     "SlackChannel",
     "SlackWebhookChannel",
     "SnsChannel",

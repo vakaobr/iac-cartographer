@@ -49,10 +49,10 @@ short-circuit), so it's safe to run as often as you like.
                         ▼
         ┌────────────────────────────────┐
         │ Notifications (info/warn/error)│   Slack · Teams · email · SNS
-        │  multi-channel fanout +        │   Slack-incoming · RocketChat
-        │  per-level filter              │   Mattermost · generic webhook
-        │                                │   (PagerDuty · Discord · stdout
-        │                                │    · … coming next)
+        │  multi-channel fanout +        │   PagerDuty · Opsgenie
+        │  per-level filter              │   Slack-incoming · RocketChat
+        │                                │   Mattermost · generic webhook
+        │                                │   (Discord · stdout · … coming)
         └────────────────────────────────┘
 ```
 
@@ -178,6 +178,8 @@ Default backend is AWS Secrets Manager — for env-var or HashiCorp Vault deploy
 | `iac-cartographer/slack_webhook` | only when any `notifications[].kind == "slack_webhook"` | `{"url": "https://..."}` *(Slack-incoming / RocketChat / Mattermost URL)* |
 | `iac-cartographer/teams` | only when any `notifications[].kind == "teams"` | `{"url": "https://..."}` *(Teams workflow / Office 365 Connector URL)* |
 | `iac-cartographer/email` | only when any `notifications[].kind == "email"` | `{"username": "...", "password": "..."}` *(SMTP credentials — see provider quirks in docs)* |
+| `iac-cartographer/pagerduty` | only when any `notifications[].kind == "pagerduty"` | `{"routing_key": "..."}` *(per-Service Events API v2 integration key)* |
+| `iac-cartographer/opsgenie` | only when any `notifications[].kind == "opsgenie"` | `{"api_key": "..."}` *(team / integration API key — region-bound)* |
 
 The `bedrock`, `vertex`, and `ollama` LLM backends are identity-based
 (IAM, GCP Workload Identity, or no auth at all) and don't need a secret.
@@ -413,7 +415,7 @@ The five pluggable seams:
 * **LLM** — AWS Bedrock, Anthropic API direct, Vertex AI (Claude on GCP), Azure OpenAI (GPT on Azure), OpenAI direct (GPT via api.openai.com / OpenAI-compatible gateways), Ollama (local LLM).
 * **Discovery** — GitLab groups, GitHub orgs, Bitbucket workspaces, curated YAML/JSON file.
 * **Secrets** — AWS Secrets Manager + SSM, process env vars (with `.env` autoload), HashiCorp Vault KV v2.
-* **Notifications** — multi-channel dispatcher with per-level routing (info / warn / error). Slack (bot-token + incoming-webhook), Microsoft Teams (Adaptive Card), RocketChat / Mattermost (Slack-compat webhook), generic JSON webhook, email (SMTP via `aiosmtplib`), AWS SNS. PagerDuty · Discord · stdout queued as follow-up PRs.
+* **Notifications** — multi-channel dispatcher with per-level routing (info / warn / error). Slack (bot-token + incoming-webhook), Microsoft Teams (Adaptive Card), RocketChat / Mattermost (Slack-compat webhook), generic JSON webhook, email (SMTP via `aiosmtplib`), AWS SNS, PagerDuty (Events API v2), Opsgenie (Alerts API; US + EU). Discord · stdout queued as follow-up PRs.
 
 Plus the Phase 3 distribution + onboarding wins:
 
@@ -429,7 +431,7 @@ Plus the Phase 3 distribution + onboarding wins:
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
 * **New publishers** — Notion, GitHub Wiki.
-* **New notification channels** — PagerDuty / Opsgenie (errors-only escalation), Discord, stdout/JSONL. Dispatcher framework + six channels already shipped (see `docs/backends/notifications.md`); the rest are small follow-up PRs.
+* **New notification channels** — Discord, stdout/JSONL. Dispatcher framework + eight channels already shipped (see `docs/backends/notifications.md`); the remaining two are small follow-up PRs.
 * **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
 * **Terraform module** — for the ECS Fargate + EventBridge deployment path the project was extracted from.

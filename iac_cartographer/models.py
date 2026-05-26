@@ -517,6 +517,52 @@ class SnsNotificationConfig(_BaseNotificationConfig):
     region: str | None = None
 
 
+class PagerDutyNotificationConfig(_BaseNotificationConfig):
+    """PagerDuty incident-trigger channel (Events API v2).
+
+    Triggers incidents via the public events intake endpoint
+    (`events.pagerduty.com/v2/enqueue`). Authenticated by a
+    **routing key** (per-service integration key) rather than a user
+    token, so one channel = one PagerDuty Service.
+
+    Strongly recommend narrowing this to `levels: [error]` to avoid
+    paging on info/warn — the channel itself doesn't enforce that,
+    leaving the policy choice to the operator.
+
+    Credentials come from the `iac-cartographer/pagerduty` secret as
+    `{"routing_key": "..."}`. Get the routing key from PagerDuty's
+    Service → Integrations → Events API v2 → Integration Key.
+    """
+
+    kind: Literal["pagerduty"] = "pagerduty"
+
+
+class OpsgenieNotificationConfig(_BaseNotificationConfig):
+    """Opsgenie alert-creation channel (Alerts API).
+
+    Creates alerts via the public Alerts API. Authenticated by a
+    team / integration API key in an `Authorization: GenieKey <key>`
+    header.
+
+    Same routing-policy advice as PagerDuty: narrow to
+    `levels: [error]` for page-on-error behaviour.
+
+    Credentials come from the `iac-cartographer/opsgenie` secret as
+    `{"api_key": "..."}`.
+
+    Region split — Opsgenie maintains two independent control planes
+    (US + EU); EU customers MUST set `region: "eu"` so the channel
+    targets `api.eu.opsgenie.com`. A US key will be rejected by the
+    EU host and vice-versa.
+    """
+
+    kind: Literal["opsgenie"] = "opsgenie"
+    # Opsgenie control-plane region. `"us"` = api.opsgenie.com (default),
+    # `"eu"` = api.eu.opsgenie.com. Match the region your API key was
+    # issued on — the two planes are NOT linked.
+    region: Literal["us", "eu"] = "us"
+
+
 # Discriminated union — extend as new channels ship.
 NotificationConfig = (
     SlackNotificationConfig
@@ -525,6 +571,8 @@ NotificationConfig = (
     | TeamsNotificationConfig
     | EmailNotificationConfig
     | SnsNotificationConfig
+    | PagerDutyNotificationConfig
+    | OpsgenieNotificationConfig
 )
 
 
@@ -815,3 +863,26 @@ class EmailCredentials(_Strict):
 
     username: str
     password: str
+
+
+class PagerDutyCredentials(_Strict):
+    """PagerDuty routing key — `iac-cartographer/pagerduty` secret.
+
+    Get the value from PagerDuty's Service → Integrations →
+    Events API v2 → Integration Key. It's a ~32-char token bound to
+    one Service / escalation policy.
+    """
+
+    routing_key: str
+
+
+class OpsgenieCredentials(_Strict):
+    """Opsgenie API key — `iac-cartographer/opsgenie` secret.
+
+    Issued from a team integration or API integration in the
+    Opsgenie console. Region-bound — a US-plane key will NOT work
+    against the EU plane and vice-versa; set `region:` on the
+    channel config to match.
+    """
+
+    api_key: str

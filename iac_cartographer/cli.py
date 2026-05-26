@@ -81,6 +81,8 @@ from iac_cartographer.models import (
     GitlabCredentials,
     LLMConfig,
     OpenAICredentials,
+    OpsgenieCredentials,
+    PagerDutyCredentials,
     RepoInventory,
     RepoMetadata,
     RunOutcome,
@@ -211,6 +213,10 @@ class LoadedSecrets:
     # `email` is only populated when any `notifications[].kind == "email"`.
     # SMTP username + password from the `iac-cartographer/email` secret.
     email: EmailCredentials | None = None
+    # Pager-escalation credentials — only loaded when the matching
+    # `notifications[].kind` is present.
+    pagerduty: PagerDutyCredentials | None = None
+    opsgenie: OpsgenieCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -235,6 +241,11 @@ TEAMS_SECRET_NAME = "iac-cartographer/teams"  # noqa: S105
 # Email channel SMTP credentials: `{"username": "...", "password": "..."}`.
 # No `sns` secret — SNS auth comes from the AWS credential chain.
 EMAIL_SECRET_NAME = "iac-cartographer/email"  # noqa: S105
+# Pager-escalation channel credentials. PagerDuty's routing key is a
+# per-Service integration key; Opsgenie's API key is a per-team
+# integration key (region-bound — see OpsgenieChannel).
+PAGERDUTY_SECRET_NAME = "iac-cartographer/pagerduty"  # noqa: S105
+OPSGENIE_SECRET_NAME = "iac-cartographer/opsgenie"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -273,6 +284,8 @@ def _load_secrets(
     need_slack_webhook: bool = False,
     need_teams: bool = False,
     need_email: bool = False,
+    need_pagerduty: bool = False,
+    need_opsgenie: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -408,6 +421,32 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"email secret payload failed schema validation: {exc}") from exc
 
+    pagerduty_creds: PagerDutyCredentials | None = None
+    if need_pagerduty:
+        try:
+            pagerduty_raw = provider.get_secret(PAGERDUTY_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=pagerduty but the {PAGERDUTY_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            pagerduty_creds = PagerDutyCredentials.model_validate(pagerduty_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"pagerduty secret payload failed schema validation: {exc}") from exc
+
+    opsgenie_creds: OpsgenieCredentials | None = None
+    if need_opsgenie:
+        try:
+            opsgenie_raw = provider.get_secret(OPSGENIE_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=opsgenie but the {OPSGENIE_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            opsgenie_creds = OpsgenieCredentials.model_validate(opsgenie_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"opsgenie secret payload failed schema validation: {exc}") from exc
+
     try:
         return LoadedSecrets(
             confluence=ConfluenceCredentials.model_validate(confluence_raw),
@@ -422,6 +461,8 @@ def _load_secrets(
             slack_webhook=slack_webhook_creds,
             teams=teams_creds,
             email=email_creds,
+            pagerduty=pagerduty_creds,
+            opsgenie=opsgenie_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -788,6 +829,8 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         need_teams="teams" in notification_kinds,
         need_email="email" in notification_kinds,
         # No `need_sns`: SNS uses the AWS credential chain, no secret to load.
+        need_pagerduty="pagerduty" in notification_kinds,
+        need_opsgenie="opsgenie" in notification_kinds,
     )
     notifier: NotificationDispatcher = build_dispatcher(
         config,
@@ -797,6 +840,8 @@ async def _run_once_async(args: argparse.Namespace) -> int:
             slack_webhook=secrets.slack_webhook,
             teams=secrets.teams,
             email=secrets.email,
+            pagerduty=secrets.pagerduty,
+            opsgenie=secrets.opsgenie,
         ),
     )
     llm_backend = _build_llm_backend(config.llm, secrets)

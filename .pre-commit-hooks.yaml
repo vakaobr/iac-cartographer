@@ -1,0 +1,51 @@
+# pre-commit hook definitions for iac-cartographer.
+#
+# Add to your repo's `.pre-commit-config.yaml`:
+#
+#   repos:
+#     - repo: https://github.com/vakaobr/iac-cartographer
+#       rev: v0.1.0   # pin to a release tag
+#       hooks:
+#         - id: iac-cartographer-lint
+#
+# By default the hook walks the working tree under `./` and fails on
+# any `error`-severity finding (undeclared providers). Pass extra args
+# via the hook config to tighten the gate:
+#
+#         - id: iac-cartographer-lint
+#           args: [--fail-on=warn]
+#
+# Requires `terraform-docs` on PATH (same dep iac-cartographer needs
+# everywhere else). pre-commit's `additional_dependencies` doesn't
+# install OS-level binaries; either `brew install terraform-docs`
+# locally or use the Docker variant of the hook for CI runs:
+#
+#         - id: iac-cartographer-lint-docker
+#           args: [--fail-on=warn]
+
+- id: iac-cartographer-lint
+  name: iac-cartographer lint
+  description: >-
+    Run iac-cartographer's IaC hygiene linter — undeclared providers,
+    unpinned providers / modules. Requires terraform-docs on PATH.
+  entry: iac-cartographer --lint
+  language: python
+  # `types: [terraform]` would scope to .tf files only — but the
+  # linter takes a DIRECTORY argument, not file paths. Run once per
+  # commit with `pass_filenames: false`; the hook walks the working
+  # tree from `.` itself.
+  pass_filenames: false
+  always_run: true
+  args: ["."]
+
+- id: iac-cartographer-lint-docker
+  name: iac-cartographer lint (docker)
+  description: >-
+    Same lint pass, but inside the iac-cartographer container —
+    terraform-docs comes pre-installed in the image. Use this in
+    environments that don't have terraform-docs locally.
+  entry: docker run --rm -v "$PWD:/work" -w /work ghcr.io/vakaobr/iac-cartographer:latest --lint
+  language: system
+  pass_filenames: false
+  always_run: true
+  args: ["."]

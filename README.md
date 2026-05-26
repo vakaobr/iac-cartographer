@@ -11,6 +11,7 @@
 [![coverage](https://raw.githubusercontent.com/vakaobr/iac-cartographer/badges/coverage.svg)](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-025E8C?logo=dependabot&logoColor=white)](https://github.com/vakaobr/iac-cartographer/network/updates)
 [![docs](https://img.shields.io/badge/docs-iac--cartographer.andersonleite.me-blue)](https://iac-cartographer.andersonleite.me/)
+[![Changelog](https://img.shields.io/badge/changelog-Keep_a_Changelog-orange)](CHANGELOG.md)
 
 > Fleet-level documentation for your Terraform / IaC estate.
 
@@ -450,6 +451,13 @@ Plus the Phase 3 distribution + onboarding wins:
 
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
 
+* **`--diagnose` / `--doctor` subcommand** — single command that smoke-tests every backend the active config touches: secrets reachable, LLM ping with token-cost estimate, publisher dry-run (parent page exists? wiki repo writable? output dir creatable?), `terraform-docs` version check, discovery-source auth check, optional dependency group check. Output is a checklist on stderr. Replaces 4–5 hand-rolled smoke tests and turns first-run debugging from CloudWatch grep into one command.
+* **Close out test-coverage gaps from the feature wave.** The 60 % coverage floor is the CI gate, not a target. Concrete gaps to backfill from the Phase-3 work:
+  * GitHub Wiki publisher's git-based commit + push-retry path.
+  * Notion publisher block-rendering edge cases (nested lists, pages > 100 blocks).
+  * Gitea / Forgejo pagination boundary (last-page detection).
+  * Notification dispatcher under partial-failure scenarios (one channel raises, others succeed; per-level filter elision).
+  * AWS / GCP / Azure runtime example `terraform validate` in CI.
 * **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
 * **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.
 * **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.

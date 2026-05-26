@@ -73,7 +73,8 @@ PagerDuty / Opsgenie, Discord, and stdout/JSONL.
 | `teams` | Shipped | Microsoft Teams workflow webhook + Adaptive Card v1.4. Severity → colour mapping (good / warning / attention). |
 | `email` | Shipped | SMTP via `aiosmtplib`. Multipart/alternative with HTML severity-coloured header + plain-text fallback. |
 | `sns` | Shipped | AWS SNS topic publish — identity-based (no stored secret). SNS fans downstream to email / SMS / Lambda / SQS / HTTPS / mobile push. |
-| `pagerduty` / `opsgenie` | Coming next | Errors-only escalation. |
+| `pagerduty` | Shipped | PagerDuty Events API v2 — triggers incidents via per-Service routing key. Pair with `levels: [error]` for page-on-error. |
+| `opsgenie` | Shipped | Opsgenie Alerts API — `GenieKey` auth, US + EU region split. Level → priority mapping (info=P5, warn=P3, error=P1). |
 | `discord` | Coming next | Community / homelab. |
 | `stdout` | Coming next | JSON Lines on stdout — air-gapped + CI friendly. |
 
@@ -253,6 +254,88 @@ Transport: `boto3` (already a base install dependency for AWS Secrets
 Manager / SSM / Bedrock). The SNS client is synchronous, so `publish()`
 runs in a thread via `asyncio.to_thread()` to keep the dispatcher's
 concurrent fanout from blocking on the network round-trip.
+
+## PagerDuty
+
+Triggers PagerDuty incidents via the public **Events API v2**
+(`events.pagerduty.com/v2/enqueue`). Authenticated by a **routing
+key** (per-Service integration key) rather than a user token — one
+channel entry = one PagerDuty Service.
+
+```yaml
+notifications:
+  - kind: pagerduty
+    levels: [error]                         # strongly recommended
+```
+
+> **Narrow to `levels: [error]`.** The channel does NOT enforce this —
+> if you leave the default (all three), every info-level
+> `iac-cartographer: run starting` will trigger an incident. That's
+> probably not what you want.
+
+Credentials live in the `iac-cartographer/pagerduty` secret as
+`{"routing_key": "..."}`. Get the routing key from PagerDuty's
+**Service → Integrations → Events API v2 → Integration Key**.
+
+Severity mapping (level → PagerDuty `severity` field):
+
+| Level | PagerDuty severity |
+|---|---|
+| `info` | `info` |
+| `warn` | `warning` |
+| `error` | `error` |
+
+The channel deliberately maps the highest level to `error` rather than
+`critical` — escalation belongs to the operator (via the `levels:`
+filter or PagerDuty's own escalation policy), not the adapter.
+
+Today the channel sends `event_action: "trigger"` only. Acknowledge /
+resolve workflows would need a stable `dedup_key` per incident; not
+shipped yet, would be a small follow-up.
+
+## Opsgenie
+
+Creates alerts via the public **Opsgenie Alerts API**. Authenticated
+by a team / integration **API key** in an `Authorization: GenieKey
+<key>` header (the Opsgenie-specific scheme — not `Bearer`).
+
+```yaml
+notifications:
+  - kind: opsgenie
+    region: "us"                            # or "eu" — match your key
+    levels: [error]                         # strongly recommended
+```
+
+Same routing-policy advice as PagerDuty: narrow to `levels: [error]`
+for page-on-error behaviour. The default `[info, warn, error]` will
+generate an alert for every notification.
+
+Credentials live in the `iac-cartographer/opsgenie` secret as
+`{"api_key": "..."}`. Issued from a team integration or API
+integration in the Opsgenie console.
+
+**Region split.** Opsgenie maintains two independent control planes:
+
+| `region` | Host | When to use |
+|---|---|---|
+| `us` *(default)* | `api.opsgenie.com` | Most accounts. |
+| `eu` | `api.eu.opsgenie.com` | EU-resident accounts only. |
+
+The two planes are **not linked** — a US-issued key is rejected by the
+EU host and vice-versa. If unsure, check the URL you log into
+(`app.opsgenie.com` = US, `app.eu.opsgenie.com` = EU).
+
+Severity mapping (level → Opsgenie `priority` field):
+
+| Level | Opsgenie priority |
+|---|---|
+| `info` | `P5` *(lowest — typically silent queue)* |
+| `warn` | `P3` |
+| `error` | `P1` *(page on-call)* |
+
+The `details.level` field on every alert carries our original level
+literal too, so Opsgenie filter rules can route by exact severity if
+priority isn't granular enough.
 
 ## Slack (concrete reference)
 

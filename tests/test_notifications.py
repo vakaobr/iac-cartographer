@@ -380,6 +380,62 @@ def test_email_config_requires_at_least_one_recipient() -> None:
         )
 
 
+def test_build_dispatcher_wires_pagerduty_channel() -> None:
+    """kind: pagerduty → PagerDutyChannel with the loaded routing key."""
+    from iac_cartographer.models import PagerDutyCredentials
+    from iac_cartographer.notifications import PagerDutyChannel
+
+    config = AppConfig.model_validate({"notifications": [{"kind": "pagerduty", "levels": ["error"]}]})
+    secrets = NotificationSecrets(pagerduty=PagerDutyCredentials(routing_key="k"))
+    d = build_dispatcher(config, secrets=secrets)
+
+    channel, levels = d._channels[0]
+    assert isinstance(channel, PagerDutyChannel)
+    assert channel._routing_key == "k"
+    assert levels == {NotificationLevel.ERROR}
+
+
+def test_build_dispatcher_wires_opsgenie_channel_with_region() -> None:
+    """kind: opsgenie → OpsgenieChannel; `region: eu` threads through."""
+    from iac_cartographer.models import OpsgenieCredentials
+    from iac_cartographer.notifications import OpsgenieChannel
+
+    config = AppConfig.model_validate(
+        {
+            "notifications": [
+                {"kind": "opsgenie", "region": "eu", "levels": ["error"]},
+            ]
+        }
+    )
+    secrets = NotificationSecrets(opsgenie=OpsgenieCredentials(api_key="og-k"))
+    d = build_dispatcher(config, secrets=secrets)
+
+    channel, _ = d._channels[0]
+    assert isinstance(channel, OpsgenieChannel)
+    # EU plane routes to api.eu.opsgenie.com.
+    assert channel._host == "https://api.eu.opsgenie.com"
+
+
+def test_build_dispatcher_rejects_pagerduty_kind_without_creds() -> None:
+    config = AppConfig.model_validate({"notifications": [{"kind": "pagerduty"}]})
+    with pytest.raises(ConfigError, match=r"notifications.*pagerduty"):
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_build_dispatcher_rejects_opsgenie_kind_without_creds() -> None:
+    config = AppConfig.model_validate({"notifications": [{"kind": "opsgenie"}]})
+    with pytest.raises(ConfigError, match=r"notifications.*opsgenie"):
+        build_dispatcher(config, secrets=NotificationSecrets())
+
+
+def test_opsgenie_config_rejects_unknown_region() -> None:
+    """Only `us` and `eu` are valid; anything else is a typo."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        AppConfig.model_validate({"notifications": [{"kind": "opsgenie", "region": "ap"}]})
+
+
 def test_build_dispatcher_mixed_kinds() -> None:
     """All four kinds in one list — each instantiates its own channel
     type and the dispatcher fans events across them in order."""

@@ -300,8 +300,16 @@ slack:
 #                     IAM principal needs `sns:Publish` on the topic.
 #                     `level` MessageAttribute lets downstream SNS
 #                     filter policies route per-severity.
-# Coming in follow-up PRs: "pagerduty" / "opsgenie" (errors-only
-# escalation), "discord", "stdout" (JSONL).
+#   "pagerduty"     → PagerDuty Events API v2 incident trigger.
+#                     Strongly recommend pairing with `levels: [error]`.
+#                     Credentials: `iac-cartographer/pagerduty` secret
+#                     as `{"routing_key": "..."}` (per-Service key).
+#   "opsgenie"      → Opsgenie Alerts API. `GenieKey` auth.
+#                     Set `region: "eu"` for EU-resident accounts
+#                     (US default; planes are NOT linked).
+#                     Credentials: `iac-cartographer/opsgenie` secret
+#                     as `{"api_key": "..."}`.
+# Coming in follow-up PRs: "discord", "stdout" (JSONL).
 # See docs/backends/notifications.md for the full roadmap.
 notifications: []
   # Example — chat (info) + Teams (error) + email + SNS for downstream fanout:
@@ -324,3 +332,8 @@ notifications: []
   #     Authorization: "Bearer my-internal-token"
   # - kind: slack_webhook       # Slack incoming / RocketChat / Mattermost
   #   levels: [warn, error]
+  # - kind: pagerduty            # page on-call when iac-cartographer errors
+  #   levels: [error]
+  # - kind: opsgenie             # Opsgenie alternative — pick one
+  #   region: "us"               # or "eu"
+  #   levels: [error]

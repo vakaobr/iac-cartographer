@@ -25,7 +25,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # `write` (not `read`) so the SBOM action can PATCH the GitHub Release
+  # to attach the SPDX file. Without this the final SBOM-attach step
+  # fails with "Resource not accessible by integration" even though the
+  # image push + cosign signing succeed.
+  contents: write
   packages: write
   # Required for cosign/sigstore keyless signing of the published image.
   id-token: write

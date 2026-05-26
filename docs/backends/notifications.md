@@ -62,18 +62,17 @@ routing — no surprise extra channels.
 
 ## Channels
 
-Today the only concrete channel is **Slack** (`kind: slack`). The
-follow-up roadmap will add:
+Four channels ship today. The follow-up roadmap covers email, SNS,
+PagerDuty / Opsgenie, Discord, and stdout/JSONL.
 
 | `kind` | Status | Notes |
 |---|---|---|
 | `slack` | Shipped | Bot-token `chat.postMessage` to a channel. Same shape as the legacy block. |
-| `teams` | Coming next | Incoming webhook + Adaptive Card. |
-| `rocketchat` | Coming next | Slack-compatible webhook; reuses the Slack adapter. |
-| `mattermost` | Coming next | Slack-compatible webhook; reuses the Slack adapter. |
+| `webhook` | Shipped | Generic JSON POST with our own stable schema (`{schema, level, message, ts, source}`). Catch-all for custom endpoints. |
+| `slack_webhook` | Shipped | Slack-compatible incoming webhook. Drop-in for native Slack incoming webhooks, RocketChat, and Mattermost. |
+| `teams` | Shipped | Microsoft Teams workflow webhook + Adaptive Card v1.4. Severity → colour mapping (good / warning / attention). |
 | `email` | Coming next | SMTP via `aiosmtplib`. |
 | `sns` | Coming next | AWS SNS topic publish — fits the existing AWS-first deployment story. |
-| `webhook` | Coming next | Generic JSON POST — fallback for anything custom. |
 | `pagerduty` / `opsgenie` | Coming next | Errors-only escalation. |
 | `discord` | Coming next | Community / homelab. |
 | `stdout` | Coming next | JSON Lines on stdout — air-gapped + CI friendly. |
@@ -82,6 +81,97 @@ Adding a new channel is small surface area: subclass
 `NotificationChannel` (one async `notify(level, message)` method),
 register a config kind in `iac_cartographer.models`, and add a branch
 to `iac_cartographer.notifications.build_dispatcher`.
+
+## Generic webhook
+
+The catch-all channel — POST a JSON document with our own stable schema
+to any URL. Useful for internal observability platforms, custom Lambda
+/ Cloud Function forwarders, or any endpoint that doesn't fit a
+dedicated channel.
+
+```yaml
+notifications:
+  - kind: webhook
+    extra_headers:                          # optional
+      Authorization: "Bearer my-token"
+    levels: [warn, error]                   # optional
+```
+
+Credentials live in the `iac-cartographer/webhook` secret as
+`{"url": "https://your-endpoint.example.com/notify"}`. The URL itself
+is the credential — most webhook providers embed a per-tenant secret
+in the URL, so never check it into version-controlled config.
+
+**Payload schema (stable):**
+
+```json
+{
+  "schema": "iac-cartographer.notification.v1",
+  "level": "info",
+  "message": "iac-cartographer: run starting",
+  "ts": "2026-05-26T10:30:00Z",
+  "source": "iac-cartographer"
+}
+```
+
+The `schema` field is a change-detect anchor — a bump to `v2` would
+mean the payload shape changed and downstream consumers need updating.
+
+## Slack-compatible incoming webhook (`slack_webhook`)
+
+Drop-in destination for three platforms that all accept the
+Slack-shaped `{"text": "..."}` payload format:
+
+- **Slack incoming webhooks** — the URL-based posting path Slack
+  supports alongside the bot-token API. Use this `kind` when you
+  don't want to run a bot user (no token rotation, no channel
+  invites).
+- **RocketChat** — accepts Slack-shaped payloads natively at any
+  incoming-webhook URL.
+- **Mattermost** — same. Common choice for self-hosted /
+  regulated / on-prem deployments.
+
+```yaml
+notifications:
+  - kind: slack_webhook
+```
+
+Credentials live in the `iac-cartographer/slack_webhook` secret as
+`{"url": "https://hooks.slack.com/services/T000/B000/XYZ"}` (or the
+equivalent RocketChat / Mattermost webhook URL).
+
+Same `:white_check_mark:` / `:warning:` / `:x:` emoji prefixes as the
+bot-token Slack channel — chats look identical regardless of which
+Slack transport is in play.
+
+## Microsoft Teams (`teams`)
+
+Posts an Adaptive Card v1.4 to a Teams workflow webhook URL. Works
+with both the modern **Workflow webhooks** (Power Automate — Microsoft
+is migrating everyone here) and the legacy **Office 365 Connector**
+webhooks. Same payload envelope for either.
+
+```yaml
+notifications:
+  - kind: teams
+```
+
+Credentials live in the `iac-cartographer/teams` secret as
+`{"url": "https://prod-XX.westeurope.logic.azure.com:443/workflows/..."}`.
+The workflow URL embeds a SAS token, so never check it into
+version-controlled config.
+
+Severity maps to Adaptive Card colours so messages are visually
+distinguishable in the Teams channel:
+
+| Level | Card colour | Emoji prefix |
+|---|---|---|
+| `info` | `good` (green) | ✅ |
+| `warn` | `warning` (amber) | ⚠️ |
+| `error` | `attention` (red) | ❌ |
+
+Unicode emojis are used in the header text rather than Slack-style
+`:emoji:` shortcodes — Teams does NOT render the shortcode form.
 
 ## Slack (concrete reference)
 

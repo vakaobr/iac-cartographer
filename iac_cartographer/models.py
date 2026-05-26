@@ -380,7 +380,7 @@ class _BaseNotificationConfig(_Strict):
 
 
 class SlackNotificationConfig(_BaseNotificationConfig):
-    """Slack workspace channel.
+    """Slack workspace channel (bot-token `chat.postMessage`).
 
     Credentials come from the `iac-cartographer/slack` secret (same
     secret name as the legacy `slack:` block; both shapes can coexist
@@ -397,8 +397,67 @@ class SlackNotificationConfig(_BaseNotificationConfig):
     channel: str | None = None
 
 
+class WebhookNotificationConfig(_BaseNotificationConfig):
+    """Generic JSON-shaped webhook channel.
+
+    Posts our own stable schema (`{schema, level, message, ts, source}`)
+    to an arbitrary URL. Catch-all destination for anything that doesn't
+    fit a dedicated channel: internal observability platforms, custom
+    Lambda/Cloud Function forwarders, generic-event intake URLs.
+
+    Credentials come from the `iac-cartographer/webhook` secret as
+    `{"url": "..."}`. `extra_headers` (in this config block, not the
+    secret) accepts arbitrary HTTP headers — useful when the endpoint
+    wants a bearer token on top of the URL-embedded secret.
+    """
+
+    kind: Literal["webhook"] = "webhook"
+    extra_headers: dict[str, str] = Field(default_factory=dict)
+
+
+class SlackWebhookNotificationConfig(_BaseNotificationConfig):
+    """Slack-compatible incoming-webhook channel.
+
+    Posts the Slack-shaped `{"text": "..."}` payload format that's the
+    de-facto interop standard for chat platforms. One channel covers
+    three destinations:
+
+      * Slack incoming webhooks (URL-based; alternative to the bot-token
+        `chat.postMessage` API used by `kind: slack`).
+      * RocketChat (native Slack-compat at any webhook URL).
+      * Mattermost (same; self-hosted regulated / on-prem deployments).
+
+    Credentials come from the `iac-cartographer/slack_webhook` secret as
+    `{"url": "..."}`. The URL itself IS the credential — never check it
+    into version-controlled config.
+    """
+
+    kind: Literal["slack_webhook"] = "slack_webhook"
+
+
+class TeamsNotificationConfig(_BaseNotificationConfig):
+    """Microsoft Teams channel via workflow webhook (Adaptive Card).
+
+    Posts an Adaptive Card v1.4 inside the Teams `attachments` envelope.
+    Works with both the modern Workflow webhooks (Power Automate) and
+    the legacy Office 365 Connector webhooks — same payload shape.
+
+    Severity maps to Adaptive Card colours (info=good, warn=warning,
+    error=attention) so messages are visually distinguishable in the
+    Teams channel.
+
+    Credentials come from the `iac-cartographer/teams` secret as
+    `{"url": "..."}`. The workflow URL embeds a SAS token, so never
+    check it into version-controlled config.
+    """
+
+    kind: Literal["teams"] = "teams"
+
+
 # Discriminated union — extend as new channels ship.
-NotificationConfig = SlackNotificationConfig
+NotificationConfig = (
+    SlackNotificationConfig | WebhookNotificationConfig | SlackWebhookNotificationConfig | TeamsNotificationConfig
+)
 
 
 class PublisherConfig(_Strict):
@@ -638,3 +697,35 @@ class SlackCredentials(_Strict):
     # longer required. The SlackNotifier ignores it when the orchestrator
     # passes `channel=config.slack.channel` (it always does).
     channel_id: str | None = None
+
+
+# ─── Webhook-family notification credentials ─────────────────────────
+# All three share the same shape (just a URL) but stay separate so the
+# logical secret name is encoded in the type — same pattern the LLM
+# credential classes follow (Anthropic / OpenAI / AzureOpenAI all have
+# a single `api_key: str` but live as distinct types).
+
+
+class WebhookCredentials(_Strict):
+    """Generic webhook URL — `iac-cartographer/webhook` secret."""
+
+    url: str
+
+
+class SlackWebhookCredentials(_Strict):
+    """Slack-compatible incoming webhook URL — `iac-cartographer/slack_webhook` secret.
+
+    Works for native Slack incoming webhooks, RocketChat, and Mattermost
+    (same payload shape across all three).
+    """
+
+    url: str
+
+
+class TeamsCredentials(_Strict):
+    """Microsoft Teams workflow-webhook URL — `iac-cartographer/teams` secret.
+
+    The URL embeds a SAS token, so the entire URL is the credential.
+    """
+
+    url: str

@@ -84,10 +84,14 @@ from iac_cartographer.models import (
     RepoMetadata,
     RunOutcome,
     SlackCredentials,
+    SlackWebhookCredentials,
+    TeamsCredentials,
+    WebhookCredentials,
 )
 from iac_cartographer.narrator import detect_suspicious_phrases, placeholder_narrative, summarize
 from iac_cartographer.notifications import (
     NotificationDispatcher,
+    NotificationSecrets,
     build_dispatcher,
 )
 from iac_cartographer.publishers import (
@@ -197,6 +201,12 @@ class LoadedSecrets:
     azure_openai: AzureOpenAICredentials | None = None
     # `openai` is only populated when `llm.backend == "openai"`.
     openai: OpenAICredentials | None = None
+    # Webhook-family notification credentials — only populated when the
+    # matching `kind:` appears in `config.notifications`. None means the
+    # operator hasn't opted into that channel.
+    webhook: WebhookCredentials | None = None
+    slack_webhook: SlackWebhookCredentials | None = None
+    teams: TeamsCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -211,6 +221,13 @@ ANTHROPIC_SECRET_NAME = "iac-cartographer/anthropic"  # noqa: S105
 AZURE_OPENAI_SECRET_NAME = "iac-cartographer/azure_openai"  # noqa: S105
 OPENAI_SECRET_NAME = "iac-cartographer/openai"  # noqa: S105
 BITBUCKET_SECRET_NAME = "iac-cartographer/bitbucket"  # noqa: S105
+# Webhook-family notification secrets. Each one is `{"url": "..."}` —
+# the URL itself is the credential (URL-embedded SAS token for Teams,
+# URL-embedded webhook secret for Slack-incoming / RocketChat / Mattermost,
+# operator's choice for the generic webhook).
+WEBHOOK_SECRET_NAME = "iac-cartographer/webhook"  # noqa: S105
+SLACK_WEBHOOK_SECRET_NAME = "iac-cartographer/slack_webhook"  # noqa: S105
+TEAMS_SECRET_NAME = "iac-cartographer/teams"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -245,6 +262,9 @@ def _load_secrets(
     *,
     need_bitbucket: bool = False,
     need_azure_openai: bool = False,
+    need_webhook: bool = False,
+    need_slack_webhook: bool = False,
+    need_teams: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -326,6 +346,47 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"bitbucket secret payload failed schema validation: {exc}") from exc
 
+    webhook_creds: WebhookCredentials | None = None
+    if need_webhook:
+        try:
+            webhook_raw = provider.get_secret(WEBHOOK_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=webhook but the {WEBHOOK_SECRET_NAME} "
+                f"secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            webhook_creds = WebhookCredentials.model_validate(webhook_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"webhook secret payload failed schema validation: {exc}") from exc
+
+    slack_webhook_creds: SlackWebhookCredentials | None = None
+    if need_slack_webhook:
+        try:
+            slack_webhook_raw = provider.get_secret(SLACK_WEBHOOK_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=slack_webhook but the {SLACK_WEBHOOK_SECRET_NAME} "
+                f"secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            slack_webhook_creds = SlackWebhookCredentials.model_validate(slack_webhook_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"slack_webhook secret payload failed schema validation: {exc}") from exc
+
+    teams_creds: TeamsCredentials | None = None
+    if need_teams:
+        try:
+            teams_raw = provider.get_secret(TEAMS_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=teams but the {TEAMS_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            teams_creds = TeamsCredentials.model_validate(teams_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"teams secret payload failed schema validation: {exc}") from exc
+
     try:
         return LoadedSecrets(
             confluence=ConfluenceCredentials.model_validate(confluence_raw),
@@ -336,6 +397,9 @@ def _load_secrets(
             bitbucket=bitbucket_creds,
             azure_openai=azure_openai_creds,
             openai=openai_creds,
+            webhook=webhook_creds,
+            slack_webhook=slack_webhook_creds,
+            teams=teams_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -684,6 +748,11 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         logger.info("iac-cartographer: LLM model overridden to %s", args.model)
     secrets_provider = build_provider(config.secrets)
     logger.info("secrets: backend=%s", secrets_provider.name)
+    # Scan `notifications:` for which webhook-family secrets need loading.
+    # Each `kind` maps to its own secret name (`iac-cartographer/<kind>`);
+    # the matching `need_*` flag flips on for any entry of that kind so a
+    # missing secret fails loud at startup instead of at first notify().
+    notification_kinds = {getattr(entry, "kind", None) for entry in config.notifications}
     secrets = _load_secrets(
         secrets_provider,
         config.llm.backend,
@@ -692,8 +761,19 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # is active AND `use_aad` is off. AAD deployments authenticate
         # via DefaultAzureCredential and don't need a stored key.
         need_azure_openai=(config.llm.backend == "azure_openai" and not config.llm.azure_openai_use_aad),
+        need_webhook="webhook" in notification_kinds,
+        need_slack_webhook="slack_webhook" in notification_kinds,
+        need_teams="teams" in notification_kinds,
     )
-    notifier: NotificationDispatcher = build_dispatcher(config, slack_creds=secrets.slack)
+    notifier: NotificationDispatcher = build_dispatcher(
+        config,
+        secrets=NotificationSecrets(
+            slack=secrets.slack,
+            webhook=secrets.webhook,
+            slack_webhook=secrets.slack_webhook,
+            teams=secrets.teams,
+        ),
+    )
     llm_backend = _build_llm_backend(config.llm, secrets)
 
     outcome = RunOutcome()

@@ -1,6 +1,6 @@
 site_name: iac-cartographer
 site_description: Fleet-level documentation for your Terraform / IaC estate.
-site_url: https://vakaobr.github.io/iac-cartographer/
+site_url: https://iac-cartographer.andersonleite.me/
 repo_name: vakaobr/iac-cartographer
 repo_url: https://github.com/vakaobr/iac-cartographer
 edit_uri: edit/main/docs/

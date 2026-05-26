@@ -1,12 +1,15 @@
 <p align="center">
-  <img src="banner.png" alt="iac-cartographer banner" width="100%">
+  <picture>
+    <source srcset="banner.webp" type="image/webp">
+    <img src="banner.png" alt="iac-cartographer banner" width="100%">
+  </picture>
 </p>
 
 # iac-cartographer
 
 [![CI](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml)
 [![coverage](https://raw.githubusercontent.com/vakaobr/iac-cartographer/badges/coverage.svg)](https://github.com/vakaobr/iac-cartographer/actions/workflows/ci.yml)
-[![docs](https://img.shields.io/badge/docs-vakaobr.github.io-blue)](https://vakaobr.github.io/iac-cartographer/)
+[![docs](https://img.shields.io/badge/docs-iac--cartographer.andersonleite.me-blue)](https://iac-cartographer.andersonleite.me/)
 
 > Fleet-level documentation for your Terraform / IaC estate.
 

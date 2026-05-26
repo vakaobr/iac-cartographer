@@ -362,18 +362,36 @@ On the Confluence pages you'll see a few placeholders worth knowing:
 
 ## Roadmap
 
-* **Pluggable publishers** — ✅ Confluence + local Markdown + standalone HTML + machine-readable JSON shipped; Notion
-  and GitHub Wiki are next.
-* **Pluggable LLM backend** — ✅ Bedrock + Anthropic-direct shipped; OpenAI
-  and Ollama are next.
-* **Pluggable discovery** — ✅ GitLab + GitHub + Bitbucket + curated file
-  shipped; Gitea / Forgejo native APIs are next (use the file source in
-  the meantime).
-* **Pluggable secrets/config** — ✅ AWS Secrets Manager + SSM, process env
-  vars (with `.env` autoload), and HashiCorp Vault KV v2 shipped; add a
-  new backend by subclassing `SecretsProvider`.
-* **Terraform module** — for the ECS Fargate deployment path.
-* **PyPI release** — once the pluggable interfaces stabilise.
+### Shipped
+
+The four pluggable seams that were the original Phase 2 push:
+
+* **Publishers** — Confluence, local Markdown, standalone HTML, machine-readable JSON.
+* **LLM** — AWS Bedrock, Anthropic API direct.
+* **Discovery** — GitLab groups, GitHub orgs, Bitbucket workspaces, curated YAML/JSON file.
+* **Secrets** — AWS Secrets Manager + SSM, process env vars (with `.env` autoload), HashiCorp Vault KV v2.
+
+Plus the Phase 3 distribution + onboarding wins:
+
+* **PyPI release workflow** — OIDC trusted publishing, tag-driven, version-match guard. Cuts a release on `git tag v*`.
+* **Container image** — `ghcr.io/vakaobr/iac-cartographer` with cosign keyless signing + SPDX SBOM on every tag push.
+* **Helm chart** — [`charts/iac-cartographer/`](charts/iac-cartographer/) for k8s CronJob deployments with workload-identity bindings.
+* **`iac-cartographer --init` scaffolder** — interactive starter `config.yaml` + `.env` for any backend combination.
+* **Zero-credentials demo** — `./examples/demo/run.sh` clones three public Terraform repos and produces real Markdown output without any tokens.
+* **Docs site** — mkdocs-material at [iac-cartographer.andersonleite.me](https://iac-cartographer.andersonleite.me/).
+
+### Coming next
+
+Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
+
+* **New publishers** — Notion, GitHub Wiki.
+* **New LLM backends** — OpenAI, Ollama (local).
+* **New discovery sources** — Gitea / Forgejo native APIs (use the file source in the meantime).
+* **Terraform module** — for the ECS Fargate + EventBridge deployment path the project was extracted from.
+* **Multi-arch container image** — `linux/arm64` alongside `linux/amd64` for Apple Silicon devs + arm64 k8s nodes.
+* **`--diff <prev-output>` mode** — between-run change summary ("3 new repos, 1 archived, AWS provider bumped to 6.5 in 2 repos") for richer Slack posts.
+* **`lint` subcommand / pre-commit hook** — run the extractor against a single repo and fail on missing `required_providers`, unpinned versions, etc. Different mode from the scheduled publish.
+* **Versioned docs** — `mike` plugin so the docs site shows per-release docs once releases start cutting.
 
 ## Contributing
 

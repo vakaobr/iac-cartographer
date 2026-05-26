@@ -33,6 +33,12 @@ trusted publisher.
   existing `Homepage`, `Repository`, `Issues` set. The "Unverified
   details" banner on the PyPI project page should clear on the next
   publish.
+* **`release-ghcr.yml` workflow permissions** bumped from
+  `contents: read` to `contents: write`. The image build + push +
+  cosign signing all worked on v0.1.2, but the final SBOM-attach-to-
+  release step failed with "Resource not accessible by integration"
+  because the SBOM action PATCHes the GitHub Release and needs
+  contents-write to do so.
 
 ## [0.1.2] — 2026-05-26
 

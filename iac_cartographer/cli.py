@@ -66,6 +66,7 @@ from iac_cartographer.llm import (
     AzureOpenAIBackend,
     BedrockBackend,
     LLMBackend,
+    OpenAIBackend,
     VertexBackend,
 )
 from iac_cartographer.models import (
@@ -77,6 +78,7 @@ from iac_cartographer.models import (
     GithubCredentials,
     GitlabCredentials,
     LLMConfig,
+    OpenAICredentials,
     RepoInventory,
     RepoMetadata,
     RunOutcome,
@@ -189,6 +191,8 @@ class LoadedSecrets:
     # AND `llm.azure_openai_use_aad` is false. AAD-authenticated
     # deployments skip the secret entirely.
     azure_openai: AzureOpenAICredentials | None = None
+    # `openai` is only populated when `llm.backend == "openai"`.
+    openai: OpenAICredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -201,6 +205,7 @@ GITHUB_SECRET_NAME = "iac-cartographer/github"  # noqa: S105
 SLACK_SECRET_NAME = "iac-cartographer/slack"  # noqa: S105
 ANTHROPIC_SECRET_NAME = "iac-cartographer/anthropic"  # noqa: S105
 AZURE_OPENAI_SECRET_NAME = "iac-cartographer/azure_openai"  # noqa: S105
+OPENAI_SECRET_NAME = "iac-cartographer/openai"  # noqa: S105
 BITBUCKET_SECRET_NAME = "iac-cartographer/bitbucket"  # noqa: S105
 
 
@@ -276,6 +281,19 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"anthropic secret payload failed schema validation: {exc}") from exc
 
+    openai_creds: OpenAICredentials | None = None
+    if llm_backend_name == "openai":
+        try:
+            openai_raw = provider.get_secret(OPENAI_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"llm.backend=openai but the {OPENAI_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            openai_creds = OpenAICredentials.model_validate(openai_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"openai secret payload failed schema validation: {exc}") from exc
+
     azure_openai_creds: AzureOpenAICredentials | None = None
     if need_azure_openai:
         try:
@@ -313,6 +331,7 @@ def _load_secrets(
             anthropic=anthropic_creds,
             bitbucket=bitbucket_creds,
             azure_openai=azure_openai_creds,
+            openai=openai_creds,
         )
     except Exception as exc:
         raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
@@ -386,6 +405,18 @@ def _build_llm_backend(llm_config: LLMConfig, secrets: LoadedSecrets) -> LLMBack
             deployment=llm_config.azure_openai_deployment,
             api_key=secrets.azure_openai.api_key,
             api_version=llm_config.azure_openai_api_version,
+        )
+    if name == "openai":
+        if secrets.openai is None:
+            # Shouldn't happen — _load_secrets gates on the same
+            # condition — but guard for clarity / future-refactor safety.
+            raise ConfigError(
+                "llm.backend=openai but no OpenAICredentials were loaded (check the iac-cartographer/openai secret)"
+            )
+        return OpenAIBackend(
+            api_key=secrets.openai.api_key,
+            base_url=llm_config.openai_base_url,
+            organization=llm_config.openai_organization,
         )
     raise ConfigError(f"unknown llm.backend: {name!r}")
 

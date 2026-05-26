@@ -830,3 +830,35 @@ def test_build_llm_backend_azure_openai_missing_deployment() -> None:
     )
     with pytest.raises(ConfigError, match="azure_openai_deployment"):
         _build_llm_backend(llm_cfg, secrets)
+
+
+def test_build_llm_backend_openai_branch() -> None:
+    """OpenAI factory branch wires the SDK base_url + organization + api_key."""
+    from iac_cartographer.cli import LoadedSecrets, _build_llm_backend
+    from iac_cartographer.llm import OpenAIBackend
+    from iac_cartographer.models import (
+        ConfluenceCredentials,
+        GithubCredentials,
+        GitlabCredentials,
+        LLMConfig,
+        OpenAICredentials,
+        SlackCredentials,
+    )
+
+    llm_cfg = LLMConfig(
+        backend="openai",
+        openai_base_url="https://openai.example.com/v1",
+        openai_organization="org-123",
+    )
+    secrets = LoadedSecrets(
+        confluence=ConfluenceCredentials(email="x@x", api_token="t"),
+        gitlab=GitlabCredentials(token="t"),
+        github=GithubCredentials(token="t"),
+        slack=SlackCredentials(bot_token="t"),
+        openai=OpenAICredentials(api_key="sk-..."),
+    )
+    backend = _build_llm_backend(llm_cfg, secrets)
+    assert isinstance(backend, OpenAIBackend)
+    assert backend._api_key == "sk-..."
+    assert backend._base_url == "https://openai.example.com/v1"
+    assert backend._organization == "org-123"

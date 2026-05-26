@@ -76,6 +76,11 @@ llm:
   #                 gateway (LiteLLM, internal gateway, self-hosted vLLM).
   #                 Auth via the `iac-cartographer/openai` secret.
   #                 Requires `pip install iac-cartographer[openai]`.
+  #   "ollama"    → Local LLM via Ollama's native /api/chat endpoint.
+  #                 No auth, no API keys, no outbound traffic — model
+  #                 pulled once and served from `ollama_base_url`. Good
+  #                 fit for air-gapped runs, dev laptops, and homelab.
+  #                 Uses raw httpx — no optional dependency group.
   backend: "bedrock"
 
   # Model identifier. Backend-specific:
@@ -134,6 +139,21 @@ llm:
   # OpenAI-only: org ID for accounts with multi-org billing. Leave
   # null/unset for most accounts.
   # openai_organization: "org-..."
+
+  # Ollama-only: base URL of the Ollama server. Default points at the
+  # local install; override for remote hosts (e.g. a homelab GPU box).
+  ollama_base_url: "http://localhost:11434"
+
+  # Ollama-only: HTTP timeout in seconds. Local inference is slower
+  # than hosted APIs, especially on CPU / cold starts — 300s is the
+  # default. Tune to taste.
+  ollama_timeout_seconds: 300
+
+  # Ollama-only: extra headers attached to every request. Only needed
+  # when you've fronted Ollama with a reverse proxy that adds bearer
+  # token / mTLS auth (Ollama itself has no auth). Default: empty.
+  # ollama_extra_headers:
+  #   Authorization: "Bearer my-proxy-token"
 
 publisher:
   # Which backend renders + writes the inventory.

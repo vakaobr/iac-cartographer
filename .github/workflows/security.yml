@@ -77,8 +77,26 @@ jobs:
           pip install ".[dev,gcp,azure,openai,notion,email]"
           pip install pip-audit
 
+      - name: Freeze deps (excluding the project itself)
+        # pip-audit looks up EVERY installed distribution on PyPI. Since
+        # iac-cartographer isn't on PyPI until first publish (and even
+        # then, dev builds running this workflow are ahead of the published
+        # version), we'd hit `Dependency not found on PyPI` on every run.
+        # Workaround: freeze the resolved dep tree and feed pip-audit a
+        # requirements file with our own package filtered out. The grep
+        # handles both `iac-cartographer==` and `iac_cartographer==` since
+        # pip's normalisation rules around hyphens-vs-underscores have
+        # shifted between releases.
+        run: |
+          pip freeze --exclude-editable \
+            | grep -v -E '^iac[-_]cartographer==' \
+            > /tmp/audit-deps.txt
+          echo "::group::Frozen dep tree ($(wc -l < /tmp/audit-deps.txt) packages)"
+          cat /tmp/audit-deps.txt
+          echo "::endgroup::"
+
       - name: Run pip-audit
         # `--strict` makes warnings (yanked versions, etc.) hard-fail.
         # `--ignore-vuln` waivers go in `.pip-audit.toml` — keep them
         # rare and timestamped.
-        run: pip-audit --strict
+        run: pip-audit --strict -r /tmp/audit-deps.txt

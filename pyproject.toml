@@ -1,7 +1,7 @@
 [project]
 name = "iac-cartographer"
-version = "0.1.1"
-description = "Fleet-level documentation for your Terraform / IaC estate. Discovers repos across GitLab, GitHub, Bitbucket, Gitea/Forgejo, or a curated file; extracts structural facts with terraform-docs (plus an HCL parser fallback); narrates each repo's purpose with a pluggable LLM backend (Bedrock / Anthropic / Vertex AI / Azure OpenAI / OpenAI / Ollama); and publishes a parent + child page hierarchy to Confluence, Notion, GitHub Wiki, local Markdown, standalone HTML, or machine-readable JSON. Pluggable notifications (Slack, Teams, email, SNS, PagerDuty, Opsgenie, Discord, generic webhook, and more)."
+version = "0.1.2"
+description = "Fleet-level documentation for your Terraform / IaC estate. Discovers repos (GitLab/GitHub/Bitbucket/Gitea/file), extracts structural facts via terraform-docs, narrates each repo with a pluggable LLM (Bedrock/Anthropic/Vertex/Azure OpenAI/OpenAI/Ollama), and publishes to Confluence, Notion, GitHub Wiki, Markdown, HTML, or JSON. Pluggable notifications (Slack, Teams, email, SNS, PagerDuty, Opsgenie, Discord, webhook, stdout)."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [

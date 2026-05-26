@@ -67,17 +67,18 @@ jobs:
         # Install every extras group so pip-audit sees the full transitive
         # closure a user could realistically pull. A CVE in `[gcp]` matters
         # even if the maintainer's day-to-day doesn't touch Vertex AI.
+        #
+        # NOTE: non-editable install on purpose. `pip-audit --strict` treats
+        # editable installs as a warning-that-is-fatal, but we still want
+        # `--strict` so yanked-version warnings turn red. Building+installing
+        # the project for real also catches packaging regressions earlier.
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev,gcp,azure,openai,notion,email]"
+          pip install ".[dev,gcp,azure,openai,notion,email]"
           pip install pip-audit
 
       - name: Run pip-audit
         # `--strict` makes warnings (yanked versions, etc.) hard-fail.
-        # `--skip-editable` excludes the locally-installed editable
-        # `iac-cartographer` itself — auditing it requires the package
-        # to be on PyPI, which it isn't until first publish, and the
-        # project doesn't have transitive vulns of its own anyway.
         # `--ignore-vuln` waivers go in `.pip-audit.toml` — keep them
         # rare and timestamped.
-        run: pip-audit --strict --skip-editable
+        run: pip-audit --strict

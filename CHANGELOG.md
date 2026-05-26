@@ -12,6 +12,26 @@ section below records everything that shipped before automation was wired up.
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-05-26
+
+Release-pipeline shakedown. The v0.1.1 tag exercised the workflows end-to-end
+and surfaced three issues; this release fixes them.
+
+### Fixed
+
+* `pyproject.toml` description trimmed from 595 → 427 chars to satisfy PyPI's
+  512-char `summary` limit (the v0.1.1 upload failed with a 400 Bad Request
+  from upload.pypi.org).
+* `.github/workflows/security.yml` — `pip-audit --strict` no longer trips
+  over the editable install of the project itself; the workflow now installs
+  the package non-editably so the `--strict` warning-as-error path stays
+  intact for yanked-version detection.
+
+### Documentation
+
+* README quick-start step 2 is no longer Confluence-specific — covers all six
+  publishers (Confluence, Notion, GitHub Wiki, Markdown, HTML, JSON).
+
 ## [0.1.1] — 2026-05-26
 
 First PyPI publish. Functionally a superset of 0.1.0 with the post-0.1.0
@@ -148,6 +168,7 @@ secrets, notifications) plus the distribution + onboarding wins below.
 [#42]: https://github.com/vakaobr/iac-cartographer/pull/42
 [#43]: https://github.com/vakaobr/iac-cartographer/pull/43
 
-[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/vakaobr/iac-cartographer/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/vakaobr/iac-cartographer/releases/tag/v0.1.0

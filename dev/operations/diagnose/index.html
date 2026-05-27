@@ -721,6 +721,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Live reachability checks (--live)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#opt-in-real-llm-completion-probe-llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opt-in real LLM completion (--probe-llm)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1349,6 +1366,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Live reachability checks (--live)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#opt-in-real-llm-completion-probe-llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opt-in real LLM completion (--probe-llm)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1496,7 +1530,7 @@ for credential-free CI.</p>
 </tr>
 <tr>
 <td><strong>llm-live</strong></td>
-<td>Ollama: <code>GET /api/tags</code> (no auth). Every other backend (Bedrock / Anthropic / Vertex / Azure / OpenAI): constructs the client and confirms required config + any API-key credential is present. <strong>Cost caveat:</strong> the LLM probe <em>never</em> runs a completion — it stops at client construction / a free metadata call, so <code>--diagnose --live</code> never spends inference tokens.</td>
+<td>Ollama: <code>GET /api/tags</code> (no auth). Every other backend (Bedrock / Anthropic / Vertex / Azure / OpenAI): constructs the client and confirms required config + any API-key credential is present. <strong>Cost caveat:</strong> by default the LLM probe <em>never</em> runs a completion — it stops at client construction / a free metadata call, so <code>--diagnose --live</code> never spends inference tokens. See <code>--probe-llm</code> below for an opt-in real check.</td>
 </tr>
 <tr>
 <td><strong>publisher-live</strong></td>
@@ -1507,6 +1541,22 @@ for credential-free CI.</p>
 <p>Each live probe uses a short timeout (a few seconds) and never raises — a
 network error or bad credential becomes a <code>FAIL</code> with an actionable hint,
 just like the offline probes.</p>
+<h3 id="opt-in-real-llm-completion-probe-llm">Opt-in real LLM completion (<code>--probe-llm</code>)<a class="headerlink" href="#opt-in-real-llm-completion-probe-llm" title="Permanent link">&para;</a></h3>
+<p>The default <code>llm-live</code> probe stops at client construction for the
+cloud/API backends — it proves the client builds with credentials
+present, but not that the credential is actually authorised to <em>invoke</em>
+the model. For true end-to-end confidence, add <code>--probe-llm</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>iac-cartographer<span class="w"> </span>--diagnose<span class="w"> </span>--live<span class="w"> </span>--probe-llm<span class="w"> </span>--config<span class="w"> </span>./config.yaml
+</span></code></pre></div>
+<p>This issues <strong>one</strong> bounded <code>max_tokens=1</code> completion (a trivial "ping")
+against the configured backend and reports the token counts. It costs a
+fraction of a cent of <strong>real spend</strong> — which is why it's opt-in and gated
+behind both <code>--diagnose</code> and <code>--live</code> (passing <code>--probe-llm</code> without
+<code>--live</code> warns and is ignored). Ollama is exempt: it's local and free, so
+it keeps the <code>/api/tags</code> listing as its check even with <code>--probe-llm</code>.</p>
+<p>Use it when you want to be certain a new key / model / region works for
+inference before relying on a scheduled run; skip it for routine
+CI gating where the cost-free construct check is enough.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <p><code>--diagnose</code> is CI-friendly — gate a deploy on it:</p>
 <table>
@@ -1531,14 +1581,14 @@ just like the offline probes.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Gate the scheduled run on a green diagnose in CI:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --config ./config.yaml</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --once --config ./config.yaml</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Gate the scheduled run on a green diagnose in CI:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --config ./config.yaml</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --once --config ./config.yaml</span>
 </span></code></pre></div>
 <p>Add <code>--live</code> when the CI job has access to the real secrets backend and
 you want to verify credentials + reachability before the run (it still
 never spends LLM tokens):</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --live --config ./config.yaml</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --live --config ./config.yaml</span>
 </span></code></pre></div>
 <p>The output goes to <strong>stderr</strong>, so it composes cleanly with <code>2&gt;&amp;1 | tee</code>
 and doesn't get confused with normal program output on stdout.</p>

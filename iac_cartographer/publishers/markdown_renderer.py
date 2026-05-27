@@ -57,7 +57,7 @@ def render_child_markdown(
     out.append("")
     if inv.narrative is None:
         out.append(
-            "*(Narrative summary unavailable for this run — Bedrock invocation "
+            "*(Narrative summary unavailable for this run — the LLM invocation "
             "failed. Structural facts below are unaffected.)*"
         )
     else:
@@ -181,7 +181,7 @@ def render_overview_markdown(
         "[iac-cartographer](https://github.com/vakaobr/iac-cartographer). "
         "Each row links to a deep-dive page; structural facts come from "
         "`terraform-docs` + an HCL parser, and the short purpose summary is "
-        "written by a Claude model."
+        "written by an LLM."
     )
     out.append("")
     out.append("## Inventory")

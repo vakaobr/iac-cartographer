@@ -303,7 +303,7 @@ def test_summarize_strips_markdown_fences_before_parsing() -> None:
 
 def test_placeholder_narrative_is_valid() -> None:
     n = placeholder_narrative()
-    assert n.purpose.startswith("(Bedrock summarization disabled")
+    assert n.purpose.startswith("(LLM narration skipped")
     assert n.key_resources_explained == []
 
 

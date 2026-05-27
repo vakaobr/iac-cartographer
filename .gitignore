@@ -217,9 +217,11 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# iac-cartographer demo artefacts (examples/demo/run.sh)
+# iac-cartographer demo artefacts (examples/demo/run.sh + variants)
 /demo-output/
 /demo-output-html/
+/demo-output-json/
+/demo-output-ollama/
 
 # Terraform — applies to every examples/runtime/<provider>/ module.
 # `.terraform/` is the provider plugin cache; `.terraform.lock.hcl` is

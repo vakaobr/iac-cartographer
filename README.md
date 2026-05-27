@@ -83,12 +83,13 @@ errors.
 
 ## Status
 
-`v0.1.0` — extracted from a working production deployment at a single
-organisation, then rebuilt around pluggable backends for the public
-release. Discovery, LLM, publisher, secrets, and notifications are
-all swappable today (see [Shipped](#shipped) below for the full
-matrix). API surface is "1.0-track but pre-1.0" — minor renames and
-YAML field tweaks are still possible before tagging `v1.0`.
+`v0.1.x` on PyPI — extracted from a real production deployment, then
+rebuilt around pluggable backends for the public release. Discovery,
+LLM, publisher, secrets, and notifications are all swappable today (see
+[Shipped](#shipped) below for the full matrix). The API surface is
+"1.0-track but pre-1.0": a few config keys and CLI flags are being
+locked before `v1.0`, each with a backward-compatible alias and a
+deprecation warning, so upgrades within `0.1.x` won't break you.
 
 ## Quick start
 
@@ -107,6 +108,21 @@ pip install -e .
 
 See [`examples/demo/README.md`](examples/demo/README.md) for the demo
 walkthrough + variations (swap publisher to HTML, plug in a real LLM, …).
+
+**What it looks like published.** Here's a real overview page rendered to
+Confluence — the auto-generated banner, the per-repo inventory table
+(host, providers, resource counts, last commit), and an AI-written
+purpose for each repo:
+
+<p align="center">
+  <img src="docs/assets/example-output-confluence.png" alt="iac-cartographer overview page rendered in Confluence: an auto-generated Terraform/IaC inventory table with one row per repository" width="100%">
+</p>
+
+**Prefer to see it without running anything?**
+[`examples/demo/sample-output.md`](examples/demo/sample-output.md) is a
+committed sample of the rendered Markdown — the overview index, a
+per-repo deep-dive page, and the inline `(unpinned)` / `(not declared)`
+hygiene markers.
 
 ---
 

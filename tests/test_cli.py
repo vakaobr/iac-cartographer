@@ -56,6 +56,16 @@ def test_main_once_with_flags_exits_0(monkeypatch: pytest.MonkeyPatch) -> None:
     assert main(["--once", "--dry-run", "--no-llm", "--repos", "a/b,c/d", "--verbose"]) == 0
 
 
+def test_version_flag_prints_version_and_exits(capsys: pytest.CaptureFixture[str]) -> None:
+    """`--version` works without a mode (argparse exits before the required
+    mutually-exclusive group is checked) and prints the package version."""
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--version"])
+    assert excinfo.value.code == 0
+    out = capsys.readouterr().out
+    assert f"iac-cartographer {__version__}" in out
+
+
 def test_json_formatter_produces_valid_json() -> None:
     formatter = JSONFormatter()
     record = logging.LogRecord(

@@ -64,7 +64,9 @@ def _authed_clone_url(
         elif bitbucket_username and bitbucket_app_password:
             netloc = f"{bitbucket_username}:{bitbucket_app_password}@{parsed.hostname}"
         else:
-            raise CloneError("bitbucket clone requires either access_token or username+app_password (check iac-cartographer/bitbucket secret)")
+            raise CloneError(
+                "bitbucket clone requires either access_token or username+app_password (check iac-cartographer/bitbucket secret)"
+            )
     else:
         raise CloneError(f"unsupported host for token splice: {host}")
     if parsed.port:
@@ -127,7 +129,14 @@ def clone(
     if result.returncode != 0:
         # `result.stderr` may contain the patched URL — redact before raising
         scrubbed = result.stderr or ""
-        for secret in (gitlab_token, github_token, bitbucket_token, bitbucket_username, bitbucket_app_password):
+        for secret in (
+            gitlab_token,
+            github_token,
+            gitea_token,
+            bitbucket_token,
+            bitbucket_username,
+            bitbucket_app_password,
+        ):
             if secret:
                 scrubbed = scrubbed.replace(secret, "***")
         cleanup(tmp)

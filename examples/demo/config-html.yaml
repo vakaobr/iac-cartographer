@@ -1,0 +1,36 @@
+# Demo config — HTML publisher variant.
+#
+# Identical clone + extract flow to `config.yaml`, but emits a
+# self-contained HTML site (embedded CSS, no JS, no external fonts)
+# under ./demo-output-html/ instead of Markdown.
+#
+# Runs with NO real credentials, same as the base demo:
+#   * `discovery.repos_file` clones public repos via HTTPS — no auth.
+#   * `secrets.backend: env` reads dummy placeholder values set by run.sh.
+#   * `--no-bedrock` skips the LLM call; placeholder narratives are used.
+#   * `publisher.kind: html` writes locally; no Confluence access.
+#
+# Drive it with: ./examples/demo/run.sh --publisher html
+# Browse the output at ./demo-output-html/index.html.
+
+discovery:
+  repos_file: ./examples/demo/repos.yaml
+  gitlab_group_ids: []
+  github_orgs: []
+
+secrets:
+  backend: env
+
+llm:
+  backend: bedrock
+  model_id: eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+  bedrock_region: eu-central-1
+
+publisher:
+  kind: html
+
+html:
+  output_dir: ./demo-output-html
+
+slack:
+  channel: "#demo-not-actually-posted"

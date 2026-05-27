@@ -68,12 +68,34 @@ for credential-free CI.
 |---|---|
 | **secrets-live** | Builds the configured secrets provider and fetches the exact required credential bundle for the active config (the same set `--once` loads). The single highest-value live check — a wrong Vault path / missing Secrets Manager entry / empty env var is the most common startup failure. If this fails, every downstream live probe is skipped (no credentials → nothing to reach). |
 | **discovery-live** | One cheap authenticated call per API-backed source (a `whoami` / `/user` endpoint) to confirm the token works. The file source has nothing to authenticate and skips. |
-| **llm-live** | Ollama: `GET /api/tags` (no auth). Every other backend (Bedrock / Anthropic / Vertex / Azure / OpenAI): constructs the client and confirms required config + any API-key credential is present. **Cost caveat:** the LLM probe *never* runs a completion — it stops at client construction / a free metadata call, so `--diagnose --live` never spends inference tokens. |
+| **llm-live** | Ollama: `GET /api/tags` (no auth). Every other backend (Bedrock / Anthropic / Vertex / Azure / OpenAI): constructs the client and confirms required config + any API-key credential is present. **Cost caveat:** by default the LLM probe *never* runs a completion — it stops at client construction / a free metadata call, so `--diagnose --live` never spends inference tokens. See `--probe-llm` below for an opt-in real check. |
 | **publisher-live** | Confluence: `GET` the parent page. Notion: retrieve the parent page. GitHub Wiki: `git ls-remote` the wiki repo. Markdown / HTML / JSON have no remote target (offline already checked dir writability) and skip. |
 
 Each live probe uses a short timeout (a few seconds) and never raises — a
 network error or bad credential becomes a `FAIL` with an actionable hint,
 just like the offline probes.
+
+### Opt-in real LLM completion (`--probe-llm`)
+
+The default `llm-live` probe stops at client construction for the
+cloud/API backends — it proves the client builds with credentials
+present, but not that the credential is actually authorised to *invoke*
+the model. For true end-to-end confidence, add `--probe-llm`:
+
+```bash
+iac-cartographer --diagnose --live --probe-llm --config ./config.yaml
+```
+
+This issues **one** bounded `max_tokens=1` completion (a trivial "ping")
+against the configured backend and reports the token counts. It costs a
+fraction of a cent of **real spend** — which is why it's opt-in and gated
+behind both `--diagnose` and `--live` (passing `--probe-llm` without
+`--live` warns and is ignored). Ollama is exempt: it's local and free, so
+it keeps the `/api/tags` listing as its check even with `--probe-llm`.
+
+Use it when you want to be certain a new key / model / region works for
+inference before relying on a scheduled run; skip it for routine
+CI gating where the cost-free construct check is enough.
 
 ## Exit codes
 

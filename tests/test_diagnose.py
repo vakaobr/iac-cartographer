@@ -561,13 +561,78 @@ def test_llm_live_ollama_unreachable_is_fail(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_llm_live_bedrock_is_cost_safe_build_only(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Bedrock probe constructs the client but NEVER runs a completion."""
+    """The Bedrock probe constructs the client but NEVER runs a completion
+    in the default (no --probe-llm) mode."""
     secrets = _build_secrets(monkeypatch)
     cfg = _config(llm={"backend": "bedrock"})
     r = check_llm_live(cfg, secrets)
     assert r.status == Status.OK
     assert "cost-safe" in r.detail
     assert "no completion" in r.detail
+
+
+class _FakeBackend:
+    """Records the invoke kwargs so tests can assert max_tokens=1 etc."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def invoke(self, **kwargs: object):
+        from iac_cartographer.llm import LLMResponse
+
+        self.calls.append(kwargs)
+        return LLMResponse(text="ok", input_tokens=7, output_tokens=1)
+
+
+def test_llm_live_probe_llm_runs_bounded_completion(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With probe_llm=True, the probe runs ONE real completion, caps it at
+    max_tokens=1, and reports the token counts."""
+    secrets = _build_secrets(monkeypatch)
+    fake = _FakeBackend()
+    # check_llm_live imports _build_llm_backend from cli at call time, so
+    # patch it at the source module.
+    monkeypatch.setattr("iac_cartographer.cli._build_llm_backend", lambda *a, **k: fake)
+
+    cfg = _config(llm={"backend": "bedrock"})
+    r = check_llm_live(cfg, secrets, probe_llm=True)
+    assert r.status == Status.OK
+    assert "real 1-token probe" in r.detail
+    assert "in=7" in r.detail and "out=1" in r.detail
+    # Exactly one bounded invocation.
+    assert len(fake.calls) == 1
+    assert fake.calls[0]["max_tokens"] == 1
+
+
+def test_llm_live_probe_llm_failure_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A raising invoke → FAIL with an actionable hint, not a crash."""
+    secrets = _build_secrets(monkeypatch)
+
+    class _Boom:
+        def invoke(self, **_kwargs: object):
+            raise RuntimeError("AccessDeniedException: not authorized to invoke")
+
+    monkeypatch.setattr("iac_cartographer.cli._build_llm_backend", lambda *a, **k: _Boom())
+    cfg = _config(llm={"backend": "bedrock"})
+    r = check_llm_live(cfg, secrets, probe_llm=True)
+    assert r.status == Status.FAIL
+    assert "1-token probe failed" in r.detail
+    assert r.hint and "invoke permission" in r.hint
+
+
+def test_llm_live_probe_llm_ollama_still_uses_tags(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ollama is exempt from the spend probe — even with probe_llm=True it
+    keeps the free /api/tags check (no completion)."""
+    secrets = _build_secrets(monkeypatch)
+    import respx as _respx
+
+    cfg = _config(llm={"backend": "ollama"})
+    with _respx.mock:
+        _respx.get("http://localhost:11434/api/tags").mock(
+            return_value=httpx.Response(200, json={"models": [{"name": "llama3"}]})
+        )
+        r = check_llm_live(cfg, secrets, probe_llm=True)
+    assert r.status == Status.OK
+    assert "model(s) listed via /api/tags" in r.detail
 
 
 # ── publisher-live ───────────────────────────────────────────────────
@@ -740,3 +805,48 @@ def test_run_diagnose_live_skips_live_when_offline_probe_failed(
     assert statuses["llm"] == Status.FAIL
     assert statuses["llm-live"] == Status.SKIP
     assert "offline llm probe failed" in next(c.detail for c in report.checks if c.name == "llm-live")
+
+
+# ── CLI --probe-llm gating ───────────────────────────────────────────
+
+
+def test_cli_probe_llm_without_live_is_ignored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`--diagnose --probe-llm` (no --live) warns and drops probe_llm —
+    it only extends the live LLM probe, which isn't running."""
+    from iac_cartographer import cli
+
+    captured: dict[str, object] = {}
+
+    def _fake_run_diagnose(config_path: str, *, live: bool = False, probe_llm: bool = False):
+        captured["live"] = live
+        captured["probe_llm"] = probe_llm
+        return DiagnoseReport(checks=[CheckResult("x", Status.OK, "ok")])
+
+    monkeypatch.setattr("iac_cartographer.diagnose.run_diagnose", _fake_run_diagnose)
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text("discovery:\n  github_orgs: [acme]\n", encoding="utf-8")
+
+    rc = cli.main(["--diagnose", "--probe-llm", "--config", str(cfg)])
+    assert rc == 0
+    assert captured["live"] is False
+    assert captured["probe_llm"] is False  # dropped — no --live
+
+
+def test_cli_probe_llm_with_live_threads_through(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from iac_cartographer import cli
+
+    captured: dict[str, object] = {}
+
+    def _fake_run_diagnose(config_path: str, *, live: bool = False, probe_llm: bool = False):
+        captured["live"] = live
+        captured["probe_llm"] = probe_llm
+        return DiagnoseReport(checks=[CheckResult("x", Status.OK, "ok")])
+
+    monkeypatch.setattr("iac_cartographer.diagnose.run_diagnose", _fake_run_diagnose)
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text("discovery:\n  github_orgs: [acme]\n", encoding="utf-8")
+
+    rc = cli.main(["--diagnose", "--live", "--probe-llm", "--config", str(cfg)])
+    assert rc == 0
+    assert captured["live"] is True
+    assert captured["probe_llm"] is True

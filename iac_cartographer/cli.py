@@ -1488,6 +1488,18 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--probe-llm",
+        action="store_true",
+        help=(
+            "Modifier for --diagnose --live: additionally run ONE bounded "
+            "max_tokens=1 completion against the configured LLM for true "
+            "end-to-end confidence (creds + model + endpoint work for "
+            "inference, not just client construction). Costs a fraction of a "
+            "cent of real spend — hence opt-in. Ollama is exempt (local + "
+            "free). No effect without both --diagnose and --live."
+        ),
+    )
+    parser.add_argument(
         "--format",
         choices=["text", "json", "github"],
         default="text",
@@ -1587,7 +1599,15 @@ def _run_diagnose(args: argparse.Namespace) -> int:
     # reaches here (the mode dispatcher only calls this for `args.diagnose`),
     # so a stray `--live` on another mode is silently ignored rather than
     # rejected — argparse `store_true` defaults it to False.
-    report = run_diagnose(args.config, live=getattr(args, "live", False))
+    live = getattr(args, "live", False)
+    probe_llm = getattr(args, "probe_llm", False)
+    # `--probe-llm` only means anything with `--live` (it extends the live
+    # LLM probe). If someone passes it without --live, warn + ignore rather
+    # than silently doing nothing — it implies they wanted a real check.
+    if probe_llm and not live:
+        logger.warning("--probe-llm has no effect without --live; ignoring (run `--diagnose --live --probe-llm`)")
+        probe_llm = False
+    report = run_diagnose(args.config, live=live, probe_llm=probe_llm)
     sys.stderr.write(render(report))
     sys.stderr.flush()
     return report.exit_code

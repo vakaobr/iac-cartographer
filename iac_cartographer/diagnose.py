@@ -599,16 +599,23 @@ def check_discovery_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
     )
 
 
-def check_llm_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResult:
-    """Minimal per-backend reachability probe.
+def check_llm_live(config: AppConfig, secrets: LoadedSecrets, *, probe_llm: bool = False) -> CheckResult:
+    """Per-backend reachability probe.
 
-    COST SAFETY: this never runs a completion. For Ollama we GET the
+    Default (cost-safe) mode never runs a completion. For Ollama we GET the
     unauthenticated `/api/tags` listing. For every API-key / cloud backend
     we confirm the client constructs with credentials present — a build-only
     check, not an inference call — because a real completion would cost
     tokens on every diagnose. The detail string says which mode was used so
     the operator knows a green result means "constructs + creds present",
     not "a generation succeeded".
+
+    When `probe_llm=True` (opt-in via `--diagnose --live --probe-llm`), we
+    additionally issue ONE bounded `max_tokens=1` completion for true end-
+    to-end confidence that creds + model + endpoint work for inference, not
+    just that the client constructs. This costs a fraction of a cent of real
+    spend — hence opt-in. Ollama is exempt (local + free) and keeps the
+    /api/tags listing as its primary check.
     """
     import httpx
 
@@ -635,16 +642,44 @@ def check_llm_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResult:
             detail=f"ollama reachable ({len(models)} model(s) listed via /api/tags)",
         )
 
-    # Every other backend: construct the client (validates required config +
-    # that any API-key credential was loaded) WITHOUT issuing a completion —
-    # diagnose must stay free. Bedrock/Vertex resolve credentials lazily via
+    # Construct the client (validates required config + that any API-key
+    # credential was loaded). Bedrock/Vertex resolve credentials lazily via
     # the cloud provider chain, so "constructs" is the strongest cost-safe
     # guarantee we can make without spending tokens.
-    _build_llm_backend(config.llm, secrets)
+    llm_backend = _build_llm_backend(config.llm, secrets)
+
+    if not probe_llm:
+        return CheckResult(
+            name="llm-live",
+            status=Status.OK,
+            detail=f"{backend} client constructs (no completion run — cost-safe; pass --probe-llm for a real check)",
+        )
+
+    # Opt-in real-inference probe: one bounded, single-token completion.
+    # Mirrors how the narrator calls invoke() (model_id from config) but
+    # with max_tokens=1 + a trivial prompt to keep spend to a fraction of
+    # a cent. Any error → FAIL with an actionable hint.
+    try:
+        response = llm_backend.invoke(
+            model_id=config.llm.model_id,
+            system_prompt="Reply with the single word: ok",
+            user_blocks=[{"type": "text", "text": "ping"}],
+            max_tokens=1,
+        )
+    except Exception as exc:
+        return CheckResult(
+            name="llm-live",
+            status=Status.FAIL,
+            detail=f"{backend} 1-token probe failed: {str(exc)[:160]}",
+            hint="check the credential's invoke permission, the model_id, and the endpoint/region",
+        )
     return CheckResult(
         name="llm-live",
         status=Status.OK,
-        detail=f"{backend} client constructs (no completion run — cost-safe)",
+        detail=(
+            f"{backend} completed a real 1-token probe "
+            f"(in={response.input_tokens}, out={response.output_tokens} tokens)"
+        ),
     )
 
 
@@ -764,7 +799,7 @@ def check_publisher_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
 # ── Top-level orchestrator ───────────────────────────────────────────
 
 
-def run_diagnose(config_path: str, *, live: bool = False) -> DiagnoseReport:
+def run_diagnose(config_path: str, *, live: bool = False, probe_llm: bool = False) -> DiagnoseReport:
     """Run every probe in order and return the aggregate report.
 
     Order is deliberate: environment checks first (cheap + independent of
@@ -775,6 +810,10 @@ def run_diagnose(config_path: str, *, live: bool = False) -> DiagnoseReport:
     When `live=True`, the offline probes run first as always, then live
     reachability probes run for each component whose offline probe passed
     (a broken config / missing dep means there's nothing live to reach).
+
+    When `probe_llm=True` (only meaningful with `live=True`), the live LLM
+    probe additionally issues one bounded `max_tokens=1` completion — real
+    spend, hence opt-in.
     """
     report = DiagnoseReport()
 
@@ -822,7 +861,7 @@ def run_diagnose(config_path: str, *, live: bool = False) -> DiagnoseReport:
         )
 
     if offline["llm"].status == Status.OK:
-        report.checks.append(_run("llm-live", lambda: check_llm_live(config, secrets)))
+        report.checks.append(_run("llm-live", lambda: check_llm_live(config, secrets, probe_llm=probe_llm)))
     else:
         report.checks.append(
             CheckResult(name="llm-live", status=Status.SKIP, detail="skipped — offline llm probe failed")

@@ -713,10 +713,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-it-does-not-do" class="md-nav__link">
+  <a href="#live-reachability-checks-live" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What it does not do
+        Live reachability checks (--live)
       
     </span>
   </a>
@@ -1341,10 +1341,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#what-it-does-not-do" class="md-nav__link">
+  <a href="#live-reachability-checks-live" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What it does not do
+        Live reachability checks (--live)
       
     </span>
   </a>
@@ -1459,18 +1459,54 @@ and the first thing to reach for when a scheduled run misbehaves.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="what-it-does-not-do">What it does <em>not</em> do<a class="headerlink" href="#what-it-does-not-do" title="Permanent link">&para;</a></h2>
-<p><code>--diagnose</code> makes <strong>no live API calls</strong>. It does not:</p>
+<p>By default <code>--diagnose</code> makes <strong>no live API calls</strong>. It does not:</p>
 <ul>
 <li>authenticate against your LLM provider or estimate token cost,</li>
 <li>fetch the Confluence parent page or Notion page,</li>
 <li>hit your discovery sources' APIs,</li>
 <li>read secrets from Secrets Manager / Vault.</li>
 </ul>
-<p>That keeps it fast (sub-second) and side-effect-free — safe to run
-anywhere, including CI, without credentials. The deeper "can I actually
-reach this backend with these credentials" check happens in the
-publisher's own runtime preflight on the first real <code>--once</code> run.</p>
+<p>That keeps the default mode fast (sub-second) and side-effect-free — safe
+to run anywhere, including CI, without credentials.</p>
+<h2 id="live-reachability-checks-live">Live reachability checks (<code>--live</code>)<a class="headerlink" href="#live-reachability-checks-live" title="Permanent link">&para;</a></h2>
+<p>Add <code>--live</code> to extend the run with checks that actually touch the
+configured backends:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>iac-cartographer<span class="w"> </span>--diagnose<span class="w"> </span>--live<span class="w"> </span>--config<span class="w"> </span>./iac-cartographer.config.yaml
+</span></code></pre></div>
+<p>The offline probes above always run first. The live probes run only with
+<code>--live</code>, and only for components whose offline probe passed — there's no
+point pinging an LLM whose config doesn't validate. <code>--live</code> <strong>requires
+real credentials</strong> (it reads your secrets backend), so it's not suitable
+for credential-free CI.</p>
+<table>
+<thead>
+<tr>
+<th>Live probe</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>secrets-live</strong></td>
+<td>Builds the configured secrets provider and fetches the exact required credential bundle for the active config (the same set <code>--once</code> loads). The single highest-value live check — a wrong Vault path / missing Secrets Manager entry / empty env var is the most common startup failure. If this fails, every downstream live probe is skipped (no credentials → nothing to reach).</td>
+</tr>
+<tr>
+<td><strong>discovery-live</strong></td>
+<td>One cheap authenticated call per API-backed source (a <code>whoami</code> / <code>/user</code> endpoint) to confirm the token works. The file source has nothing to authenticate and skips.</td>
+</tr>
+<tr>
+<td><strong>llm-live</strong></td>
+<td>Ollama: <code>GET /api/tags</code> (no auth). Every other backend (Bedrock / Anthropic / Vertex / Azure / OpenAI): constructs the client and confirms required config + any API-key credential is present. <strong>Cost caveat:</strong> the LLM probe <em>never</em> runs a completion — it stops at client construction / a free metadata call, so <code>--diagnose --live</code> never spends inference tokens.</td>
+</tr>
+<tr>
+<td><strong>publisher-live</strong></td>
+<td>Confluence: <code>GET</code> the parent page. Notion: retrieve the parent page. GitHub Wiki: <code>git ls-remote</code> the wiki repo. Markdown / HTML / JSON have no remote target (offline already checked dir writability) and skip.</td>
+</tr>
+</tbody>
+</table>
+<p>Each live probe uses a short timeout (a few seconds) and never raises — a
+network error or bad credential becomes a <code>FAIL</code> with an actionable hint,
+just like the offline probes.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <p><code>--diagnose</code> is CI-friendly — gate a deploy on it:</p>
 <table>
@@ -1495,9 +1531,14 @@ publisher's own runtime preflight on the first real <code>--once</code> run.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Gate the scheduled run on a green diagnose in CI:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --config ./config.yaml</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --once --config ./config.yaml</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Gate the scheduled run on a green diagnose in CI:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --config ./config.yaml</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --once --config ./config.yaml</span>
+</span></code></pre></div>
+<p>Add <code>--live</code> when the CI job has access to the real secrets backend and
+you want to verify credentials + reachability before the run (it still
+never spends LLM tokens):</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --live --config ./config.yaml</span>
 </span></code></pre></div>
 <p>The output goes to <strong>stderr</strong>, so it composes cleanly with <code>2&gt;&amp;1 | tee</code>
 and doesn't get confused with normal program output on stdout.</p>

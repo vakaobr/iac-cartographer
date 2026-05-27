@@ -109,9 +109,18 @@ pip install -e .
 See [`examples/demo/README.md`](examples/demo/README.md) for the demo
 walkthrough + variations (swap publisher to HTML, plug in a real LLM, …).
 
-**Want to see the output without running anything?**
+**What it looks like published.** Here's a real overview page rendered to
+Confluence — the auto-generated banner, the per-repo inventory table
+(host, providers, resource counts, last commit), and an AI-written
+purpose for each repo:
+
+<p align="center">
+  <img src="docs/assets/example-output-confluence.png" alt="iac-cartographer overview page rendered in Confluence: an auto-generated Terraform/IaC inventory table with one row per repository" width="100%">
+</p>
+
+**Prefer to see it without running anything?**
 [`examples/demo/sample-output.md`](examples/demo/sample-output.md) is a
-committed sample of exactly what the tool writes — the overview index, a
+committed sample of the rendered Markdown — the overview index, a
 per-repo deep-dive page, and the inline `(unpinned)` / `(not declared)`
 hygiene markers.
 

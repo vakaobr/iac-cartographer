@@ -707,10 +707,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ecs-fargate-eventbridge-roadmap" class="md-nav__link">
+  <a href="#ecs-fargate-eventbridge" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ECS Fargate + EventBridge (roadmap)
+        ECS Fargate + EventBridge
       
     </span>
   </a>
@@ -1363,10 +1363,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ecs-fargate-eventbridge-roadmap" class="md-nav__link">
+  <a href="#ecs-fargate-eventbridge" class="md-nav__link">
     <span class="md-ellipsis">
       
-        ECS Fargate + EventBridge (roadmap)
+        ECS Fargate + EventBridge
       
     </span>
   </a>
@@ -1537,11 +1537,14 @@ alternative.</p>
 </span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;0 6 * * 1 /usr/local/bin/iac-cartographer-run.sh &gt;&gt; /var/log/iac-cartographer.log 2&gt;&amp;1&#39;</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>-a<span class="w"> </span>/etc/cron.d/iac-cartographer
 </span></code></pre></div>
-<h2 id="ecs-fargate-eventbridge-roadmap">ECS Fargate + EventBridge (roadmap)<a class="headerlink" href="#ecs-fargate-eventbridge-roadmap" title="Permanent link">&para;</a></h2>
+<h2 id="ecs-fargate-eventbridge">ECS Fargate + EventBridge<a class="headerlink" href="#ecs-fargate-eventbridge" title="Permanent link">&para;</a></h2>
 <p>The original deployment iac-cartographer was extracted from uses ECS
-Fargate + EventBridge Scheduler. A Terraform module for that path is on
-the roadmap; for now the container image is the canonical artifact and
-you wire it up with the existing AWS recipes.</p>
+Fargate + EventBridge Scheduler — the reference AWS path. A complete
+Terraform module ships at
+<a href="https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/aws-ecs-fargate"><code>examples/runtime/aws-ecs-fargate/</code></a>
+(copy the example tfvars, edit, <code>terraform apply</code>). GCP Cloud Run Jobs
+and Azure Container Apps Jobs modules ship alongside it under
+<a href="https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime"><code>examples/runtime/</code></a>.</p>
 
 
 

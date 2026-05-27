@@ -2231,8 +2231,8 @@ message text gets the screen real estate.</p>
   <code>notifications:</code> with two <code>kind: slack</code> entries — different <code>channel</code>
   and <code>levels</code> per entry.</li>
 <li><strong>Chat + pager.</strong> <code>notifications:</code> with <code>kind: slack</code> at all levels
-  and a future <code>kind: pagerduty</code> at <code>levels: [error]</code>. Coming as a
-  follow-up PR.</li>
+  and <code>kind: pagerduty</code> at <code>levels: [error]</code> so only errors page the
+  on-call.</li>
 <li><strong>CI / air-gapped runs that need zero outbound calls.</strong> Leave
   <code>notifications:</code> empty AND don't load a Slack secret. The dispatcher
   becomes a no-op — every <code>notifier.info(...)</code> is a silent return.</li>

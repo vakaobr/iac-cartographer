@@ -24,14 +24,30 @@ when the source is active.
 
 ## GitHub
 
-Code-search `extension:tf` across each org. Self-hosted GitHub Enterprise
-support is on the roadmap (the `api.github.com` base URL is currently
-hardcoded).
+Code-search `extension:tf` across each org.
 
 ```yaml
 discovery:
   github_orgs: ["acme-org"]
 ```
+
+### Self-hosted GitHub Enterprise Server (GHES)
+
+Point `github_base_url` at your GHES instance's REST API base — which
+lives under `/api/v3`:
+
+```yaml
+discovery:
+  github_orgs: ["acme-org"]
+  github_base_url: "https://ghe.example.com/api/v3"   # note the /api/v3 suffix
+```
+
+Defaults to `https://api.github.com` (public GitHub **and** GitHub
+Enterprise *Cloud* — only the self-hosted *Server* product uses a
+different host). Include the `/api/v3` path yourself; it is not
+auto-appended, because api.github.com doesn't use it. The same
+`iac-cartographer/github` token is used — issue it from your GHES
+instance with `repo` + `read:org` scopes.
 
 Requires the `iac-cartographer/github` secret (`{"token": "ghp_..."}`).
 

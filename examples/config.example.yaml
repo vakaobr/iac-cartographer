@@ -24,6 +24,10 @@ discovery:
   # Empty list = skip GitHub.
   github_orgs:
     - "acme-org"
+  # GitHub REST API base. Defaults to https://api.github.com (public GitHub
+  # + GitHub Enterprise Cloud). For self-hosted GitHub Enterprise Server,
+  # point at your instance — and include the /api/v3 suffix (not auto-added):
+  #   github_base_url: "https://ghe.example.com/api/v3"
 
   # Bitbucket Cloud workspaces to enumerate. Empty list = skip Bitbucket.
   # Unlike GitLab/GitHub, the Bitbucket Cloud public API has no

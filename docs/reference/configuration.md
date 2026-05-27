@@ -35,6 +35,7 @@ have an LLM backend reachable).
 | `gitlab_group_ids` | `list[int]` | `[]` | GitLab group IDs (numeric). Subgroups are scanned automatically. Empty = skip GitLab. |
 | `gitlab_base_url` | `str` | `"https://gitlab.com"` | Override for self-hosted GitLab. Don't include `/api/v4` — the source adds it. |
 | `github_orgs` | `list[str]` | `[]` | GitHub organisation slugs. Empty = skip GitHub. |
+| `github_base_url` | `str` | `"https://api.github.com"` | GitHub REST API base. Override for self-hosted GitHub Enterprise Server (include the `/api/v3` suffix; it is NOT auto-added). Public GitHub + GitHub Enterprise Cloud use the default. |
 | `bitbucket_workspaces` | `list[str]` | `[]` | Bitbucket Cloud workspace slugs. Empty = skip Bitbucket. |
 | `gitea_orgs` | `list[str]` | `[]` | Gitea / Forgejo organisation names. Empty = skip Gitea. |
 | `gitea_base_url` | `str` | `""` | Required when `gitea_orgs` is non-empty — every Gitea / Forgejo deployment is self-hosted, no default. |

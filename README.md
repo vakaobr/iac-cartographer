@@ -465,17 +465,15 @@ Plus the Phase 3 distribution + onboarding wins:
 * **`--diff <prev-output>` mode** — between-run structural diff against a prior JSON-publisher snapshot. Adds / removes / provider bumps / module bumps / resource-count deltas. Prints Markdown to stdout and rides on the end-of-run Slack post as a one-liner (`3 new, 1 archived, 2 changed; 37 unchanged`). See [`docs/operations/diff.md`](docs/operations/diff.md).
 * **`iac-cartographer --lint <path>` subcommand** — IaC hygiene linter (undeclared providers, unpinned providers / modules) with text / JSON / GitHub-Actions-annotation output. Ships a `.pre-commit-hooks.yaml` for pre-commit users. CI-gating-friendly exit codes. See [`docs/operations/lint.md`](docs/operations/lint.md).
 * **`iac-cartographer --diagnose` pre-flight self-test** — offline checklist over the active config: `terraform-docs` version, optional-deps for the configured backends, discovery sources, LLM config consistency, publisher write target, notification routing. No live API calls; sub-second; CI-gating exit codes (0 ok / 1 warn / 2 fail). Add `--live` to also verify real reachability (fetch the required secret bundle, authenticate each discovery source, probe the LLM endpoint, reach the publisher target) — needs credentials, and the LLM probe stays cost-safe (never runs a completion). See [`docs/operations/diagnose.md`](docs/operations/diagnose.md).
+* **Observability for non-AWS deployments** — opt-in structured JSON logging (`IAC_CARTOGRAPHER_LOG_FORMAT=json`) and an optional OpenTelemetry metrics exporter (`pip install iac-cartographer[otel]` + an OTLP endpoint env var) emitting run / per-repo-duration / LLM-token / publish-outcome signals. Both default-off; the existing CloudWatch path is unchanged. See [`docs/operations/observability.md`](docs/operations/observability.md).
 
 ### Coming next
 
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
-* **Close out test-coverage gaps from the feature wave.** The 60 % coverage floor is the CI gate, not a target. Concrete gaps to backfill from the Phase-3 work:
-  * GitHub Wiki publisher's git-based commit + push-retry path.
-  * Notion publisher block-rendering edge cases (nested lists, pages > 100 blocks).
-  * Gitea / Forgejo pagination boundary (last-page detection).
-  * Notification dispatcher under partial-failure scenarios (one channel raises, others succeed; per-level filter elision).
-  * AWS / GCP / Azure runtime example `terraform validate` in CI.
-* **Low-priority — config / models reorganisation.** Once `models.py` crosses the pain threshold (~1000 lines and growing, multiple subsystem-specific validators per section), split it by co-locating each subsystem's config + credentials inside its own package (`discovery/config.py`, `llm/config.py`, `notifications/config.py`, …). Resist the top-down `config/` / `models/` / `types/` flatten — it duplicates the existing package boundaries. Deferred until there's actual pain.
+
+* **Lazy secret loading.** The `gitlab` / `github` / `slack` secrets are fetched eagerly on every run regardless of which sources / publishers are active. Make them lazy so a Markdown-only, GitHub-only deployment doesn't need a Slack secret present. (See the note in [`docs/backends/secrets.md`](docs/backends/secrets.md).)
+* **`--diagnose --live` cost-aware LLM probe.** The live LLM check currently stops at client construction (cost-safe but shallow) for the non-Ollama backends. An opt-in `--diagnose --live --probe-llm` that runs a 1-token completion would give true end-to-end confidence at a few cents — gated behind an explicit flag so it never surprises anyone with spend.
+* **1.0 API freeze.** Before tagging `v1.0`, do a deliberate pass over the YAML config schema + CLI surface to lock names that are still "1.0-track but pre-1.0".
 
 ## Contributing
 

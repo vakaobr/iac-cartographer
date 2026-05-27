@@ -148,6 +148,10 @@ iac_cartographer/
 ├── narrator.py               # prompt assembly, schema validation, retry, AI-H1 scan
 ├── renderer.py               # shared rendering helpers (banner, provider inference)
 ├── init_scaffold.py          # `iac-cartographer --init`
+├── diagnose.py               # `iac-cartographer --diagnose` (+ --live) pre-flight self-test
+├── diff.py                   # `iac-cartographer --diff` between-run structural diff
+├── lint.py                   # `iac-cartographer --lint` IaC-hygiene linter
+├── observability.py          # opt-in OTLP metrics exporter (lazy; no-op without [otel] + endpoint)
 │
 ├── discovery/                # DiscoverySource ABC + 5 implementations
 │   ├── base.py

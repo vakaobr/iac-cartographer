@@ -225,19 +225,14 @@ broken):
 git tag v0.2.1 && git push origin v0.2.1
 ```
 
-## Roadmap themes (Phase 2)
+## Roadmap
 
-If you want to take on something larger, these are the in-flight themes
-(open an issue first to claim one):
-
-* **Pluggable publishers** — Confluence is hardcoded today. We want a
-  `Publisher` ABC with implementations for GitHub Wiki, Notion, and
-  local-Markdown.
-* **Pluggable LLM backend** — AWS Bedrock is hardcoded. Anthropic direct API,
-  OpenAI, and a local Ollama backend are obvious next steps.
-* **Pluggable discovery** — GitLab + GitHub today; Bitbucket and a
-  `--repos-from-file` source are the most-requested follow-ups.
-* **Pluggable secrets/config** — AWS SSM + Secrets Manager today; env vars,
-  HashiCorp Vault, and plain dotenv would unblock non-AWS adopters.
+All five pluggable seams (discovery, LLM, publishers, secrets,
+notifications) have shipped — Confluence/Notion/GitHub-Wiki/Markdown/
+HTML/JSON publishers, six LLM backends, GitLab/GitHub/Bitbucket/Gitea/
+file discovery, AWS/env/Vault secrets, and a ten-channel notification
+dispatcher. The current open follow-ups live in the README under
+[Roadmap → Coming next](README.md#coming-next); open an issue to claim
+one before sending a non-trivial PR.
 
 Thanks for reading this far. PRs welcome.

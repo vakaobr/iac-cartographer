@@ -119,9 +119,12 @@ echo '0 6 * * 1 /usr/local/bin/iac-cartographer-run.sh >> /var/log/iac-cartograp
   | sudo tee -a /etc/cron.d/iac-cartographer
 ```
 
-## ECS Fargate + EventBridge (roadmap)
+## ECS Fargate + EventBridge
 
 The original deployment iac-cartographer was extracted from uses ECS
-Fargate + EventBridge Scheduler. A Terraform module for that path is on
-the roadmap; for now the container image is the canonical artifact and
-you wire it up with the existing AWS recipes.
+Fargate + EventBridge Scheduler — the reference AWS path. A complete
+Terraform module ships at
+[`examples/runtime/aws-ecs-fargate/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime/aws-ecs-fargate)
+(copy the example tfvars, edit, `terraform apply`). GCP Cloud Run Jobs
+and Azure Container Apps Jobs modules ship alongside it under
+[`examples/runtime/`](https://github.com/vakaobr/iac-cartographer/tree/main/examples/runtime).

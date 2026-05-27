@@ -448,8 +448,8 @@ message text gets the screen real estate.
   `notifications:` with two `kind: slack` entries — different `channel`
   and `levels` per entry.
 - **Chat + pager.** `notifications:` with `kind: slack` at all levels
-  and a future `kind: pagerduty` at `levels: [error]`. Coming as a
-  follow-up PR.
+  and `kind: pagerduty` at `levels: [error]` so only errors page the
+  on-call.
 - **CI / air-gapped runs that need zero outbound calls.** Leave
   `notifications:` empty AND don't load a Slack secret. The dispatcher
   becomes a no-op — every `notifier.info(...)` is a silent return.

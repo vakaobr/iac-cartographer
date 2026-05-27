@@ -45,6 +45,16 @@ These are load-bearing patterns. Follow them when adding new features.
   is the only file that talks to the six LLM SDKs. Each notification
   channel + each publisher backend lives in its own file under the
   matching package.
+- **Config + credentials live beside their subsystem.** Each
+  subsystem keeps its config + credential Pydantic models in a
+  `config.py` inside its package (`discovery/config.py`,
+  `publishers/config.py`, `secrets/config.py`,
+  `notifications/config.py`; the single-module `llm` uses a sibling
+  `llm_config.py`). `models.py` holds only the shared domain models +
+  the `AppConfig` aggregator and **re-exports** every subsystem config
+  so `from iac_cartographer.models import X` still resolves. Add new
+  config/credential models to the right `config.py`, not to
+  `models.py`.
 - **Pure functions where possible.** The renderers are pure ADF /
   Markdown / HTML / JSON assembly. Tests don't need mock-heavy
   scaffolding because the seams are at module boundaries.
@@ -91,8 +101,10 @@ follow the same pattern:
    - `LLMBackend` in `iac_cartographer/llm.py`
    - `Publisher` in `iac_cartographer/publishers/`
    - `SecretsProvider` in `iac_cartographer/secrets/`
-2. **Add a literal** to the discriminator in `models.py` (e.g.
-   `publisher.kind`).
+2. **Add a literal** to the discriminator in that subsystem's
+   `config.py` (e.g. `publisher.kind` in `publishers/config.py`; the
+   `llm` module uses `llm_config.py`). Add any new credential model
+   to the same `config.py` — `models.py` re-exports it automatically.
 3. **Add a branch** to the factory function (`_build_publisher` in
    `cli.py`, etc.).
 4. **Write tests.** The existing implementations have good test

@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.5](https://github.com/vakaobr/iac-cartographer/compare/v0.1.4...v0.1.5) (2026-05-27)
+
+
+### Added
+
+* **cli:** --diagnose pre-flight self-test of the active config ([#59](https://github.com/vakaobr/iac-cartographer/issues/59)) ([d25e0f2](https://github.com/vakaobr/iac-cartographer/commit/d25e0f260b707f85f6aacafed3641d6b4bec2b90))
+
 ## [0.1.4](https://github.com/vakaobr/iac-cartographer/compare/v0.1.3...v0.1.4) (2026-05-26)
 
 

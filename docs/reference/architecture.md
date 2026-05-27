@@ -43,9 +43,19 @@ publisher, secrets, and notifications.
 
 ### Pydantic v2 strict mode
 
-Every model in `models.py` extends `_Strict` (`extra="forbid"`). Schema
-drift in upstream responses (terraform-docs, Confluence v2, GitLab,
-Bedrock) produces a loud validation error, not a silent partial parse.
+Every Pydantic model extends `_Strict` (`extra="forbid"`, defined in
+`models.py`). Schema drift in upstream responses (terraform-docs,
+Confluence v2, GitLab, Bedrock) produces a loud validation error, not a
+silent partial parse.
+
+`models.py` holds only the shared/cross-cutting domain models
+(`RepoMetadata`, `TerraformSummary`, `BedrockNarrative`, `RepoInventory`,
+`RunOutcome`) plus the `AppConfig` aggregator. Each subsystem's own config
++ credential models live in a `config.py` beside that subsystem
+(`discovery/config.py`, `publishers/config.py`, `secrets/config.py`,
+`notifications/config.py`; the single-module `llm` uses a sibling
+`llm_config.py`). `models.py` re-exports every moved symbol so
+`from iac_cartographer.models import X` keeps working everywhere.
 The pipeline's per-repo failure isolation means one schema-drift
 casualty doesn't sink the run.
 
@@ -101,8 +111,9 @@ pipeline doesn't know which implementation is active.
 | Notifications | `NotificationChannel` | `notifications.build_dispatcher` |
 
 Adding a new implementation means subclassing the ABC, adding a
-literal to the discriminator in `models.py`, and adding a branch to the
-factory. Every other module stays untouched.
+literal to the discriminator in that subsystem's `config.py` (e.g.
+`publishers/config.py`; the `llm` module uses `llm_config.py`), and
+adding a branch to the factory. Every other module stays untouched.
 
 ### Defense against prompt injection
 
@@ -127,18 +138,20 @@ signal.
 ```
 iac_cartographer/
 ├── cli.py                    # orchestrator + argparse + --init dispatcher
-├── models.py                 # every Pydantic model + Strict base
+├── models.py                 # shared domain models + Strict base + AppConfig aggregator (re-exports subsystem configs)
 ├── aws.py                    # boto3 wrappers (Secrets Manager, SSM, Bedrock, CloudWatch)
 ├── confluence.py             # Confluence v2 client (ADF body, banner-SHA)
 ├── fetcher.py                # shallow git clone with per-host auth dispatch
 ├── extractor.py              # terraform-docs + HCL `required_providers` parser
 ├── llm.py                    # LLMBackend ABC + 6 implementations (Bedrock, Anthropic, Vertex, Azure OpenAI, OpenAI, Ollama)
+├── llm_config.py             # LLMConfig + LLM-provider credential models
 ├── narrator.py               # prompt assembly, schema validation, retry, AI-H1 scan
 ├── renderer.py               # shared rendering helpers (banner, provider inference)
 ├── init_scaffold.py          # `iac-cartographer --init`
 │
 ├── discovery/                # DiscoverySource ABC + 5 implementations
 │   ├── base.py
+│   ├── config.py             # DiscoveryConfig + VCS-host credential models
 │   ├── gitlab.py
 │   ├── github.py
 │   ├── bitbucket.py
@@ -148,6 +161,7 @@ iac_cartographer/
 │
 ├── publishers/               # Publisher ABC + 6 implementations
 │   ├── base.py
+│   ├── config.py             # PublisherConfig + per-publisher configs + publisher credentials
 │   ├── confluence.py
 │   ├── notion.py + notion_renderer.py
 │   ├── github_wiki.py        # git-based; reuses the markdown renderer
@@ -157,12 +171,14 @@ iac_cartographer/
 │
 ├── secrets/                  # SecretsProvider ABC + 3 implementations
 │   ├── base.py
+│   ├── config.py             # SecretsConfig
 │   ├── aws.py
 │   ├── env.py
 │   └── vault.py
 │
 └── notifications/            # NotificationChannel ABC + 10 channels + dispatcher
     ├── base.py
+    ├── config.py             # channel configs + SlackConfig + notification credentials
     ├── dispatcher.py         # multi-channel fanout + per-level filter + error isolation
     ├── slack.py              # bot-token `chat.postMessage`
     ├── slack_webhook.py      # Slack incoming / RocketChat / Mattermost

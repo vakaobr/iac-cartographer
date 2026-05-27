@@ -10,6 +10,24 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.6](https://github.com/vakaobr/iac-cartographer/compare/v0.1.5...v0.1.6) (2026-05-27)
+
+
+### Added
+
+* **diagnose:** add --live flag for real backend reachability checks ([#65](https://github.com/vakaobr/iac-cartographer/issues/65)) ([577a923](https://github.com/vakaobr/iac-cartographer/commit/577a923f547d31d722e77637e511454ac38f56e3))
+* **observability:** structured JSON logging + optional OTLP metrics exporter ([#63](https://github.com/vakaobr/iac-cartographer/issues/63)) ([a2225f5](https://github.com/vakaobr/iac-cartographer/commit/a2225f5c88b3f9d1bea287987c6976310d34f580))
+
+
+### Documentation
+
+* **demo:** add HTML/JSON publisher and Ollama LLM demo variants ([#61](https://github.com/vakaobr/iac-cartographer/issues/61)) ([160a903](https://github.com/vakaobr/iac-cartographer/commit/160a903875b65890085524afd9ebb908e0d7e4a2))
+
+
+### Refactored
+
+* **models:** split monolithic models.py by subsystem ([#64](https://github.com/vakaobr/iac-cartographer/issues/64)) ([2a3ea83](https://github.com/vakaobr/iac-cartographer/commit/2a3ea83a784388e7cdd2afd4722bb42337fae789))
+
 ## [0.1.5](https://github.com/vakaobr/iac-cartographer/compare/v0.1.4...v0.1.5) (2026-05-27)
 
 

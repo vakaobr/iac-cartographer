@@ -223,12 +223,25 @@ class LoadedSecrets:
     required on every run.
 
     Frozen so downstream phases can't mutate credentials by accident.
+
+    Every field is now conditionally loaded — a credential is only
+    populated when the active config actually needs it. A Markdown-
+    publisher + GitHub-only-discovery + no-Slack deployment loads only
+    the `github` secret; it no longer fails at startup demanding a
+    Confluence or Slack secret it never uses.
     """
 
-    confluence: ConfluenceCredentials
-    gitlab: GitlabCredentials
-    github: GithubCredentials
-    slack: SlackCredentials
+    # `confluence` only when `publisher.kind == "confluence"`.
+    confluence: ConfluenceCredentials | None = None
+    # `gitlab` only when `discovery.gitlab_group_ids` is non-empty.
+    gitlab: GitlabCredentials | None = None
+    # `github` only when `discovery.github_orgs` is non-empty OR
+    # `publisher.kind == "github_wiki"` (the wiki publisher reuses it).
+    github: GithubCredentials | None = None
+    # `slack` only when a `notifications[].kind == "slack"` entry exists
+    # (required) or the legacy empty-`notifications` path is active
+    # (optional — loaded if present, silent if absent).
+    slack: SlackCredentials | None = None
     anthropic: AnthropicCredentials | None = None
     # `bitbucket` is only populated when `discovery.bitbucket_workspaces`
     # is non-empty — runs without Bitbucket discovery don't need the secret.
@@ -333,6 +346,11 @@ def _load_secrets(
     provider: SecretsProvider,
     llm_backend_name: str = "bedrock",
     *,
+    need_confluence: bool = False,
+    need_gitlab: bool = False,
+    need_github: bool = False,
+    need_slack: bool = False,
+    try_slack: bool = False,
     need_bitbucket: bool = False,
     need_gitea: bool = False,
     need_azure_openai: bool = False,
@@ -347,29 +365,98 @@ def _load_secrets(
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
-    `llm_backend_name` decides whether the Anthropic API key is required:
-    for the default `bedrock` backend it's skipped entirely; for the
-    `anthropic` backend it's loaded from `iac-cartographer/anthropic`.
+    Every credential is loaded conditionally — only when the active
+    config actually uses it (the caller computes the `need_*` flags from
+    the config). Nothing is fetched unconditionally any more, so e.g. a
+    Markdown + GitHub-only deployment never touches the Confluence or
+    Slack secret.
 
-    `need_bitbucket` decides whether the Bitbucket credential is required:
-    True when `discovery.bitbucket_workspaces` is non-empty.
+    Per-credential triggers:
+      * `need_confluence` — `publisher.kind == "confluence"`.
+      * `need_gitlab` — `discovery.gitlab_group_ids` non-empty.
+      * `need_github` — `discovery.github_orgs` non-empty OR
+        `publisher.kind == "github_wiki"`.
+      * `need_slack` — a `notifications[].kind == "slack"` entry exists
+        (hard requirement). `try_slack` — the legacy empty-`notifications`
+        path is active, where Slack is OPTIONAL: loaded if present, left
+        None (silent dispatcher) if absent. The two are mutually
+        exclusive at the call site.
+      * `llm_backend_name` — loads the Anthropic / OpenAI key for those
+        backends; `need_azure_openai` for Azure OpenAI without AAD.
+      * `need_bitbucket` / `need_gitea` — the matching discovery source.
+      * `need_*` notification flags — the matching channel `kind`.
+      * `need_notion` — `publisher.kind == "notion"`.
 
-    `need_azure_openai` decides whether the Azure OpenAI API key is
-    required: True when `llm.backend == "azure_openai"` AND
-    `llm.azure_openai_use_aad` is false. AAD-authenticated deployments
-    skip the secret entirely.
-
-    Raises `MissingSecretError` if any required secret is missing or
+    Raises `MissingSecretError` if any *required* secret is missing or
     fails Pydantic validation. Always reads real credentials —
     `--dry-run` only suppresses *writes*, never reads.
     """
-    try:
-        confluence_raw = provider.get_secret(CONFLUENCE_SECRET_NAME)
-        gitlab_raw = provider.get_secret(GITLAB_SECRET_NAME)
-        github_raw = provider.get_secret(GITHUB_SECRET_NAME)
-        slack_raw = provider.get_secret(SLACK_SECRET_NAME)
-    except Exception as exc:
-        raise MissingSecretError(f"failed to fetch a required secret via {provider.name}: {exc}") from exc
+    confluence_creds: ConfluenceCredentials | None = None
+    if need_confluence:
+        try:
+            confluence_raw = provider.get_secret(CONFLUENCE_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"publisher.kind=confluence but the {CONFLUENCE_SECRET_NAME} "
+                f"secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            confluence_creds = ConfluenceCredentials.model_validate(confluence_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"confluence secret payload failed schema validation: {exc}") from exc
+
+    gitlab_creds: GitlabCredentials | None = None
+    if need_gitlab:
+        try:
+            gitlab_raw = provider.get_secret(GITLAB_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"discovery.gitlab_group_ids is set but the {GITLAB_SECRET_NAME} "
+                f"secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            gitlab_creds = GitlabCredentials.model_validate(gitlab_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"gitlab secret payload failed schema validation: {exc}") from exc
+
+    github_creds: GithubCredentials | None = None
+    if need_github:
+        try:
+            github_raw = provider.get_secret(GITHUB_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"discovery.github_orgs is set or publisher.kind=github_wiki, but the "
+                f"{GITHUB_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            github_creds = GithubCredentials.model_validate(github_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"github secret payload failed schema validation: {exc}") from exc
+
+    slack_creds: SlackCredentials | None = None
+    if need_slack:
+        try:
+            slack_raw = provider.get_secret(SLACK_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"notifications[].kind=slack but the {SLACK_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            slack_creds = SlackCredentials.model_validate(slack_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"slack secret payload failed schema validation: {exc}") from exc
+    elif try_slack:
+        # Legacy empty-`notifications` path: Slack is optional. Load it if
+        # the secret exists; tolerate absence (the dispatcher goes silent).
+        try:
+            slack_raw = provider.get_secret(SLACK_SECRET_NAME)
+            slack_creds = SlackCredentials.model_validate(slack_raw)
+        except Exception:
+            logger.info(
+                "no %s secret found and notifications: is empty — running with a silent dispatcher",
+                SLACK_SECRET_NAME,
+            )
+            slack_creds = None
 
     anthropic_creds: AnthropicCredentials | None = None
     if llm_backend_name == "anthropic":
@@ -545,28 +632,27 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"notion secret payload failed schema validation: {exc}") from exc
 
-    try:
-        return LoadedSecrets(
-            confluence=ConfluenceCredentials.model_validate(confluence_raw),
-            gitlab=GitlabCredentials.model_validate(gitlab_raw),
-            github=GithubCredentials.model_validate(github_raw),
-            slack=SlackCredentials.model_validate(slack_raw),
-            anthropic=anthropic_creds,
-            bitbucket=bitbucket_creds,
-            gitea=gitea_creds,
-            azure_openai=azure_openai_creds,
-            openai=openai_creds,
-            webhook=webhook_creds,
-            slack_webhook=slack_webhook_creds,
-            teams=teams_creds,
-            email=email_creds,
-            pagerduty=pagerduty_creds,
-            opsgenie=opsgenie_creds,
-            discord=discord_creds,
-            notion=notion_creds,
-        )
-    except Exception as exc:
-        raise MissingSecretError(f"secret payload failed schema validation: {exc}") from exc
+    # Every credential was validated at its load site above, so the
+    # dataclass construction here can't raise — it's a plain assembly.
+    return LoadedSecrets(
+        confluence=confluence_creds,
+        gitlab=gitlab_creds,
+        github=github_creds,
+        slack=slack_creds,
+        anthropic=anthropic_creds,
+        bitbucket=bitbucket_creds,
+        gitea=gitea_creds,
+        azure_openai=azure_openai_creds,
+        openai=openai_creds,
+        webhook=webhook_creds,
+        slack_webhook=slack_webhook_creds,
+        teams=teams_creds,
+        email=email_creds,
+        pagerduty=pagerduty_creds,
+        opsgenie=opsgenie_creds,
+        discord=discord_creds,
+        notion=notion_creds,
+    )
 
 
 def _build_llm_backend(llm_config: LLMConfig, secrets: LoadedSecrets) -> LLMBackend:
@@ -685,6 +771,11 @@ def _build_publisher(
             # we get here if the parent page can't be resolved — but guard
             # for type-checker happiness and future-refactor safety.
             raise ConfigError("publisher.kind=confluence but parent_id was not resolved at preflight")
+        if secrets.confluence is None:
+            raise ConfigError(
+                "publisher.kind=confluence but no ConfluenceCredentials were loaded "
+                "(check the iac-cartographer/confluence secret)"
+            )
         client = ConfluenceClient(config.confluence.site, secrets.confluence)
         return ConfluencePublisher(client, config.confluence, parent_id)
     if kind == "markdown":
@@ -704,6 +795,11 @@ def _build_publisher(
     if kind == "github_wiki":
         if not config.github_wiki.owner or not config.github_wiki.repo:
             raise ConfigError("publisher.kind=github_wiki but github_wiki.owner / github_wiki.repo are empty")
+        if secrets.github is None:
+            raise ConfigError(
+                "publisher.kind=github_wiki but no GithubCredentials were loaded "
+                "(check the iac-cartographer/github secret)"
+            )
         return GitHubWikiPublisher(
             secrets.github,
             owner=config.github_wiki.owner,
@@ -730,6 +826,11 @@ def _build_sources(config: AppConfig, secrets: LoadedSecrets) -> list[DiscoveryS
     # so the orchestrator gets at least the legacy two-source behaviour
     # when only one host is configured.
     if config.discovery.gitlab_group_ids:
+        if secrets.gitlab is None:
+            raise ConfigError(
+                "discovery.gitlab_group_ids is set but no GitlabCredentials were loaded "
+                "(check the iac-cartographer/gitlab secret)"
+            )
         sources.append(
             GitlabDiscovery(
                 secrets.gitlab,
@@ -738,6 +839,11 @@ def _build_sources(config: AppConfig, secrets: LoadedSecrets) -> list[DiscoveryS
             )
         )
     if config.discovery.github_orgs:
+        if secrets.github is None:
+            raise ConfigError(
+                "discovery.github_orgs is set but no GithubCredentials were loaded "
+                "(check the iac-cartographer/github secret)"
+            )
         sources.append(GithubDiscovery(secrets.github, config.discovery.github_orgs))
     if config.discovery.bitbucket_workspaces:
         if secrets.bitbucket is None:
@@ -957,6 +1063,24 @@ async def _run_once_async(args: argparse.Namespace) -> int:
     secrets = _load_secrets(
         secrets_provider,
         config.llm.backend,
+        # Confluence / GitLab / GitHub / Slack are loaded only when the
+        # active config uses them — see _load_secrets for the trigger
+        # rationale. github_wiki reuses the github credential. A
+        # `repos_file` can list repos on any host, and the clone path
+        # splices a per-host token, so a curated file forces both VCS
+        # tokens (we can't know the hosts without reading the file).
+        need_confluence=config.publisher.kind == "confluence",
+        need_gitlab=bool(config.discovery.gitlab_group_ids) or bool(config.discovery.repos_file),
+        need_github=(
+            bool(config.discovery.github_orgs)
+            or config.publisher.kind == "github_wiki"
+            or bool(config.discovery.repos_file)
+        ),
+        # Slack is REQUIRED when an explicit slack notification channel is
+        # configured, OPTIONAL on the legacy empty-notifications path
+        # (loaded if present, silent if not).
+        need_slack="slack" in notification_kinds,
+        try_slack=not config.notifications,
         need_bitbucket=bool(config.discovery.bitbucket_workspaces),
         need_gitea=bool(config.discovery.gitea_orgs),
         # Azure OpenAI's API-key secret is needed only when the backend
@@ -1060,8 +1184,12 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         tasks = [
             _process_repo(
                 r,
-                secrets.gitlab.token,
-                secrets.github.token,
+                # Empty string when the credential wasn't loaded — only
+                # spliced for repos of that host, which only appear when
+                # the host was actually configured (so a real token is
+                # present then). repos_file configs force-load both above.
+                secrets.gitlab.token if secrets.gitlab else "",
+                secrets.github.token if secrets.github else "",
                 config.llm,
                 llm_backend,
                 no_bedrock=args.no_bedrock,

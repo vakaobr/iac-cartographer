@@ -467,14 +467,12 @@ def test_secrets_live_resolves_required_bundle(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_secrets_live_missing_secret_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Only set three of the four required secrets — slack is missing.
-    monkeypatch.setenv(
-        "IAC_CARTOGRAPHER_SECRET_CONFLUENCE",
-        json.dumps({"email": "bot@x.test", "api_token": "ATATT"}),
-    )
+    # Config uses github discovery → the github secret is REQUIRED. Delete
+    # it (but leave the others) to force a hard failure. (Note: slack on the
+    # empty-notifications path is now optional, so a missing slack secret
+    # is NOT a failure — we must drop a genuinely-required one.)
     monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_GITLAB", json.dumps({"token": "glpat"}))
-    monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_GITHUB", json.dumps({"token": "ghp"}))
-    monkeypatch.delenv("IAC_CARTOGRAPHER_SECRET_SLACK", raising=False)
+    monkeypatch.delenv("IAC_CARTOGRAPHER_SECRET_GITHUB", raising=False)
     cfg = _config(secrets={"backend": "env"}, discovery={"github_orgs": ["acme"]})
     result, secrets = check_secrets_live(cfg)
     assert result.status == Status.FAIL
@@ -492,9 +490,18 @@ def test_secrets_live_bad_provider_config_is_fail() -> None:
 
 
 # Shared helper that builds a real LoadedSecrets for the downstream probes.
+# Requests all four core credentials so the discovery / publisher live
+# probes have the tokens they exercise (lazy loading skips them otherwise).
 def _build_secrets(monkeypatch: pytest.MonkeyPatch):
     _set_core_secret_env(monkeypatch)
-    return _load_secrets(EnvSecretsProvider(), "bedrock")
+    return _load_secrets(
+        EnvSecretsProvider(),
+        "bedrock",
+        need_confluence=True,
+        need_gitlab=True,
+        need_github=True,
+        need_slack=True,
+    )
 
 
 # ── discovery-live ───────────────────────────────────────────────────

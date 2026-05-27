@@ -26,10 +26,25 @@ the logical name to a backend-specific lookup path.
 | `iac-cartographer/anthropic` | `llm.backend == "anthropic"` | `{"api_key": "sk-ant-..."}` |
 | `iac-cartographer/bitbucket` | `discovery.bitbucket_workspaces` non-empty | `{"access_token": "bbat-..."}` *or* `{"username": "...", "app_password": "..."}` |
 
-The `gitlab` / `github` / `slack` secrets are loaded eagerly regardless
-of which discovery sources or publishers are active; you can put
-placeholder values there if a particular backend isn't used. Future
-versions will make these lazy.
+Every secret is loaded **lazily** — only when the active config actually
+uses it. A Markdown-publisher + GitHub-only-discovery + no-Slack
+deployment fetches just the `github` secret; it never demands a
+Confluence or Slack secret it doesn't use. The triggers:
+
+* `confluence` — `publisher.kind == "confluence"`.
+* `gitlab` — `discovery.gitlab_group_ids` non-empty (or any
+  `discovery.repos_file`, since a curated file may list GitLab repos
+  to clone).
+* `github` — `discovery.github_orgs` non-empty, `publisher.kind ==
+  "github_wiki"` (the wiki publisher reuses the GitHub credential), or
+  any `discovery.repos_file`.
+* `slack` — **required** when a `notifications[].kind == "slack"` entry
+  exists; **optional** on the legacy empty-`notifications` path (loaded
+  if present, silent dispatcher if absent).
+
+A missing *required* secret fails loudly at startup (before any work
+runs); run `iac-cartographer --diagnose` to see exactly which secrets
+your config needs.
 
 ## AWS
 

@@ -311,10 +311,20 @@ def test_load_secrets_happy_path(_aws_region: None) -> None:
         Name="iac-cartographer/slack",
         SecretString=json.dumps({"bot_token": "xoxb", "channel_id": "C0X"}),
     )
-    loaded = _load_secrets(AwsSecretsProvider())
+    loaded = _load_secrets(
+        AwsSecretsProvider(),
+        need_confluence=True,
+        need_gitlab=True,
+        need_github=True,
+        need_slack=True,
+    )
+    assert loaded.confluence is not None
     assert loaded.confluence.email == "bot@acme.example.com"
+    assert loaded.gitlab is not None
     assert loaded.gitlab.token == "glpat"
+    assert loaded.github is not None
     assert loaded.github.token == "ghp"
+    assert loaded.slack is not None
     assert loaded.slack.channel_id == "C0X"
 
 
@@ -332,7 +342,7 @@ def test_load_secrets_missing_raises_missing_secret_error(_aws_region: None) -> 
         SecretString=json.dumps({"bot_token": "xoxb", "channel_id": "C0X"}),
     )
     with pytest.raises(MissingSecretError):
-        _load_secrets(AwsSecretsProvider())
+        _load_secrets(AwsSecretsProvider(), need_github=True)
 
 
 @mock_aws
@@ -349,7 +359,48 @@ def test_load_secrets_invalid_schema_raises_missing_secret_error(_aws_region: No
         SecretString=json.dumps({"bot_token": "xoxb", "channel_id": "C0X"}),
     )
     with pytest.raises(MissingSecretError, match="schema validation"):
-        _load_secrets(AwsSecretsProvider())
+        _load_secrets(AwsSecretsProvider(), need_confluence=True)
+
+
+@mock_aws
+def test_load_secrets_lazy_skips_unneeded(_aws_region: None) -> None:
+    """With no need_* flags, NOTHING is fetched — a Markdown + file-
+    discovery + no-Slack deployment loads zero of the four formerly-
+    unconditional secrets. None of them are seeded here, yet the load
+    succeeds and every field is None."""
+    loaded = _load_secrets(AwsSecretsProvider())
+    assert loaded.confluence is None
+    assert loaded.gitlab is None
+    assert loaded.github is None
+    assert loaded.slack is None
+
+
+@mock_aws
+def test_load_secrets_try_slack_tolerates_absent_secret(_aws_region: None) -> None:
+    """Legacy empty-notifications path: `try_slack=True` loads Slack if
+    present but does NOT fail when it's absent (silent dispatcher)."""
+    loaded = _load_secrets(AwsSecretsProvider(), try_slack=True)
+    assert loaded.slack is None  # absent → tolerated, no raise
+
+
+@mock_aws
+def test_load_secrets_try_slack_loads_when_present(_aws_region: None) -> None:
+    sm = boto3.client("secretsmanager", region_name=DEFAULT_REGION)
+    sm.create_secret(
+        Name="iac-cartographer/slack",
+        SecretString=json.dumps({"bot_token": "xoxb", "channel_id": "C0X"}),
+    )
+    loaded = _load_secrets(AwsSecretsProvider(), try_slack=True)
+    assert loaded.slack is not None
+    assert loaded.slack.channel_id == "C0X"
+
+
+@mock_aws
+def test_load_secrets_need_slack_requires_secret(_aws_region: None) -> None:
+    """Explicit slack notification channel → Slack is REQUIRED; absence
+    is a hard error (unlike the try_slack legacy path)."""
+    with pytest.raises(MissingSecretError, match="slack"):
+        _load_secrets(AwsSecretsProvider(), need_slack=True)
 
 
 @mock_aws

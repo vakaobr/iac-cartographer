@@ -1200,6 +1200,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deprecations-pre-10-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecations (pre-1.0 → 1.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#discovery" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1327,10 +1338,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#json" class="md-nav__link">
+  <a href="#json_output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        json
+        json_output
       
     </span>
   </a>
@@ -1338,10 +1349,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#slack-legacy-single-channel" class="md-nav__link">
+  <a href="#slack-legacy-single-channel-deprecated" class="md-nav__link">
     <span class="md-ellipsis">
       
-        slack (legacy single-channel)
+        slack (legacy single-channel — deprecated)
       
     </span>
   </a>
@@ -1468,6 +1479,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#deprecations-pre-10-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecations (pre-1.0 → 1.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#discovery" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1595,10 +1617,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#json" class="md-nav__link">
+  <a href="#json_output" class="md-nav__link">
     <span class="md-ellipsis">
       
-        json
+        json_output
       
     </span>
   </a>
@@ -1606,10 +1628,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#slack-legacy-single-channel" class="md-nav__link">
+  <a href="#slack-legacy-single-channel-deprecated" class="md-nav__link">
     <span class="md-ellipsis">
       
-        slack (legacy single-channel)
+        slack (legacy single-channel — deprecated)
       
     </span>
   </a>
@@ -1668,13 +1690,48 @@ this page tracks it.</p>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">github_wiki</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;github_wiki&quot; specifics</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nt">markdown</span><span class="p">:</span><span class="w">      </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;markdown&quot; specifics</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nt">html</span><span class="p">:</span><span class="w">          </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;html&quot; specifics</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nt">json</span><span class="p">:</span><span class="w">          </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;json&quot; specifics</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nt">slack</span><span class="p">:</span><span class="w">         </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># legacy single-Slack notification config</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nt">json_output</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;json&quot; specifics (pre-1.0 key: `json:`, deprecated)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nt">slack</span><span class="p">:</span><span class="w">         </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># legacy single-Slack notification config (deprecated — prefer notifications:)</span>
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nt">notifications</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">...</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># modern multi-channel notification list (preferred)</span>
 </span></code></pre></div>
 <p>All sections are optional — every field has a default. The minimal
 valid config is <code>{}</code> (assuming you also export the right secrets and
 have an LLM backend reachable).</p>
+<h2 id="deprecations-pre-10-10">Deprecations (pre-1.0 → 1.0)<a class="headerlink" href="#deprecations-pre-10-10" title="Permanent link">&para;</a></h2>
+<p>These pre-1.0 names still work but emit a <code>DeprecationWarning</code> and will
+be <strong>removed in 2.0</strong>. Rename them now; each old form is accepted via an
+alias so the migration is non-breaking.</p>
+<table>
+<thead>
+<tr>
+<th>Deprecated</th>
+<th>Replace with</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>json:</code> (YAML key)</td>
+<td><code>json_output:</code></td>
+<td>top-level config section</td>
+</tr>
+<tr>
+<td><code>confluence.parent_page_id_ssm_path</code></td>
+<td><code>confluence.parent_page_id_ref</code></td>
+<td><code>confluence</code> section</td>
+</tr>
+<tr>
+<td>legacy <code>slack:</code> block + empty <code>notifications:</code></td>
+<td>a <code>notifications:</code> list with a <code>kind: slack</code> entry</td>
+<td>notifications</td>
+</tr>
+<tr>
+<td><code>--no-bedrock</code> (CLI flag)</td>
+<td><code>--no-llm</code></td>
+<td>command line</td>
+</tr>
+</tbody>
+</table>
 <h2 id="discovery"><code>discovery</code><a class="headerlink" href="#discovery" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1937,8 +1994,8 @@ that backend's namespace. Six backends ship today.</p>
 </tr>
 <tr>
 <td><code>ollama_timeout_seconds</code></td>
-<td><code>int</code></td>
-<td><code>300</code></td>
+<td><code>float</code></td>
+<td><code>300.0</code></td>
 <td><code>ollama</code></td>
 <td>HTTP timeout — local CPU inference is slow on cold starts.</td>
 </tr>
@@ -2030,10 +2087,10 @@ that backend's namespace. Six backends ship today.</p>
 <td>Confluence space key (the parent page must already exist there).</td>
 </tr>
 <tr>
-<td><code>parent_page_id_ssm_path</code></td>
+<td><code>parent_page_id_ref</code></td>
 <td><code>str</code></td>
 <td><code>"/iac-cartographer/confluence-parent-id"</code></td>
-<td>Logical name of the parameter holding the parent page's numeric ID. Resolved via the active <code>SecretsProvider.get_parameter()</code>.</td>
+<td>Logical name of the parameter holding the parent page's numeric ID. Resolved via the active <code>SecretsProvider.get_parameter()</code> (AWS SSM path / env var / Vault path — backend-agnostic). The pre-1.0 name <code>parent_page_id_ssm_path</code> still works (deprecated; emits a warning) and will be removed in 2.0.</td>
 </tr>
 <tr>
 <td><code>parent_page_id</code></td>
@@ -2141,10 +2198,12 @@ to bootstrap <code>&lt;owner&gt;/&lt;repo&gt;.wiki.git</code>.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="json"><code>json</code><a class="headerlink" href="#json" title="Permanent link">&para;</a></h2>
-<p>Only honoured when <code>publisher.kind == "json"</code>. The YAML key is <code>json:</code>;
-the Python attribute on <code>AppConfig</code> is <code>json_output</code> (to avoid
-shadowing Pydantic's <code>BaseModel.json()</code> method).</p>
+<h2 id="json_output"><code>json_output</code><a class="headerlink" href="#json_output" title="Permanent link">&para;</a></h2>
+<p>Only honoured when <code>publisher.kind == "json"</code>. The canonical YAML key is
+<code>json_output:</code> (also the Python attribute on <code>AppConfig</code>). The pre-1.0
+key <code>json:</code> still works (deprecated; emits a warning) and will be
+removed in 2.0 — it was renamed because the bare <code>json</code> key collided
+awkwardly with the publisher-format concept and forced an alias hack.</p>
 <table>
 <thead>
 <tr>
@@ -2161,7 +2220,7 @@ shadowing Pydantic's <code>BaseModel.json()</code> method).</p>
 </tr>
 </tbody>
 </table>
-<h2 id="slack-legacy-single-channel"><code>slack</code> (legacy single-channel)<a class="headerlink" href="#slack-legacy-single-channel" title="Permanent link">&para;</a></h2>
+<h2 id="slack-legacy-single-channel-deprecated"><code>slack</code> (legacy single-channel — deprecated)<a class="headerlink" href="#slack-legacy-single-channel-deprecated" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -2180,8 +2239,14 @@ shadowing Pydantic's <code>BaseModel.json()</code> method).</p>
 </table>
 <p>When <code>notifications:</code> is empty (default), the dispatcher uses this
 block + the <code>iac-cartographer/slack</code> secret as the sole destination
-at all three severities. Existing single-Slack deployments need no
-changes. Set <code>notifications:</code> to opt into multi-channel routing.</p>
+at all three severities. Existing single-Slack deployments keep
+working — but this path is <strong>deprecated</strong> as of the 1.0 track and
+emits a <code>DeprecationWarning</code>; it will be removed in 2.0. Migrate to an
+explicit <code>notifications:</code> list with a <code>kind: slack</code> entry:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span><span class="w">   </span><span class="c1"># same channel, now explicit</span>
+</span></code></pre></div>
 <h2 id="notifications-multi-channel-preferred"><code>notifications</code> (multi-channel — preferred)<a class="headerlink" href="#notifications-multi-channel-preferred" title="Permanent link">&para;</a></h2>
 <p>A list of channel entries. Each entry has a <code>kind</code> discriminator
 and channel-specific config; every entry carries an optional
@@ -2248,14 +2313,14 @@ and channel-specific config; every entry carries an optional
 </tbody>
 </table>
 <p>Example with three channels:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">notifications</span><span class="p">:</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#infra-info&quot;</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="c1"># levels defaults to [info, warn, error]</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">teams</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                    </span><span class="c1"># pager-style escalation</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="nt">stream</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stderr</span><span class="w">                     </span><span class="c1"># CI log capture</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#infra-info&quot;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="c1"># levels defaults to [info, warn, error]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">teams</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                    </span><span class="c1"># pager-style escalation</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">stream</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stderr</span><span class="w">                     </span><span class="c1"># CI log capture</span>
 </span></code></pre></div>
 <p>Dispatcher behaviour:</p>
 <ul>

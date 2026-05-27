@@ -33,6 +33,9 @@ def _authed_clone_url(
     gitlab_token: str,
     github_token: str,
     gitea_token: str | None = None,
+    bitbucket_token: str | None = None,
+    bitbucket_username: str | None = None,
+    bitbucket_app_password: str | None = None,
 ) -> str:
     """Splice the right token into the clone URL.
 
@@ -40,8 +43,11 @@ def _authed_clone_url(
     accepts `https://x-access-token:<token>@github.com/...`; Gitea /
     Forgejo accept the same `oauth2:<token>@host/...` shape GitLab uses
     (and also bare `<token>@host/...` — we use the oauth2 form for
-    consistency). Either way the auth lives in the URL userinfo only
-    and never escapes this function.
+    consistency). Bitbucket Cloud accepts either
+    `https://x-token-auth:<token>@bitbucket.org/...` (access token) or
+    `https://<username>:<app_password>@bitbucket.org/...` (app password).
+    Either way the auth lives in the URL userinfo only and never escapes
+    this function.
     """
     parsed = urlparse(clone_url)
     if host == "gitlab":
@@ -52,12 +58,14 @@ def _authed_clone_url(
         if not gitea_token:
             raise CloneError("gitea host requires a gitea_token (check iac-cartographer/gitea secret)")
         netloc = f"oauth2:{gitea_token}@{parsed.hostname}"
+    elif host == "bitbucket":
+        if bitbucket_token:
+            netloc = f"x-token-auth:{bitbucket_token}@{parsed.hostname}"
+        elif bitbucket_username and bitbucket_app_password:
+            netloc = f"{bitbucket_username}:{bitbucket_app_password}@{parsed.hostname}"
+        else:
+            raise CloneError("bitbucket clone requires either access_token or username+app_password (check iac-cartographer/bitbucket secret)")
     else:
-        # Bitbucket + `"other"` clone via the URL on RepoMetadata as-is
-        # (no token splice). Bitbucket app passwords use HTTP Basic
-        # auth which can ride in the URL userinfo too, but that's a
-        # follow-up — for now bitbucket discovery produces public-
-        # accessible clone URLs only.
         raise CloneError(f"unsupported host for token splice: {host}")
     if parsed.port:
         netloc = f"{netloc}:{parsed.port}"
@@ -69,6 +77,9 @@ def clone(
     gitlab_token: str,
     github_token: str,
     gitea_token: str | None = None,
+    bitbucket_token: str | None = None,
+    bitbucket_username: str | None = None,
+    bitbucket_app_password: str | None = None,
 ) -> Path:
     """Shallow-clone `meta` into a fresh temp dir; return the path.
 
@@ -76,7 +87,16 @@ def clone(
     `CloneError` on any git failure or timeout.
     """
     tmp = Path(tempfile.mkdtemp(prefix=f"iac-cartographer-{meta.host}-"))
-    url = _authed_clone_url(meta.clone_url, meta.host, gitlab_token, github_token, gitea_token)
+    url = _authed_clone_url(
+        meta.clone_url,
+        meta.host,
+        gitlab_token,
+        github_token,
+        gitea_token,
+        bitbucket_token=bitbucket_token,
+        bitbucket_username=bitbucket_username,
+        bitbucket_app_password=bitbucket_app_password,
+    )
     cmd = [
         "git",
         "clone",
@@ -106,7 +126,10 @@ def clone(
 
     if result.returncode != 0:
         # `result.stderr` may contain the patched URL — redact before raising
-        scrubbed = (result.stderr or "").replace(gitlab_token, "***").replace(github_token, "***")
+        scrubbed = result.stderr or ""
+        for secret in (gitlab_token, github_token, bitbucket_token, bitbucket_username, bitbucket_app_password):
+            if secret:
+                scrubbed = scrubbed.replace(secret, "***")
         cleanup(tmp)
         raise CloneError(f"git clone failed for {meta.full_name}: {scrubbed[:500]}")
     return tmp

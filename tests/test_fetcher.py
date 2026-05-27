@@ -177,6 +177,39 @@ def test_cleanup_swallows_oserror(tmp_path: Path) -> None:
         cleanup(fake_dir)  # must not raise
 
 
+def test_authed_clone_url_bitbucket_access_token() -> None:
+    out = _authed_clone_url(
+        "https://bitbucket.org/acme/x.git",
+        host="bitbucket",
+        gitlab_token="",
+        github_token="",
+        bitbucket_token="BB_TOKEN",
+    )
+    assert out == "https://x-token-auth:BB_TOKEN@bitbucket.org/acme/x.git"
+
+
+def test_authed_clone_url_bitbucket_app_password() -> None:
+    out = _authed_clone_url(
+        "https://bitbucket.org/acme/x.git",
+        host="bitbucket",
+        gitlab_token="",
+        github_token="",
+        bitbucket_username="bb_user",
+        bitbucket_app_password="bb_app_pw",
+    )
+    assert out == "https://bb_user:bb_app_pw@bitbucket.org/acme/x.git"
+
+
+def test_authed_clone_url_bitbucket_without_credentials_raises() -> None:
+    with pytest.raises(CloneError, match=r"iac-cartographer/bitbucket"):
+        _authed_clone_url(
+            "https://bitbucket.org/acme/x.git",
+            host="bitbucket",
+            gitlab_token="",
+            github_token="",
+        )
+
+
 def test_clone_passes_branch_and_depth(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 

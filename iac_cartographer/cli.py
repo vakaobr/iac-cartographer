@@ -959,6 +959,9 @@ async def _process_repo(
     no_llm: bool,
     semaphore: asyncio.Semaphore,
     gitea_token: str | None = None,
+    bitbucket_token: str | None = None,
+    bitbucket_username: str | None = None,
+    bitbucket_app_password: str | None = None,
 ) -> tuple[RepoInventory | None, str | None, int, int]:
     """Clone → extract → narrate one repo. Returns (inventory, error, tokens_in, tokens_out).
 
@@ -970,7 +973,16 @@ async def _process_repo(
     path: Path | None = None
     repo_started = time.monotonic()
     try:
-        path = await asyncio.to_thread(clone, meta, gitlab_token, github_token, gitea_token)
+        path = await asyncio.to_thread(
+            clone,
+            meta,
+            gitlab_token,
+            github_token,
+            gitea_token,
+            bitbucket_token=bitbucket_token,
+            bitbucket_username=bitbucket_username,
+            bitbucket_app_password=bitbucket_app_password,
+        )
         summary = await asyncio.to_thread(run_terraform_docs, path)
         readme, hcl_concat = await asyncio.to_thread(_read_repo_content, path)
 
@@ -1203,10 +1215,6 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         tasks = [
             _process_repo(
                 r,
-                # Empty string when the credential wasn't loaded — only
-                # spliced for repos of that host, which only appear when
-                # the host was actually configured (so a real token is
-                # present then). repos_file configs force-load both above.
                 secrets.gitlab.token if secrets.gitlab else "",
                 secrets.github.token if secrets.github else "",
                 config.llm,
@@ -1214,6 +1222,9 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 no_llm=no_llm,
                 semaphore=semaphore,
                 gitea_token=secrets.gitea.token if secrets.gitea else None,
+                bitbucket_token=secrets.bitbucket.access_token if secrets.bitbucket else None,
+                bitbucket_username=secrets.bitbucket.username if secrets.bitbucket else None,
+                bitbucket_app_password=secrets.bitbucket.app_password if secrets.bitbucket else None,
             )
             for r in repos
         ]

@@ -83,12 +83,13 @@ errors.
 
 ## Status
 
-`v0.1.0` — extracted from a working production deployment at a single
-organisation, then rebuilt around pluggable backends for the public
-release. Discovery, LLM, publisher, secrets, and notifications are
-all swappable today (see [Shipped](#shipped) below for the full
-matrix). API surface is "1.0-track but pre-1.0" — minor renames and
-YAML field tweaks are still possible before tagging `v1.0`.
+`v0.1.x` on PyPI — extracted from a real production deployment, then
+rebuilt around pluggable backends for the public release. Discovery,
+LLM, publisher, secrets, and notifications are all swappable today (see
+[Shipped](#shipped) below for the full matrix). The API surface is
+"1.0-track but pre-1.0": a few config keys and CLI flags are being
+locked before `v1.0`, each with a backward-compatible alias and a
+deprecation warning, so upgrades within `0.1.x` won't break you.
 
 ## Quick start
 
@@ -107,6 +108,12 @@ pip install -e .
 
 See [`examples/demo/README.md`](examples/demo/README.md) for the demo
 walkthrough + variations (swap publisher to HTML, plug in a real LLM, …).
+
+**Want to see the output without running anything?**
+[`examples/demo/sample-output.md`](examples/demo/sample-output.md) is a
+committed sample of exactly what the tool writes — the overview index, a
+per-repo deep-dive page, and the inline `(unpinned)` / `(not declared)`
+hygiene markers.
 
 ---
 

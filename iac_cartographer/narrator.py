@@ -182,10 +182,10 @@ def _enforce_resource_type_grounding(narrative: BedrockNarrative, summary: Terra
 
 
 def placeholder_narrative() -> BedrockNarrative:
-    """Returned by the orchestrator when `--no-bedrock` is passed — used
+    """Returned by the orchestrator when `--no-llm` is passed — used
     for local development to skip LLM costs."""
     return BedrockNarrative(
-        purpose="(Bedrock summarization disabled for this run — placeholder narrative.)",
+        purpose="(LLM narration skipped for this run — placeholder narrative.)",
         key_resources_explained=[],
         environments=[],
         owning_team_guess=None,

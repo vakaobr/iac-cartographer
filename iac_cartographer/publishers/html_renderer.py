@@ -140,7 +140,7 @@ def render_child_html(
     body_parts.append("<h2>Purpose</h2>")
     if inv.narrative is None:
         body_parts.append(
-            '<p class="empty">Narrative summary unavailable for this run — Bedrock invocation '
+            '<p class="empty">Narrative summary unavailable for this run — the LLM invocation '
             "failed. Structural facts below are unaffected.</p>"
         )
     else:
@@ -260,7 +260,7 @@ def render_overview_html(
         '<a href="https://github.com/vakaobr/iac-cartographer">iac-cartographer</a>. '
         "Each row links to a deep-dive page; structural facts come from "
         "<code>terraform-docs</code> + an HCL parser, and the short purpose "
-        "summary is written by a Claude model.</p>"
+        "summary is written by an LLM.</p>"
     )
 
     body_parts.append("<h2>Inventory</h2>")

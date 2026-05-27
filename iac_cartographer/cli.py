@@ -1407,10 +1407,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="iac-cartographer",
         description=(
-            "Fleet-level documentation for your Terraform/IaC estate. "
-            "Discovers IaC repos across GitLab + GitHub, parses with terraform-docs, "
-            "narrates with a Claude model on AWS Bedrock, publishes to Confluence."
+            "Fleet-level documentation for your Terraform / IaC estate. "
+            "Discovers repos across GitLab / GitHub / Bitbucket / Gitea / a curated "
+            "file, parses them with terraform-docs, narrates each with a pluggable "
+            "LLM backend, and publishes to Confluence, Notion, a GitHub wiki, or "
+            "local Markdown / HTML / JSON."
         ),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"iac-cartographer {__version__}",
     )
     parser.add_argument(
         "--config",

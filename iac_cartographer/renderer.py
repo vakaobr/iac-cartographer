@@ -301,15 +301,14 @@ def _build_overview_intro() -> list[dict[str, Any]]:
         _paragraph(
             [
                 _text(
-                    "The pipeline discovers repositories via the GitLab and GitHub APIs, "
+                    "The pipeline discovers repositories across the configured VCS hosts, "
                     "extracts structural facts with "
                 ),
                 _link_marker("terraform-docs", "https://terraform-docs.io"),
                 _text(
-                    ", and asks a Claude model on AWS Bedrock to write the short purpose "
-                    "summary for each repository. Pages publish to this Confluence space "
-                    "directly from the pipeline; manual edits will be overwritten on the "
-                    "next run."
+                    ", and asks an LLM to write the short purpose summary for each "
+                    "repository. Pages publish to this Confluence space directly from "
+                    "the pipeline; manual edits will be overwritten on the next run."
                 ),
             ]
         ),
@@ -383,7 +382,7 @@ def build_child(
             _paragraph(
                 [
                     _text(
-                        "(Narrative summary unavailable for this run — Bedrock "
+                        "(Narrative summary unavailable for this run — the LLM "
                         "invocation failed. Structural facts below are unaffected.)",
                         marks=[{"type": "em"}],
                     )

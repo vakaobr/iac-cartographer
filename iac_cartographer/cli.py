@@ -8,8 +8,10 @@ Single mode: `iac-cartographer --once` runs the full discovery → extract → n
 Flags:
   * `--dry-run`     — load + discover + extract + narrate, but do NOT PUT to
                       Confluence and do NOT send Slack messages.
-  * `--no-bedrock`  — use a placeholder narrative instead of invoking Bedrock
-                      (debug; saves cost during repeated local iteration).
+  * `--no-llm`      — use a placeholder narrative instead of invoking the
+                      configured LLM backend (debug; saves cost during
+                      repeated local iteration). `--no-bedrock` is the
+                      deprecated pre-1.0 alias.
   * `--repos a,b,c` — restrict the run to a comma-separated list of repo
                       `full_name`s (used for partial reruns).
   * `--config`      — config source (`ssm://…` URI or filesystem path).
@@ -35,6 +37,7 @@ import os
 import re
 import sys
 import time
+import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -953,7 +956,7 @@ async def _process_repo(
     llm_config: LLMConfig,
     llm_backend: LLMBackend,
     *,
-    no_bedrock: bool,
+    no_llm: bool,
     semaphore: asyncio.Semaphore,
     gitea_token: str | None = None,
 ) -> tuple[RepoInventory | None, str | None, int, int]:
@@ -961,7 +964,7 @@ async def _process_repo(
 
     `error` is non-None when the per-repo pipeline failed; the orchestrator
     records it but doesn't abort. Token counts come from the LLM backend's
-    usage data (may be 0 when narration was skipped via `--no-bedrock` or
+    usage data (may be 0 when narration was skipped via `--no-llm` or
     when the backend doesn't supply usage counts).
     """
     path: Path | None = None
@@ -971,7 +974,7 @@ async def _process_repo(
         summary = await asyncio.to_thread(run_terraform_docs, path)
         readme, hcl_concat = await asyncio.to_thread(_read_repo_content, path)
 
-        if no_bedrock:
+        if no_llm:
             narrative = placeholder_narrative()
             tokens_in = 0
             tokens_out = 0
@@ -1035,11 +1038,21 @@ def run_once(args: argparse.Namespace) -> int:
 async def _run_once_async(args: argparse.Namespace) -> int:
     pipeline_url = os.environ.get("CI_JOB_URL") or os.environ.get("PIPELINE_URL")
     started = time.monotonic()
+    # `--no-bedrock` is the deprecated pre-1.0 spelling of `--no-llm`; honour
+    # both, warn if the old one was used.
+    if getattr(args, "no_bedrock", False):
+        warnings.warn(
+            "--no-bedrock is deprecated; use --no-llm (it skips narration for any "
+            "backend, not just Bedrock). The old flag still works for now.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    no_llm = getattr(args, "no_llm", False) or getattr(args, "no_bedrock", False)
     logger.info(
-        "iac-cartographer v%s starting (dry_run=%s, no_bedrock=%s, repos=%s, model=%s, config=%s)",
+        "iac-cartographer v%s starting (dry_run=%s, no_llm=%s, repos=%s, model=%s, config=%s)",
         __version__,
         args.dry_run,
-        args.no_bedrock,
+        no_llm,
         args.repos or "(all)",
         args.model or "(default)",
         args.config,
@@ -1141,7 +1154,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                     parent_id = config.confluence.parent_page_id
                     logger.info("preflight: using direct config.confluence.parent_page_id")
                 else:
-                    parent_id = secrets_provider.get_parameter(config.confluence.parent_page_id_ssm_path)
+                    parent_id = secrets_provider.get_parameter(config.confluence.parent_page_id_ref)
                 confluence_preflight = ConfluenceClient(config.confluence.site, secrets.confluence)
                 async with confluence_preflight.session() as preflight_session:
                     parent_page = await confluence_preflight.get_page(preflight_session, parent_id)
@@ -1155,7 +1168,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 logger.exception("preflight: confluence parent page unreachable")
                 await notifier.error(
                     f"iac-cartographer: preflight failed — Confluence parent page "
-                    f"({config.confluence.parent_page_id_ssm_path}) unreachable: {exc}"
+                    f"({config.confluence.parent_page_id_ref}) unreachable: {exc}"
                 )
                 return 2
             except Exception as exc:
@@ -1198,7 +1211,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 secrets.github.token if secrets.github else "",
                 config.llm,
                 llm_backend,
-                no_bedrock=args.no_bedrock,
+                no_llm=no_llm,
                 semaphore=semaphore,
                 gitea_token=secrets.gitea.token if secrets.gitea else None,
             )
@@ -1410,9 +1423,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--dry-run", action="store_true", help="Skip Confluence PUT + Slack send.")
     parser.add_argument(
-        "--no-bedrock",
+        "--no-llm",
+        dest="no_llm",
         action="store_true",
-        help="Use a placeholder narrative instead of invoking Bedrock (debug).",
+        help=(
+            "Skip the LLM narration step entirely — insert a placeholder narrative "
+            "instead of invoking the configured backend. Structural facts are "
+            "unaffected. Useful for debug / repeated local iteration without spend, "
+            "regardless of which LLM backend is configured."
+        ),
+    )
+    # Deprecated pre-1.0 alias for --no-llm (back when Bedrock was the only
+    # backend). Hidden from --help; folded into `no_llm` at dispatch time with
+    # a DeprecationWarning. Same dest so `args.no_llm` is True if either fired.
+    parser.add_argument(
+        "--no-bedrock",
+        dest="no_bedrock",
+        action="store_true",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--repos",

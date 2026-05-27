@@ -15,6 +15,7 @@ from iac_cartographer.models import (
     ConfluenceCredentials,
     GithubCredentials,
     GitlabCredentials,
+    LLMConfig,
     RepoInventory,
     RepoMetadata,
     ResourceExplanation,
@@ -173,7 +174,7 @@ def test_app_config_rejects_unknown_top_level_section() -> None:
 
 def test_sub_config_defaults() -> None:
     assert BedrockConfig().system_prompt_version == "v1"
-    assert ConfluenceConfig().parent_page_id_ssm_path == "/iac-cartographer/confluence-parent-id"
+    assert ConfluenceConfig().parent_page_id_ref == "/iac-cartographer/confluence-parent-id"
     assert SlackConfig().channel == "#alerts"
 
 
@@ -241,3 +242,32 @@ def test_bedrock_narrative_accepts_url_free_text() -> None:
         notable_patterns=["uses workspaces", "manages 3 RDS instances"],
     )
     assert n.notable_patterns == ["uses workspaces", "manages 3 RDS instances"]
+
+
+# ─── 1.0 API-freeze: renames + aliases + type fixes ──────────────────────
+
+
+def test_confluence_parent_page_id_ref_is_canonical() -> None:
+    """Canonical 1.0 key is parent_page_id_ref; no warning."""
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cfg = ConfluenceConfig.model_validate({"parent_page_id_ref": "/custom/path"})
+    assert cfg.parent_page_id_ref == "/custom/path"
+
+
+def test_confluence_deprecated_ssm_path_key_still_works_with_warning() -> None:
+    """The pre-1.0 parent_page_id_ssm_path key validates via AliasChoices
+    but emits a DeprecationWarning."""
+    with pytest.warns(DeprecationWarning, match=r"parent_page_id_ssm_path` is deprecated"):
+        cfg = ConfluenceConfig.model_validate({"parent_page_id_ssm_path": "/legacy/path"})
+    assert cfg.parent_page_id_ref == "/legacy/path"
+
+
+def test_llm_optional_string_fields_default_to_none() -> None:
+    """vertex_project_id + azure_openai_endpoint use the str|None=None
+    sentinel (matches the documented type + openai_organization convention)."""
+    cfg = LLMConfig()
+    assert cfg.vertex_project_id is None
+    assert cfg.azure_openai_endpoint is None

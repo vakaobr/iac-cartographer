@@ -23,6 +23,7 @@ without dragging in adapter-specific concepts.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -110,6 +111,14 @@ def build_dispatcher(
         # Legacy single-Slack shape — operator didn't migrate to the
         # `notifications:` list but the `slack:` block + secret are
         # present. Translate to a single SlackChannel at all levels.
+        warnings.warn(
+            "the legacy `slack:` block (with an empty `notifications:` list) is "
+            "deprecated; migrate to an explicit `notifications:` list with a "
+            "`kind: slack` entry. The legacy path still works for now and will be "
+            "removed in 2.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         channels.append(
             (
                 SlackChannel(secrets.slack, channel=config.slack.channel),

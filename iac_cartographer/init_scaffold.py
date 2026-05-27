@@ -233,10 +233,11 @@ def _render_publisher_section(kind: PublisherKind) -> str:
             "confluence:\n"
             '  site: "REPLACE_ME-your-org.atlassian.net"\n'
             '  space_key: "REPLACE_ME-DOCS"\n'
-            "  # Set parent_page_id directly OR leave it null and use the SSM\n"
-            "  # path below (only meaningful for the `aws` secrets backend).\n"
+            "  # Set parent_page_id directly OR leave it null and use the\n"
+            "  # parameter ref below (resolved via the active secrets backend:\n"
+            "  # SSM path / env var / Vault path).\n"
             '  parent_page_id: "REPLACE_ME-123456789"\n'
-            '  # parent_page_id_ssm_path: "/iac-cartographer/confluence-parent-id"\n'
+            '  # parent_page_id_ref: "/iac-cartographer/confluence-parent-id"\n'
         )
     if kind == "markdown":
         return (

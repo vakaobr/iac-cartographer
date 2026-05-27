@@ -287,10 +287,12 @@ NotificationConfig = (
 
 class SlackCredentials(_Strict):
     bot_token: str
-    # The channel always comes from `SlackConfig.channel` (SSM-backed); this
-    # field is retained for back-compat with older secret payloads but is no
-    # longer required. The SlackNotifier ignores it when the orchestrator
-    # passes `channel=config.slack.channel` (it always does).
+    # Fallback channel, used by `SlackChannel` when no explicit `channel` is
+    # passed at construction — i.e. a `notifications[].kind: slack` entry that
+    # omits `channel`, or the legacy `slack:` block without a channel set.
+    # The legacy single-Slack path always passes `config.slack.channel`, so
+    # this only bites the modern-list-without-channel case; keep it as the
+    # safety net for that path.
     channel_id: str | None = None
 
 

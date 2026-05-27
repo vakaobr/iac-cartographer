@@ -26,10 +26,11 @@ producing a silent partial-publish.
 
 from __future__ import annotations
 
+import warnings
 from datetime import datetime  # noqa: TC003 — Pydantic resolves field types at validation time
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Strict(BaseModel):
@@ -257,10 +258,25 @@ from iac_cartographer.secrets.config import SecretsConfig  # noqa: E402
 
 
 class AppConfig(_Strict):
-    # `populate_by_name=True` lets the YAML key stay `json:` while the
-    # Python attribute is renamed to `json_output` (avoiding the
-    # shadow-warning on Pydantic's deprecated `.json()` method).
+    # `populate_by_name=True` lets the canonical YAML key be `json_output:`
+    # while still accepting the deprecated `json:` alias (see the
+    # `json_output` field's AliasChoices + the deprecation validator below).
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _warn_deprecated_keys(cls, data: object) -> object:
+        """Emit DeprecationWarning for pre-1.0 YAML keys that have been
+        renamed but still validate via an alias. Keeps old configs working
+        while nudging operators to the 1.0 names."""
+        if isinstance(data, dict) and "json" in data and "json_output" not in data:
+            warnings.warn(
+                "config key `json:` is deprecated; rename it to `json_output:` "
+                "(the old key still works for now and will be removed in 2.0)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return data
 
     discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
     # The YAML section is named `llm:`. The previous internal name was
@@ -280,9 +296,14 @@ class AppConfig(_Strict):
     confluence: ConfluenceConfig = Field(default_factory=ConfluenceConfig)
     markdown: MarkdownConfig = Field(default_factory=MarkdownConfig)
     html: HtmlConfig = Field(default_factory=HtmlConfig)
-    # YAML key is `json:` — Python attribute is `json_output` to avoid
-    # shadowing Pydantic v2's deprecated `BaseModel.json()` shim.
-    json_output: JsonConfig = Field(default_factory=JsonConfig, alias="json")
+    # Canonical YAML key is `json_output:` (the Python attribute is also
+    # `json_output`, to avoid shadowing Pydantic v2's deprecated
+    # `BaseModel.json()` shim). The pre-1.0 `json:` key still validates via
+    # AliasChoices but is deprecated — see `_warn_deprecated_keys` above.
+    json_output: JsonConfig = Field(
+        default_factory=JsonConfig,
+        validation_alias=AliasChoices("json_output", "json"),
+    )
     notion: NotionConfig = Field(default_factory=NotionConfig)
     github_wiki: GitHubWikiConfig = Field(default_factory=GitHubWikiConfig)
     slack: SlackConfig = Field(default_factory=SlackConfig)

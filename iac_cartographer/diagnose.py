@@ -711,7 +711,7 @@ def check_publisher_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
         parent_id = config.confluence.parent_page_id
         if not parent_id:
             provider = build_provider(config.secrets)
-            parent_id = provider.get_parameter(config.confluence.parent_page_id_ssm_path)
+            parent_id = provider.get_parameter(config.confluence.parent_page_id_ref)
         client = ConfluenceClient(config.confluence.site, secrets.confluence)
 
         async def _probe() -> str:

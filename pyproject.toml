@@ -169,8 +169,11 @@ ignore = [
     "S101",   # asserts allowed
     "S105",   # hardcoded password string in fixtures
     "S106",   # hardcoded password argument in fixtures
+    "S108",   # hardcoded /tmp paths in fixtures (test config scaffolding, not real I/O)
     "T20",    # print() allowed in test scaffolding
     "PLR2004",# magic numbers OK in tests
+    "TC002",  # pytest / typing imports used only in annotations — TYPE_CHECKING blocks add noise in tests
+    "TC003",  # same for stdlib (Path) annotation-only imports in tests
 ]
 "iac_cartographer/constants.py" = [
     "N818",   # exception class names without -Error suffix read better in tracebacks (e.g. `BedrockError: ...` vs `BedrockErrorError`)

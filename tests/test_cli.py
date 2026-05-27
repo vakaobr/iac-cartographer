@@ -6,7 +6,7 @@ from __future__ import annotations
 import io
 import json
 import logging
-from pathlib import Path  # noqa: TC003 — pytest resolves fixture type annotations at runtime
+from pathlib import Path
 
 import boto3
 import pytest

@@ -1,0 +1,2427 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Fleet-level documentation for your Terraform / IaC estate.">
+      
+      
+      
+        <link rel="canonical" href="https://iac-cartographer.andersonleite.me/0.1.10/reference/configuration/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../security/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Configuration schema - iac-cartographer</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#configuration-schema" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="iac-cartographer" class="md-header__button md-logo" aria-label="iac-cartographer" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            iac-cartographer
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Configuration schema
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/vakaobr/iac-cartographer" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vakaobr/iac-cartographer
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="iac-cartographer" class="md-nav__button md-logo" aria-label="iac-cartographer" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    iac-cartographer
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/vakaobr/iac-cartographer" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vakaobr/iac-cartographer
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../backends/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backends
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Backends
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Discovery sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/llm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/publishers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/secrets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secrets providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running on a schedule
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/diagnose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pre-flight self-test (--diagnose)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/diff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Between-run diff (--diff)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/lint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lint mode (--lint)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cutting a release
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability (logs + metrics)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/docs-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs deployment (versioned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../examples/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/docker-compose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docker-compose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/kubernetes-helm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm chart)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/kubernetes-manifest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (raw manifest)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Actions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/cron/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cron / systemd-timer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration schema
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#top-level-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top-level shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deprecations-pre-10-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecations (pre-1.0 → 1.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        discovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        llm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="llm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend-specific-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend-specific fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-dependency-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional dependency groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#publisher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        publisher
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#confluence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        confluence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        notion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#github_wiki" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        github_wiki
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#markdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        markdown
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        html
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json_output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        json_output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slack-legacy-single-channel-deprecated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        slack (legacy single-channel — deprecated)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notifications-multi-channel-preferred" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        notifications (multi-channel — preferred)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#top-level-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top-level shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deprecations-pre-10-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deprecations (pre-1.0 → 1.0)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        discovery
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        secrets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        llm
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="llm">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend-specific-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend-specific fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-dependency-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional dependency groups
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#publisher" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        publisher
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#confluence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        confluence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        notion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#github_wiki" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        github_wiki
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#markdown" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        markdown
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#html" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        html
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json_output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        json_output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slack-legacy-single-channel-deprecated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        slack (legacy single-channel — deprecated)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notifications-multi-channel-preferred" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        notifications (multi-channel — preferred)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/vakaobr/iac-cartographer/edit/main/docs/reference/configuration.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="configuration-schema">Configuration schema<a class="headerlink" href="#configuration-schema" title="Permanent link">&para;</a></h1>
+<p>Every field, what it means, what it defaults to. The canonical schema
+lives in <a href="https://github.com/vakaobr/iac-cartographer/blob/main/iac_cartographer/models.py"><code>iac_cartographer/models.py</code></a>;
+this page tracks it.</p>
+<p>For a working example with every field commented, see
+<a href="https://github.com/vakaobr/iac-cartographer/blob/main/examples/config.example.yaml"><code>examples/config.example.yaml</code></a>.</p>
+<h2 id="top-level-shape">Top-level shape<a class="headerlink" href="#top-level-shape" title="Permanent link">&para;</a></h2>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">discovery</span><span class="p">:</span><span class="w">     </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># where to find repos</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">secrets</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># where credentials + opaque parameters come from</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nt">llm</span><span class="p">:</span><span class="w">           </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># which LLM provider narrates</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">publisher</span><span class="p">:</span><span class="w">     </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># which publisher writes the output</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nt">confluence</span><span class="p">:</span><span class="w">    </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;confluence&quot; specifics</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="nt">notion</span><span class="p">:</span><span class="w">        </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;notion&quot; specifics</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nt">github_wiki</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;github_wiki&quot; specifics</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nt">markdown</span><span class="p">:</span><span class="w">      </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;markdown&quot; specifics</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nt">html</span><span class="p">:</span><span class="w">          </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;html&quot; specifics</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="nt">json_output</span><span class="p">:</span><span class="w">   </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># publisher.kind == &quot;json&quot; specifics (pre-1.0 key: `json:`, deprecated)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nt">slack</span><span class="p">:</span><span class="w">         </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># legacy single-Slack notification config (deprecated — prefer notifications:)</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nt">notifications</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">...</span><span class="p p-Indicator">]</span><span class="w">   </span><span class="c1"># modern multi-channel notification list (preferred)</span>
+</span></code></pre></div>
+<p>All sections are optional — every field has a default. The minimal
+valid config is <code>{}</code> (assuming you also export the right secrets and
+have an LLM backend reachable).</p>
+<h2 id="deprecations-pre-10-10">Deprecations (pre-1.0 → 1.0)<a class="headerlink" href="#deprecations-pre-10-10" title="Permanent link">&para;</a></h2>
+<p>These pre-1.0 names still work but emit a <code>DeprecationWarning</code> and will
+be <strong>removed in 2.0</strong>. Rename them now; each old form is accepted via an
+alias so the migration is non-breaking.</p>
+<table>
+<thead>
+<tr>
+<th>Deprecated</th>
+<th>Replace with</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>json:</code> (YAML key)</td>
+<td><code>json_output:</code></td>
+<td>top-level config section</td>
+</tr>
+<tr>
+<td><code>confluence.parent_page_id_ssm_path</code></td>
+<td><code>confluence.parent_page_id_ref</code></td>
+<td><code>confluence</code> section</td>
+</tr>
+<tr>
+<td>legacy <code>slack:</code> block + empty <code>notifications:</code></td>
+<td>a <code>notifications:</code> list with a <code>kind: slack</code> entry</td>
+<td>notifications</td>
+</tr>
+<tr>
+<td><code>--no-bedrock</code> (CLI flag)</td>
+<td><code>--no-llm</code></td>
+<td>command line</td>
+</tr>
+</tbody>
+</table>
+<h2 id="discovery"><code>discovery</code><a class="headerlink" href="#discovery" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gitlab_group_ids</code></td>
+<td><code>list[int]</code></td>
+<td><code>[]</code></td>
+<td>GitLab group IDs (numeric). Subgroups are scanned automatically. Empty = skip GitLab.</td>
+</tr>
+<tr>
+<td><code>gitlab_base_url</code></td>
+<td><code>str</code></td>
+<td><code>"https://gitlab.com"</code></td>
+<td>Override for self-hosted GitLab. Don't include <code>/api/v4</code> — the source adds it.</td>
+</tr>
+<tr>
+<td><code>github_orgs</code></td>
+<td><code>list[str]</code></td>
+<td><code>[]</code></td>
+<td>GitHub organisation slugs. Empty = skip GitHub.</td>
+</tr>
+<tr>
+<td><code>github_base_url</code></td>
+<td><code>str</code></td>
+<td><code>"https://api.github.com"</code></td>
+<td>GitHub REST API base. Override for self-hosted GitHub Enterprise Server (include the <code>/api/v3</code> suffix; it is NOT auto-added). Public GitHub + GitHub Enterprise Cloud use the default.</td>
+</tr>
+<tr>
+<td><code>bitbucket_workspaces</code></td>
+<td><code>list[str]</code></td>
+<td><code>[]</code></td>
+<td>Bitbucket Cloud workspace slugs. Empty = skip Bitbucket.</td>
+</tr>
+<tr>
+<td><code>gitea_orgs</code></td>
+<td><code>list[str]</code></td>
+<td><code>[]</code></td>
+<td>Gitea / Forgejo organisation names. Empty = skip Gitea.</td>
+</tr>
+<tr>
+<td><code>gitea_base_url</code></td>
+<td><code>str</code></td>
+<td><code>""</code></td>
+<td>Required when <code>gitea_orgs</code> is non-empty — every Gitea / Forgejo deployment is self-hosted, no default.</td>
+</tr>
+<tr>
+<td><code>repos_file</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Path to a curated YAML/JSON list of <code>RepoMetadata</code> records.</td>
+</tr>
+<tr>
+<td><code>deny_repos</code></td>
+<td><code>list[str]</code></td>
+<td><code>[]</code></td>
+<td>Glob patterns (fnmatch) matched against <code>full_name</code>. Applied to the merged-and-deduped result.</td>
+</tr>
+<tr>
+<td><code>owner_overrides</code></td>
+<td><code>dict[str, str]</code></td>
+<td><code>{}</code></td>
+<td><code>full_name → team</code> overrides for the owning-team guess when the LLM's guess is wrong.</td>
+</tr>
+</tbody>
+</table>
+<p>At least one source must be configured (one of <code>gitlab_group_ids</code>,
+<code>github_orgs</code>, <code>bitbucket_workspaces</code>, <code>gitea_orgs</code>, <code>repos_file</code>
+must be non-empty / set). The orchestrator fails loud if all five
+are empty.</p>
+<h2 id="secrets"><code>secrets</code><a class="headerlink" href="#secrets" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend</code></td>
+<td><code>"aws" \| "env" \| "vault"</code></td>
+<td><code>"aws"</code></td>
+<td>Picks the <code>SecretsProvider</code>.</td>
+</tr>
+<tr>
+<td><code>aws_region</code></td>
+<td><code>str</code></td>
+<td><code>"eu-central-1"</code></td>
+<td>boto3 region for Secrets Manager + SSM. AWS-only.</td>
+</tr>
+<tr>
+<td><code>env_dotenv_path</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Path to a <code>.env</code> file to autoload before reading env vars. env-only.</td>
+</tr>
+<tr>
+<td><code>vault_addr</code></td>
+<td><code>str</code></td>
+<td><code>""</code></td>
+<td>Vault server URL. Required when <code>backend == "vault"</code>.</td>
+</tr>
+<tr>
+<td><code>vault_mount</code></td>
+<td><code>str</code></td>
+<td><code>"secret"</code></td>
+<td>KV v2 mount path. Vault-only.</td>
+</tr>
+<tr>
+<td><code>vault_path_prefix</code></td>
+<td><code>str</code></td>
+<td><code>"iac-cartographer/"</code></td>
+<td>Logical prefix under the mount. Vault-only.</td>
+</tr>
+<tr>
+<td><code>vault_namespace</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Vault Enterprise namespace header. Vault-only.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="llm"><code>llm</code><a class="headerlink" href="#llm" title="Permanent link">&para;</a></h2>
+<p><code>backend</code> picks the LLM; the rest of the fields are interpreted in
+that backend's namespace. Six backends ship today.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend</code></td>
+<td><code>"bedrock" \| "anthropic" \| "vertex" \| "azure_openai" \| "openai" \| "ollama"</code></td>
+<td><code>"bedrock"</code></td>
+<td>Picks the <code>LLMBackend</code>.</td>
+</tr>
+<tr>
+<td><code>model_id</code></td>
+<td><code>str</code></td>
+<td><code>"eu.anthropic.claude-sonnet-4-5-20250929-v1:0"</code></td>
+<td>Backend-specific. Bedrock: inference-profile ID. Anthropic / Vertex / OpenAI / Ollama: model name. Ignored for <code>azure_openai</code> (uses <code>azure_openai_deployment</code> instead).</td>
+</tr>
+<tr>
+<td><code>max_tokens</code></td>
+<td><code>int</code></td>
+<td><code>4096</code></td>
+<td>Max output tokens per invocation.</td>
+</tr>
+<tr>
+<td><code>system_prompt_version</code></td>
+<td><code>str</code></td>
+<td><code>"v1"</code></td>
+<td>Bump to force-republish every page on the next run (invalidates banner-SHA).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="backend-specific-fields">Backend-specific fields<a class="headerlink" href="#backend-specific-fields" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Applies to</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bedrock_region</code></td>
+<td><code>str</code></td>
+<td><code>"eu-central-1"</code></td>
+<td><code>bedrock</code></td>
+<td>AWS region.</td>
+</tr>
+<tr>
+<td><code>anthropic_base_url</code></td>
+<td><code>str</code></td>
+<td><code>"https://api.anthropic.com"</code></td>
+<td><code>anthropic</code></td>
+<td>API base — override for an internal proxy.</td>
+</tr>
+<tr>
+<td><code>vertex_project_id</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td><code>vertex</code></td>
+<td>GCP project hosting the Claude endpoint. Required.</td>
+</tr>
+<tr>
+<td><code>vertex_region</code></td>
+<td><code>str</code></td>
+<td><code>"europe-west1"</code></td>
+<td><code>vertex</code></td>
+<td>Vertex region. Must support the chosen Claude variant.</td>
+</tr>
+<tr>
+<td><code>azure_openai_endpoint</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td><code>azure_openai</code></td>
+<td>Azure OpenAI resource endpoint URL. Required.</td>
+</tr>
+<tr>
+<td><code>azure_openai_deployment</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td><code>azure_openai</code></td>
+<td>Deployment NAME from the Studio. Required (replaces <code>model_id</code>).</td>
+</tr>
+<tr>
+<td><code>azure_openai_api_version</code></td>
+<td><code>str</code></td>
+<td><code>"2024-10-21"</code></td>
+<td><code>azure_openai</code></td>
+<td>Azure REST API version. Bump as new versions ship.</td>
+</tr>
+<tr>
+<td><code>azure_openai_use_aad</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td><code>azure_openai</code></td>
+<td>Skip the secret; authenticate via Azure AD / managed identity.</td>
+</tr>
+<tr>
+<td><code>openai_base_url</code></td>
+<td><code>str</code></td>
+<td><code>"https://api.openai.com/v1"</code></td>
+<td><code>openai</code></td>
+<td>API base — override for OpenAI-compatible gateways (LiteLLM, vLLM, …).</td>
+</tr>
+<tr>
+<td><code>openai_organization</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td><code>openai</code></td>
+<td>Org ID for multi-org accounts.</td>
+</tr>
+<tr>
+<td><code>ollama_base_url</code></td>
+<td><code>str</code></td>
+<td><code>"http://localhost:11434"</code></td>
+<td><code>ollama</code></td>
+<td>Ollama server URL.</td>
+</tr>
+<tr>
+<td><code>ollama_timeout_seconds</code></td>
+<td><code>float</code></td>
+<td><code>300.0</code></td>
+<td><code>ollama</code></td>
+<td>HTTP timeout — local CPU inference is slow on cold starts.</td>
+</tr>
+<tr>
+<td><code>ollama_extra_headers</code></td>
+<td><code>dict[str, str]</code></td>
+<td><code>{}</code></td>
+<td><code>ollama</code></td>
+<td>Headers attached to every request (for reverse-proxy auth).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="optional-dependency-groups">Optional dependency groups<a class="headerlink" href="#optional-dependency-groups" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Install</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bedrock</code></td>
+<td>(base install — <code>boto3</code> is already pinned)</td>
+</tr>
+<tr>
+<td><code>anthropic</code></td>
+<td>(base install — <code>anthropic</code> SDK is already pinned)</td>
+</tr>
+<tr>
+<td><code>vertex</code></td>
+<td><code>pip install iac-cartographer[gcp]</code></td>
+</tr>
+<tr>
+<td><code>azure_openai</code></td>
+<td><code>pip install iac-cartographer[azure]</code></td>
+</tr>
+<tr>
+<td><code>openai</code></td>
+<td><code>pip install iac-cartographer[openai]</code></td>
+</tr>
+<tr>
+<td><code>ollama</code></td>
+<td>(base install — uses raw <code>httpx</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="publisher"><code>publisher</code><a class="headerlink" href="#publisher" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>"confluence" \| "notion" \| "github_wiki" \| "markdown" \| "html" \| "json"</code></td>
+<td><code>"confluence"</code></td>
+<td>Picks the <code>Publisher</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="confluence"><code>confluence</code><a class="headerlink" href="#confluence" title="Permanent link">&para;</a></h2>
+<p>Only honoured when <code>publisher.kind == "confluence"</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>site</code></td>
+<td><code>str</code></td>
+<td><code>"your-org.atlassian.net"</code></td>
+<td>Atlassian Cloud site (no protocol, no trailing slash).</td>
+</tr>
+<tr>
+<td><code>space_key</code></td>
+<td><code>str</code></td>
+<td><code>"DOCS"</code></td>
+<td>Confluence space key (the parent page must already exist there).</td>
+</tr>
+<tr>
+<td><code>parent_page_id_ref</code></td>
+<td><code>str</code></td>
+<td><code>"/iac-cartographer/confluence-parent-id"</code></td>
+<td>Logical name of the parameter holding the parent page's numeric ID. Resolved via the active <code>SecretsProvider.get_parameter()</code> (AWS SSM path / env var / Vault path — backend-agnostic). The pre-1.0 name <code>parent_page_id_ssm_path</code> still works (deprecated; emits a warning) and will be removed in 2.0.</td>
+</tr>
+<tr>
+<td><code>parent_page_id</code></td>
+<td><code>str \| None</code></td>
+<td><code>None</code></td>
+<td>Direct override. When set, the parameter-store lookup is skipped entirely.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="notion"><code>notion</code><a class="headerlink" href="#notion" title="Permanent link">&para;</a></h2>
+<p>Only honoured when <code>publisher.kind == "notion"</code>. Requires
+<code>pip install iac-cartographer[notion]</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>parent_page_id</code></td>
+<td><code>str</code></td>
+<td><code>""</code></td>
+<td>UUID of the parent Notion page. Operator pre-creates it and shares with the integration via the Connections menu. Required when active.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="github_wiki"><code>github_wiki</code><a class="headerlink" href="#github_wiki" title="Permanent link">&para;</a></h2>
+<p>Only honoured when <code>publisher.kind == "github_wiki"</code>. Reuses the
+existing <code>iac-cartographer/github</code> secret (no extra credential).
+The wiki must already exist — visit <code>/wiki</code> and create one page
+to bootstrap <code>&lt;owner&gt;/&lt;repo&gt;.wiki.git</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>owner</code></td>
+<td><code>str</code></td>
+<td><code>""</code></td>
+<td>GitHub repo owner (org or user). Required when active.</td>
+</tr>
+<tr>
+<td><code>repo</code></td>
+<td><code>str</code></td>
+<td><code>""</code></td>
+<td>GitHub repo name (without the <code>.wiki</code> suffix). Required when active.</td>
+</tr>
+<tr>
+<td><code>commit_author_name</code></td>
+<td><code>str</code></td>
+<td><code>"iac-cartographer"</code></td>
+<td>Author identity baked into each commit. Override for service-account deployments.</td>
+</tr>
+<tr>
+<td><code>commit_author_email</code></td>
+<td><code>str</code></td>
+<td><code>"iac-cartographer@noreply"</code></td>
+<td>Author email.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="markdown"><code>markdown</code><a class="headerlink" href="#markdown" title="Permanent link">&para;</a></h2>
+<p>Only honoured when <code>publisher.kind == "markdown"</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>output_dir</code></td>
+<td><code>str</code></td>
+<td><code>"./iac-inventory"</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="html"><code>html</code><a class="headerlink" href="#html" title="Permanent link">&para;</a></h2>
+<p>Only honoured when <code>publisher.kind == "html"</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>output_dir</code></td>
+<td><code>str</code></td>
+<td><code>"./iac-inventory-html"</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="json_output"><code>json_output</code><a class="headerlink" href="#json_output" title="Permanent link">&para;</a></h2>
+<p>Only honoured when <code>publisher.kind == "json"</code>. The canonical YAML key is
+<code>json_output:</code> (also the Python attribute on <code>AppConfig</code>). The pre-1.0
+key <code>json:</code> still works (deprecated; emits a warning) and will be
+removed in 2.0 — it was renamed because the bare <code>json</code> key collided
+awkwardly with the publisher-format concept and forced an alias hack.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>output_dir</code></td>
+<td><code>str</code></td>
+<td><code>"./iac-inventory-json"</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="slack-legacy-single-channel-deprecated"><code>slack</code> (legacy single-channel — deprecated)<a class="headerlink" href="#slack-legacy-single-channel-deprecated" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td><code>str</code></td>
+<td><code>"#alerts"</code></td>
+</tr>
+</tbody>
+</table>
+<p>When <code>notifications:</code> is empty (default), the dispatcher uses this
+block + the <code>iac-cartographer/slack</code> secret as the sole destination
+at all three severities. Existing single-Slack deployments keep
+working — but this path is <strong>deprecated</strong> as of the 1.0 track and
+emits a <code>DeprecationWarning</code>; it will be removed in 2.0. Migrate to an
+explicit <code>notifications:</code> list with a <code>kind: slack</code> entry:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span><span class="w">   </span><span class="c1"># same channel, now explicit</span>
+</span></code></pre></div>
+<h2 id="notifications-multi-channel-preferred"><code>notifications</code> (multi-channel — preferred)<a class="headerlink" href="#notifications-multi-channel-preferred" title="Permanent link">&para;</a></h2>
+<p>A list of channel entries. Each entry has a <code>kind</code> discriminator
+and channel-specific config; every entry carries an optional
+<code>levels:</code> filter (default: all three severities).</p>
+<table>
+<thead>
+<tr>
+<th>Channel <code>kind</code></th>
+<th>Credentials needed</th>
+<th>Extra config</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slack</code></td>
+<td><code>iac-cartographer/slack</code> bot token</td>
+<td><code>channel: str \| None</code> <em>(falls back to top-level <code>slack.channel</code>)</em></td>
+</tr>
+<tr>
+<td><code>slack_webhook</code></td>
+<td><code>iac-cartographer/slack_webhook</code> URL</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>webhook</code></td>
+<td><code>iac-cartographer/webhook</code> URL</td>
+<td><code>extra_headers: dict[str, str]</code></td>
+</tr>
+<tr>
+<td><code>teams</code></td>
+<td><code>iac-cartographer/teams</code> URL</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td><code>iac-cartographer/email</code> <code>{username, password}</code></td>
+<td><code>smtp_host</code>, <code>smtp_port</code> <em>(default 587)</em>, <code>from_address</code>, <code>to_addresses: list[str]</code>, <code>use_tls</code> <em>(default true)</em>, <code>subject_prefix</code> <em>(default <code>"[iac-cartographer]"</code>)</em>. Requires <code>pip install iac-cartographer[email]</code>.</td>
+</tr>
+<tr>
+<td><code>sns</code></td>
+<td>none — uses the AWS credential chain</td>
+<td><code>topic_arn</code>, <code>region: str \| None</code></td>
+</tr>
+<tr>
+<td><code>pagerduty</code></td>
+<td><code>iac-cartographer/pagerduty</code> <code>{routing_key}</code></td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>opsgenie</code></td>
+<td><code>iac-cartographer/opsgenie</code> <code>{api_key}</code></td>
+<td><code>region: "us" \| "eu"</code> <em>(default <code>"us"</code>)</em></td>
+</tr>
+<tr>
+<td><code>discord</code></td>
+<td><code>iac-cartographer/discord</code> URL</td>
+<td><code>username: str \| None</code>, <code>avatar_url: str \| None</code></td>
+</tr>
+<tr>
+<td><code>stdout</code></td>
+<td>none</td>
+<td><code>stream: "stdout" \| "stderr"</code> <em>(default <code>"stdout"</code>)</em></td>
+</tr>
+</tbody>
+</table>
+<p>Example with three channels:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#infra-info&quot;</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="c1"># levels defaults to [info, warn, error]</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">teams</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                    </span><span class="c1"># pager-style escalation</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">stream</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stderr</span><span class="w">                     </span><span class="c1"># CI log capture</span>
+</span></code></pre></div>
+<p>Dispatcher behaviour:</p>
+<ul>
+<li><strong>Concurrent fanout</strong> — every channel runs in parallel via
+  <code>asyncio.gather(..., return_exceptions=True)</code>. A slow webhook doesn't
+  block a fast Slack post.</li>
+<li><strong>Per-level filter</strong> — applied before each channel's <code>notify()</code>
+  runs.</li>
+<li><strong>Per-channel failure isolation</strong> — a raising channel is logged with
+  its name and the run continues. One broken destination doesn't
+  sink the pipeline.</li>
+<li><strong>Empty list + no Slack secret</strong> → silent dispatcher; safe for CI
+  / air-gapped / <code>--dry-run</code> runs.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/vakaobr/iac-cartographer" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/iac-cartographer/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.indexes", "navigation.top", "search.highlight", "search.suggest", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike", "warning": true}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

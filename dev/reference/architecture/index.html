@@ -1509,9 +1509,18 @@ publisher, secrets, and notifications.</p>
 </ol>
 <h2 id="load-bearing-patterns">Load-bearing patterns<a class="headerlink" href="#load-bearing-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="pydantic-v2-strict-mode">Pydantic v2 strict mode<a class="headerlink" href="#pydantic-v2-strict-mode" title="Permanent link">&para;</a></h3>
-<p>Every model in <code>models.py</code> extends <code>_Strict</code> (<code>extra="forbid"</code>). Schema
-drift in upstream responses (terraform-docs, Confluence v2, GitLab,
-Bedrock) produces a loud validation error, not a silent partial parse.
+<p>Every Pydantic model extends <code>_Strict</code> (<code>extra="forbid"</code>, defined in
+<code>models.py</code>). Schema drift in upstream responses (terraform-docs,
+Confluence v2, GitLab, Bedrock) produces a loud validation error, not a
+silent partial parse.</p>
+<p><code>models.py</code> holds only the shared/cross-cutting domain models
+(<code>RepoMetadata</code>, <code>TerraformSummary</code>, <code>BedrockNarrative</code>, <code>RepoInventory</code>,
+<code>RunOutcome</code>) plus the <code>AppConfig</code> aggregator. Each subsystem's own config
++ credential models live in a <code>config.py</code> beside that subsystem
+(<code>discovery/config.py</code>, <code>publishers/config.py</code>, <code>secrets/config.py</code>,
+<code>notifications/config.py</code>; the single-module <code>llm</code> uses a sibling
+<code>llm_config.py</code>). <code>models.py</code> re-exports every moved symbol so
+<code>from iac_cartographer.models import X</code> keeps working everywhere.
 The pipeline's per-repo failure isolation means one schema-drift
 casualty doesn't sink the run.</p>
 <h3 id="banner-sha-idempotency">Banner-SHA idempotency<a class="headerlink" href="#banner-sha-idempotency" title="Permanent link">&para;</a></h3>
@@ -1629,8 +1638,9 @@ pipeline doesn't know which implementation is active.</p>
 </tbody>
 </table>
 <p>Adding a new implementation means subclassing the ABC, adding a
-literal to the discriminator in <code>models.py</code>, and adding a branch to the
-factory. Every other module stays untouched.</p>
+literal to the discriminator in that subsystem's <code>config.py</code> (e.g.
+<code>publishers/config.py</code>; the <code>llm</code> module uses <code>llm_config.py</code>), and
+adding a branch to the factory. Every other module stays untouched.</p>
 <h3 id="defense-against-prompt-injection">Defense against prompt injection<a class="headerlink" href="#defense-against-prompt-injection" title="Permanent link">&para;</a></h3>
 <p>Repo content is fundamentally untrusted. Defense lives in three layers:</p>
 <ol>
@@ -1650,53 +1660,58 @@ signal.</p>
 <h2 id="module-map">Module map<a class="headerlink" href="#module-map" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>iac_cartographer/
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── cli.py                    # orchestrator + argparse + --init dispatcher
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── models.py                 # every Pydantic model + Strict base
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── models.py                 # shared domain models + Strict base + AppConfig aggregator (re-exports subsystem configs)
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── aws.py                    # boto3 wrappers (Secrets Manager, SSM, Bedrock, CloudWatch)
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── confluence.py             # Confluence v2 client (ADF body, banner-SHA)
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── fetcher.py                # shallow git clone with per-host auth dispatch
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── extractor.py              # terraform-docs + HCL `required_providers` parser
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── llm.py                    # LLMBackend ABC + 6 implementations (Bedrock, Anthropic, Vertex, Azure OpenAI, OpenAI, Ollama)
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── narrator.py               # prompt assembly, schema validation, retry, AI-H1 scan
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── renderer.py               # shared rendering helpers (banner, provider inference)
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── init_scaffold.py          # `iac-cartographer --init`
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── discovery/                # DiscoverySource ABC + 5 implementations
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   ├── base.py
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   ├── gitlab.py
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   ├── github.py
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── bitbucket.py
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── gitea.py              # covers Forgejo too (API-compatible)
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   ├── file.py
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   └── orchestrator.py       # discover_from_sources()
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>├── publishers/               # Publisher ABC + 6 implementations
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│   ├── base.py
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── confluence.py
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   ├── notion.py + notion_renderer.py
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   ├── github_wiki.py        # git-based; reuses the markdown renderer
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   ├── markdown.py + markdown_renderer.py
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   ├── html.py + html_renderer.py
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│   └── json_publisher.py + json_renderer.py
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>├── secrets/                  # SecretsProvider ABC + 3 implementations
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│   ├── base.py
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│   ├── aws.py
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│   ├── env.py
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>│   └── vault.py
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>│
-</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>└── notifications/            # NotificationChannel ABC + 10 channels + dispatcher
-</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    ├── base.py
-</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>    ├── dispatcher.py         # multi-channel fanout + per-level filter + error isolation
-</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>    ├── slack.py              # bot-token `chat.postMessage`
-</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>    ├── slack_webhook.py      # Slack incoming / RocketChat / Mattermost
-</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    ├── teams.py              # Adaptive Card v1.4
-</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    ├── email.py              # SMTP via aiosmtplib (optional [email] extra)
-</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    ├── sns.py                # AWS SNS publish (identity-based)
-</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    ├── pagerduty.py          # Events API v2
-</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    ├── opsgenie.py           # Alerts API; US + EU regions
-</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    ├── discord.py            # webhook
-</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    ├── webhook.py            # generic JSON POST
-</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>    └── stdout.py             # JSON Lines on stdout / stderr
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── llm_config.py             # LLMConfig + LLM-provider credential models
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── narrator.py               # prompt assembly, schema validation, retry, AI-H1 scan
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── renderer.py               # shared rendering helpers (banner, provider inference)
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>├── init_scaffold.py          # `iac-cartographer --init`
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── discovery/                # DiscoverySource ABC + 5 implementations
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   ├── base.py
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   ├── config.py             # DiscoveryConfig + VCS-host credential models
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── gitlab.py
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   ├── github.py
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│   ├── bitbucket.py
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   ├── gitea.py              # covers Forgejo too (API-compatible)
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   ├── file.py
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   └── orchestrator.py       # discover_from_sources()
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>├── publishers/               # Publisher ABC + 6 implementations
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   ├── base.py
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   ├── config.py             # PublisherConfig + per-publisher configs + publisher credentials
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   ├── confluence.py
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   ├── notion.py + notion_renderer.py
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│   ├── github_wiki.py        # git-based; reuses the markdown renderer
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│   ├── markdown.py + markdown_renderer.py
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│   ├── html.py + html_renderer.py
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│   └── json_publisher.py + json_renderer.py
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>├── secrets/                  # SecretsProvider ABC + 3 implementations
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>│   ├── base.py
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>│   ├── config.py             # SecretsConfig
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>│   ├── aws.py
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>│   ├── env.py
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>│   └── vault.py
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>│
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>└── notifications/            # NotificationChannel ABC + 10 channels + dispatcher
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    ├── base.py
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>    ├── config.py             # channel configs + SlackConfig + notification credentials
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>    ├── dispatcher.py         # multi-channel fanout + per-level filter + error isolation
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>    ├── slack.py              # bot-token `chat.postMessage`
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    ├── slack_webhook.py      # Slack incoming / RocketChat / Mattermost
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>    ├── teams.py              # Adaptive Card v1.4
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>    ├── email.py              # SMTP via aiosmtplib (optional [email] extra)
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>    ├── sns.py                # AWS SNS publish (identity-based)
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    ├── pagerduty.py          # Events API v2
+</span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    ├── opsgenie.py           # Alerts API; US + EU regions
+</span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    ├── discord.py            # webhook
+</span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    ├── webhook.py            # generic JSON POST
+</span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>    └── stdout.py             # JSON Lines on stdout / stderr
 </span></code></pre></div>
 
 

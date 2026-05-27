@@ -1443,6 +1443,16 @@ at the repo root. Quick highlights below.</p>
   is the only file that talks to the six LLM SDKs. Each notification
   channel + each publisher backend lives in its own file under the
   matching package.</li>
+<li><strong>Config + credentials live beside their subsystem.</strong> Each
+  subsystem keeps its config + credential Pydantic models in a
+  <code>config.py</code> inside its package (<code>discovery/config.py</code>,
+  <code>publishers/config.py</code>, <code>secrets/config.py</code>,
+  <code>notifications/config.py</code>; the single-module <code>llm</code> uses a sibling
+  <code>llm_config.py</code>). <code>models.py</code> holds only the shared domain models +
+  the <code>AppConfig</code> aggregator and <strong>re-exports</strong> every subsystem config
+  so <code>from iac_cartographer.models import X</code> still resolves. Add new
+  config/credential models to the right <code>config.py</code>, not to
+  <code>models.py</code>.</li>
 <li><strong>Pure functions where possible.</strong> The renderers are pure ADF /
   Markdown / HTML / JSON assembly. Tests don't need mock-heavy
   scaffolding because the seams are at module boundaries.</li>
@@ -1487,8 +1497,10 @@ follow the same pattern:</p>
 <li><code>LLMBackend</code> in <code>iac_cartographer/llm.py</code></li>
 <li><code>Publisher</code> in <code>iac_cartographer/publishers/</code></li>
 <li><code>SecretsProvider</code> in <code>iac_cartographer/secrets/</code></li>
-<li><strong>Add a literal</strong> to the discriminator in <code>models.py</code> (e.g.
-   <code>publisher.kind</code>).</li>
+<li><strong>Add a literal</strong> to the discriminator in that subsystem's
+   <code>config.py</code> (e.g. <code>publisher.kind</code> in <code>publishers/config.py</code>; the
+   <code>llm</code> module uses <code>llm_config.py</code>). Add any new credential model
+   to the same <code>config.py</code> — <code>models.py</code> re-exports it automatically.</li>
 <li><strong>Add a branch</strong> to the factory function (<code>_build_publisher</code> in
    <code>cli.py</code>, etc.).</li>
 <li><strong>Write tests.</strong> The existing implementations have good test

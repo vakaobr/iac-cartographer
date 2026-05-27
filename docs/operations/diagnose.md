@@ -39,19 +39,41 @@ All checks passed. Ready to run --once.
 | **publisher** | The write target is reachable: Confluence/Notion/GitHub-Wiki required fields are non-placeholder; Markdown/HTML/JSON output directories are writable. |
 | **notifications** | At least one channel, or an explicit "silent dispatcher" skip when `notifications:` is empty (legitimate for CI / air-gapped). |
 
-## What it does *not* do
-
-`--diagnose` makes **no live API calls**. It does not:
+By default `--diagnose` makes **no live API calls**. It does not:
 
 - authenticate against your LLM provider or estimate token cost,
 - fetch the Confluence parent page or Notion page,
 - hit your discovery sources' APIs,
 - read secrets from Secrets Manager / Vault.
 
-That keeps it fast (sub-second) and side-effect-free — safe to run
-anywhere, including CI, without credentials. The deeper "can I actually
-reach this backend with these credentials" check happens in the
-publisher's own runtime preflight on the first real `--once` run.
+That keeps the default mode fast (sub-second) and side-effect-free — safe
+to run anywhere, including CI, without credentials.
+
+## Live reachability checks (`--live`)
+
+Add `--live` to extend the run with checks that actually touch the
+configured backends:
+
+```bash
+iac-cartographer --diagnose --live --config ./iac-cartographer.config.yaml
+```
+
+The offline probes above always run first. The live probes run only with
+`--live`, and only for components whose offline probe passed — there's no
+point pinging an LLM whose config doesn't validate. `--live` **requires
+real credentials** (it reads your secrets backend), so it's not suitable
+for credential-free CI.
+
+| Live probe | What it does |
+|---|---|
+| **secrets-live** | Builds the configured secrets provider and fetches the exact required credential bundle for the active config (the same set `--once` loads). The single highest-value live check — a wrong Vault path / missing Secrets Manager entry / empty env var is the most common startup failure. If this fails, every downstream live probe is skipped (no credentials → nothing to reach). |
+| **discovery-live** | One cheap authenticated call per API-backed source (a `whoami` / `/user` endpoint) to confirm the token works. The file source has nothing to authenticate and skips. |
+| **llm-live** | Ollama: `GET /api/tags` (no auth). Every other backend (Bedrock / Anthropic / Vertex / Azure / OpenAI): constructs the client and confirms required config + any API-key credential is present. **Cost caveat:** the LLM probe *never* runs a completion — it stops at client construction / a free metadata call, so `--diagnose --live` never spends inference tokens. |
+| **publisher-live** | Confluence: `GET` the parent page. Notion: retrieve the parent page. GitHub Wiki: `git ls-remote` the wiki repo. Markdown / HTML / JSON have no remote target (offline already checked dir writability) and skip. |
+
+Each live probe uses a short timeout (a few seconds) and never raises — a
+network error or bad credential becomes a `FAIL` with an actionable hint,
+just like the offline probes.
 
 ## Exit codes
 
@@ -67,6 +89,14 @@ publisher's own runtime preflight on the first real `--once` run.
 # Gate the scheduled run on a green diagnose in CI:
 - run: iac-cartographer --diagnose --config ./config.yaml
 - run: iac-cartographer --once --config ./config.yaml
+```
+
+Add `--live` when the CI job has access to the real secrets backend and
+you want to verify credentials + reachability before the run (it still
+never spends LLM tokens):
+
+```yaml
+- run: iac-cartographer --diagnose --live --config ./config.yaml
 ```
 
 The output goes to **stderr**, so it composes cleanly with `2>&1 | tee`

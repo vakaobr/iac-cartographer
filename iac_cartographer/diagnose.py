@@ -34,9 +34,16 @@ from iac_cartographer.constants import CartographerError
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from iac_cartographer.cli import LoadedSecrets
     from iac_cartographer.models import AppConfig
 
 logger = logging.getLogger(__name__)
+
+# Live probes touch the network; keep every one short so `--diagnose --live`
+# stays interactive even when a backend is hung. A few seconds is plenty for
+# a metadata/list call against a healthy endpoint and fails fast against a
+# dead one.
+_LIVE_HTTP_TIMEOUT_S = 5.0
 
 # Pinned to match the Dockerfile + ci.yml. A different `terraform-docs`
 # version isn't fatal (the JSON output schema is stable across 0.20.x and
@@ -112,6 +119,21 @@ def _run(name: str, probe: Callable[[], CheckResult]) -> CheckResult:
     except Exception as exc:  # probe code is allowed to raise; surface as fail
         logger.exception("diagnose: probe %s raised", name)
         return CheckResult(name=name, status=Status.FAIL, detail=f"probe raised: {exc}")
+
+
+def _run2(
+    name: str,
+    probe: Callable[[], tuple[CheckResult, LoadedSecrets | None]],
+) -> tuple[CheckResult, LoadedSecrets | None]:
+    """`_run` for probes that also return a payload (the loaded secrets).
+
+    Any exception becomes a FAIL with a None payload, so a raising secrets
+    probe degrades gracefully into "skip everything downstream"."""
+    try:
+        return probe()
+    except Exception as exc:
+        logger.exception("diagnose: live probe %s raised", name)
+        return CheckResult(name=name, status=Status.FAIL, detail=f"probe raised: {exc}"), None
 
 
 # ── Individual probes ────────────────────────────────────────────────
@@ -405,16 +427,332 @@ def check_notifications(config: AppConfig) -> CheckResult:
     )
 
 
+# ── Live probes (only with --live) ───────────────────────────────────
+#
+# Every live probe actually touches the configured backend. They run only
+# under `--diagnose --live`, only after the matching offline probe passed
+# (no point pinging an LLM whose config is broken), and — like the offline
+# probes — they NEVER raise (`_run` converts any escape into a FAIL). Each
+# uses a short timeout so a hung backend can't stall the whole report.
+
+
+def check_secrets_live(config: AppConfig) -> tuple[CheckResult, LoadedSecrets | None]:
+    """Build the configured secrets provider and fetch the required bundle.
+
+    This is the highest-value live check: a wrong Vault path / missing
+    Secrets Manager entry / empty env var is the single most common reason
+    a real run dies at startup. We mirror exactly what `cli._load_secrets`
+    resolves for the active config (the same conditional `need_*` set), so
+    a green result here means the run's credential-load step will succeed.
+
+    Returns the loaded bundle alongside the verdict so downstream live
+    probes (discovery / publisher) can reuse the already-fetched tokens
+    instead of hitting the secrets backend a second time.
+    """
+    from iac_cartographer.cli import _load_secrets
+    from iac_cartographer.secrets import build_provider
+
+    try:
+        provider = build_provider(config.secrets)
+    except CartographerError as exc:
+        return (
+            CheckResult(
+                name="secrets-live",
+                status=Status.FAIL,
+                detail=f"could not build {config.secrets.backend} provider: {exc}",
+                hint="fix the secrets.* block (see secrets.backend-specific fields)",
+            ),
+            None,
+        )
+
+    notification_kinds = {getattr(entry, "kind", None) for entry in config.notifications}
+    try:
+        secrets = _load_secrets(
+            provider,
+            config.llm.backend,
+            need_bitbucket=bool(config.discovery.bitbucket_workspaces),
+            need_gitea=bool(config.discovery.gitea_orgs),
+            need_azure_openai=(config.llm.backend == "azure_openai" and not config.llm.azure_openai_use_aad),
+            need_webhook="webhook" in notification_kinds,
+            need_slack_webhook="slack_webhook" in notification_kinds,
+            need_teams="teams" in notification_kinds,
+            need_email="email" in notification_kinds,
+            need_pagerduty="pagerduty" in notification_kinds,
+            need_opsgenie="opsgenie" in notification_kinds,
+            need_discord="discord" in notification_kinds,
+            need_notion=config.publisher.kind == "notion",
+        )
+    except CartographerError as exc:
+        return (
+            CheckResult(
+                name="secrets-live",
+                status=Status.FAIL,
+                detail=str(exc)[:200],
+                hint=f"populate the missing/invalid secret in the {provider.name} backend",
+            ),
+            None,
+        )
+    return (
+        CheckResult(
+            name="secrets-live",
+            status=Status.OK,
+            detail=f"all required secrets resolved via {provider.name}",
+        ),
+        secrets,
+    )
+
+
+def check_discovery_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResult:
+    """One cheap authenticated API call per configured discovery source.
+
+    Confirms the token actually works (not just that it's present). We hit
+    each host's cheap `whoami`-style endpoint (`/user`, `/api/v1/user`,
+    `/2.0/user`) — never a full repo enumeration.
+    """
+    import httpx
+
+    from iac_cartographer.discovery import (
+        BitbucketDiscovery,
+        GiteaDiscovery,
+        GithubDiscovery,
+        GitlabDiscovery,
+    )
+
+    d = config.discovery
+    probed: list[str] = []
+
+    def _get(source: object, path: str, params: dict[str, object] | None = None) -> httpx.Response:
+        # Reuse the source's auth headers + base URL (both private attrs the
+        # discovery clients expose); make one tiny GET with a short timeout.
+        with httpx.Client(
+            base_url=source._base_url,  # type: ignore[attr-defined]  # noqa: SLF001
+            headers=source._headers,  # type: ignore[attr-defined]  # noqa: SLF001
+            timeout=_LIVE_HTTP_TIMEOUT_S,
+        ) as client:
+            return client.get(path, params=params or {})
+
+    if d.gitlab_group_ids:
+        src = GitlabDiscovery(secrets.gitlab, d.gitlab_group_ids, base_url=d.gitlab_base_url)
+        resp = _get(src, "/user")
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="discovery-live",
+                status=Status.FAIL,
+                detail=f"gitlab auth failed (status={resp.status_code})",
+                hint="check the iac-cartographer/gitlab token scope (read_api) + base URL",
+            )
+        probed.append("gitlab")
+    if d.github_orgs:
+        src = GithubDiscovery(secrets.github, d.github_orgs)
+        resp = _get(src, "/user")
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="discovery-live",
+                status=Status.FAIL,
+                detail=f"github auth failed (status={resp.status_code})",
+                hint="check the iac-cartographer/github token (repo + read:org scopes)",
+            )
+        probed.append("github")
+    if d.bitbucket_workspaces and secrets.bitbucket is not None:
+        src = BitbucketDiscovery(secrets.bitbucket, d.bitbucket_workspaces)
+        resp = _get(src, "/2.0/user")
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="discovery-live",
+                status=Status.FAIL,
+                detail=f"bitbucket auth failed (status={resp.status_code})",
+                hint="check the iac-cartographer/bitbucket token / app-password",
+            )
+        probed.append("bitbucket")
+    if d.gitea_orgs and d.gitea_base_url and secrets.gitea is not None:
+        src = GiteaDiscovery(secrets.gitea, d.gitea_orgs, base_url=d.gitea_base_url)
+        resp = _get(src, "/api/v1/user")
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="discovery-live",
+                status=Status.FAIL,
+                detail=f"gitea auth failed (status={resp.status_code})",
+                hint="check the iac-cartographer/gitea token + gitea_base_url",
+            )
+        probed.append("gitea")
+
+    if not probed:
+        # Only the file source is configured — nothing to authenticate.
+        return CheckResult(
+            name="discovery-live",
+            status=Status.SKIP,
+            detail="no API-backed discovery sources to authenticate (file source only)",
+        )
+    return CheckResult(
+        name="discovery-live",
+        status=Status.OK,
+        detail=f"authenticated: {', '.join(probed)}",
+    )
+
+
+def check_llm_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResult:
+    """Minimal per-backend reachability probe.
+
+    COST SAFETY: this never runs a completion. For Ollama we GET the
+    unauthenticated `/api/tags` listing. For every API-key / cloud backend
+    we confirm the client constructs with credentials present — a build-only
+    check, not an inference call — because a real completion would cost
+    tokens on every diagnose. The detail string says which mode was used so
+    the operator knows a green result means "constructs + creds present",
+    not "a generation succeeded".
+    """
+    import httpx
+
+    from iac_cartographer.cli import _build_llm_backend
+
+    backend = config.llm.backend
+    if backend == "ollama":
+        with httpx.Client(timeout=_LIVE_HTTP_TIMEOUT_S) as client:
+            resp = client.get(f"{config.llm.ollama_base_url.rstrip('/')}/api/tags")
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="llm-live",
+                status=Status.FAIL,
+                detail=f"ollama /api/tags returned {resp.status_code}",
+                hint="is `ollama serve` running at llm.ollama_base_url?",
+            )
+        try:
+            models = resp.json().get("models", [])
+        except (ValueError, AttributeError):
+            models = []
+        return CheckResult(
+            name="llm-live",
+            status=Status.OK,
+            detail=f"ollama reachable ({len(models)} model(s) listed via /api/tags)",
+        )
+
+    # Every other backend: construct the client (validates required config +
+    # that any API-key credential was loaded) WITHOUT issuing a completion —
+    # diagnose must stay free. Bedrock/Vertex resolve credentials lazily via
+    # the cloud provider chain, so "constructs" is the strongest cost-safe
+    # guarantee we can make without spending tokens.
+    _build_llm_backend(config.llm, secrets)
+    return CheckResult(
+        name="llm-live",
+        status=Status.OK,
+        detail=f"{backend} client constructs (no completion run — cost-safe)",
+    )
+
+
+def check_publisher_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResult:
+    """Confirm the publisher's write target is reachable with credentials.
+
+    confluence — GET the parent page. notion — retrieve the parent page.
+    github_wiki — `git ls-remote` the wiki repo. markdown/html/json have no
+    remote target (the offline probe already checked dir writability), so
+    they SKIP here.
+    """
+    import asyncio
+
+    import httpx
+
+    kind = config.publisher.kind
+
+    if kind == "confluence":
+        from iac_cartographer.confluence import ConfluenceClient
+        from iac_cartographer.secrets import build_provider
+
+        parent_id = config.confluence.parent_page_id
+        if not parent_id:
+            provider = build_provider(config.secrets)
+            parent_id = provider.get_parameter(config.confluence.parent_page_id_ssm_path)
+        client = ConfluenceClient(config.confluence.site, secrets.confluence)
+
+        async def _probe() -> str:
+            async with client.session() as session:
+                page = await client.get_page(session, parent_id)
+                return page.title
+
+        title = asyncio.run(_probe())
+        return CheckResult(
+            name="publisher-live",
+            status=Status.OK,
+            detail=f"confluence parent page reachable (title={title!r})",
+        )
+
+    if kind == "notion":
+        if secrets.notion is None:  # pragma: no cover — offline probe + need_notion gate this
+            return CheckResult(
+                name="publisher-live",
+                status=Status.FAIL,
+                detail="no NotionCredentials loaded",
+                hint="populate the iac-cartographer/notion secret",
+            )
+        page_id = config.notion.parent_page_id
+        resp = httpx.get(
+            f"https://api.notion.com/v1/pages/{page_id}",
+            headers={
+                "Authorization": f"Bearer {secrets.notion.integration_token}",
+                "Notion-Version": "2022-06-28",
+            },
+            timeout=_LIVE_HTTP_TIMEOUT_S,
+        )
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="publisher-live",
+                status=Status.FAIL,
+                detail=f"notion parent page retrieve returned {resp.status_code}",
+                hint="share the page with your integration + check the iac-cartographer/notion token",
+            )
+        return CheckResult(
+            name="publisher-live",
+            status=Status.OK,
+            detail=f"notion parent page reachable ({page_id[:8]}…)",
+        )
+
+    if kind == "github_wiki":
+        owner = config.github_wiki.owner
+        repo = config.github_wiki.repo
+        url = f"https://{secrets.github.token}@github.com/{owner}/{repo}.wiki.git"
+        result = subprocess.run(  # noqa: S603 — args fully constructed below, no shell
+            ["git", "ls-remote", url, "HEAD"],  # noqa: S607 — `git` resolved via PATH; deployment-controlled
+            capture_output=True,
+            text=True,
+            timeout=_LIVE_HTTP_TIMEOUT_S,
+            check=False,
+        )
+        if result.returncode != 0:
+            sanitized = result.stderr.replace(secrets.github.token, "<TOKEN>")
+            return CheckResult(
+                name="publisher-live",
+                status=Status.FAIL,
+                detail=f"git ls-remote on {owner}/{repo}.wiki failed: {sanitized.strip()[:160]}",
+                hint="initialise the wiki (create the first page) + check the github token",
+            )
+        return CheckResult(
+            name="publisher-live",
+            status=Status.OK,
+            detail=f"github_wiki reachable ({owner}/{repo}.wiki)",
+        )
+
+    # markdown / html / json — no remote target; offline probe covered it.
+    return CheckResult(
+        name="publisher-live",
+        status=Status.SKIP,
+        detail=f"{kind} has no remote target (dir writability checked offline)",
+    )
+
+
 # ── Top-level orchestrator ───────────────────────────────────────────
 
 
-def run_diagnose(config_path: str) -> DiagnoseReport:
+def run_diagnose(config_path: str, *, live: bool = False) -> DiagnoseReport:
     """Run every probe in order and return the aggregate report.
 
     Order is deliberate: environment checks first (cheap + independent of
     config), then config load (which gates everything else), then per-
     component checks. A failed config load returns early — the per-
-    component checks have nothing to probe against."""
+    component checks have nothing to probe against.
+
+    When `live=True`, the offline probes run first as always, then live
+    reachability probes run for each component whose offline probe passed
+    (a broken config / missing dep means there's nothing live to reach).
+    """
     report = DiagnoseReport()
 
     # 1. Environment — independent of config.
@@ -427,11 +765,52 @@ def run_diagnose(config_path: str) -> DiagnoseReport:
         return report
 
     # 3-7. Per-component config sanity (no live API calls — cheap + offline).
-    report.checks.append(_run("optional-deps", lambda: check_optional_deps(config)))
-    report.checks.append(_run("discovery", lambda: check_discovery(config)))
-    report.checks.append(_run("llm", lambda: check_llm(config)))
-    report.checks.append(_run("publisher", lambda: check_publisher_target(config)))
-    report.checks.append(_run("notifications", lambda: check_notifications(config)))
+    offline: dict[str, CheckResult] = {
+        "optional-deps": _run("optional-deps", lambda: check_optional_deps(config)),
+        "discovery": _run("discovery", lambda: check_discovery(config)),
+        "llm": _run("llm", lambda: check_llm(config)),
+        "publisher": _run("publisher", lambda: check_publisher_target(config)),
+        "notifications": _run("notifications", lambda: check_notifications(config)),
+    }
+    report.checks.extend(offline.values())
+
+    if not live:
+        return report
+
+    # 8. Live reachability — only with --live, only where the offline probe
+    # passed. Secrets first (it gates discovery + publisher, which need the
+    # loaded tokens). A failed offline probe skips its live counterpart.
+    secrets_result, secrets = _run2("secrets-live", lambda: check_secrets_live(config))
+    report.checks.append(secrets_result)
+    if secrets is None:
+        # No credentials → nothing else live can run. Surface explicit skips
+        # so the operator sees the chain stopped rather than silently absent.
+        for name in ("discovery-live", "llm-live", "publisher-live"):
+            report.checks.append(
+                CheckResult(name=name, status=Status.SKIP, detail="skipped — secrets-live did not resolve")
+            )
+        return report
+
+    if offline["discovery"].status == Status.OK:
+        report.checks.append(_run("discovery-live", lambda: check_discovery_live(config, secrets)))
+    else:
+        report.checks.append(
+            CheckResult(name="discovery-live", status=Status.SKIP, detail="skipped — offline discovery probe failed")
+        )
+
+    if offline["llm"].status == Status.OK:
+        report.checks.append(_run("llm-live", lambda: check_llm_live(config, secrets)))
+    else:
+        report.checks.append(
+            CheckResult(name="llm-live", status=Status.SKIP, detail="skipped — offline llm probe failed")
+        )
+
+    if offline["publisher"].status == Status.OK:
+        report.checks.append(_run("publisher-live", lambda: check_publisher_live(config, secrets)))
+    else:
+        report.checks.append(
+            CheckResult(name="publisher-live", status=Status.SKIP, detail="skipped — offline publisher probe failed")
+        )
 
     return report
 

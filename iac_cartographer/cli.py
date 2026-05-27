@@ -1348,6 +1348,18 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--live",
+        action="store_true",
+        help=(
+            "Modifier for --diagnose: in addition to the offline probes, run "
+            "live reachability checks that actually touch the configured "
+            "backends (fetch the required secret bundle, authenticate each "
+            "discovery source, probe the LLM endpoint, reach the publisher "
+            "target). Requires real credentials. The LLM probe is cost-safe — "
+            "it never runs a completion. Ignored without --diagnose."
+        ),
+    )
+    parser.add_argument(
         "--format",
         choices=["text", "json", "github"],
         default="text",
@@ -1443,7 +1455,11 @@ def _run_diagnose(args: argparse.Namespace) -> int:
     output). Exit code comes from the report's worst status."""
     from iac_cartographer.diagnose import render, run_diagnose
 
-    report = run_diagnose(args.config)
+    # `--live` is a modifier on `--diagnose`. Without `--diagnose` it never
+    # reaches here (the mode dispatcher only calls this for `args.diagnose`),
+    # so a stray `--live` on another mode is silently ignored rather than
+    # rejected — argparse `store_true` defaults it to False.
+    report = run_diagnose(args.config, live=getattr(args, "live", False))
     sys.stderr.write(render(report))
     sys.stderr.flush()
     return report.exit_code

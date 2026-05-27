@@ -46,7 +46,12 @@ class GithubDiscovery(DiscoverySource):
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
         }
-        self._base_url = base_url
+        # api.github.com (public + GitHub Enterprise Cloud) or a self-hosted
+        # GHES REST base like `https://ghe.example.com/api/v3`. We do NOT
+        # auto-append `/api/v3` — api.github.com doesn't use it, so the
+        # operator includes it explicitly for GHES. Strip a trailing slash
+        # so httpx's base-url join stays predictable.
+        self._base_url = base_url.rstrip("/")
         self._orgs = orgs or []
 
     async def discover(self) -> list[RepoMetadata]:

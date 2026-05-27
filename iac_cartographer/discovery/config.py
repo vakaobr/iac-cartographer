@@ -22,6 +22,11 @@ class DiscoveryConfig(_Strict):
     gitlab_group_ids: list[int] = Field(default_factory=list)
     # GitHub organisations to scan via `code search`. Empty list = skip GitHub.
     github_orgs: list[str] = Field(default_factory=list)
+    # GitHub API base URL. Defaults to the public api.github.com; override for
+    # self-hosted GitHub Enterprise Server, whose REST API lives under
+    # `https://<host>/api/v3`. (GitHub Enterprise Cloud still uses
+    # api.github.com, so only GHES needs this.)
+    github_base_url: str = "https://api.github.com"
     # Bitbucket Cloud workspaces to enumerate. Empty list = skip Bitbucket.
     # The source lists every repo in the workspace (Bitbucket's public API
     # has no `extension:tf`-style filter on free plans) — combine with

@@ -844,7 +844,13 @@ def _build_sources(config: AppConfig, secrets: LoadedSecrets) -> list[DiscoveryS
                 "discovery.github_orgs is set but no GithubCredentials were loaded "
                 "(check the iac-cartographer/github secret)"
             )
-        sources.append(GithubDiscovery(secrets.github, config.discovery.github_orgs))
+        sources.append(
+            GithubDiscovery(
+                secrets.github,
+                config.discovery.github_orgs,
+                base_url=config.discovery.github_base_url,
+            )
+        )
     if config.discovery.bitbucket_workspaces:
         if secrets.bitbucket is None:
             # Shouldn't happen — _load_secrets gates on the same condition —

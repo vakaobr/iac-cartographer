@@ -293,6 +293,49 @@ async def test_github_discovery_500_raises() -> None:
         await GithubDiscovery(GithubCredentials(token="x")).list_repos_with_terraform(["acme-org"])
 
 
+@respx.mock
+async def test_github_discovery_default_base_is_public_api() -> None:
+    """Sanity: with no base_url override, requests hit api.github.com."""
+    route = respx.get("https://api.github.com/search/code").mock(return_value=httpx.Response(200, json={"items": []}))
+    await GithubDiscovery(GithubCredentials(token="x")).list_repos_with_terraform(["acme-org"])
+    assert route.called
+
+
+@respx.mock
+async def test_github_discovery_uses_ghes_base_url() -> None:
+    """GitHub Enterprise Server: every API call goes to the configured
+    `https://<host>/api/v3` base, with paths composed correctly (no double
+    /api/v3, no dropped path segment)."""
+    ghes = "https://ghe.example.com/api/v3"
+    respx.get(f"{ghes}/search/code").mock(
+        return_value=httpx.Response(200, json={"items": [{"repository": {"full_name": "acme-org/infra"}}]})
+    )
+    repo_route = respx.get(f"{ghes}/repos/acme-org/infra").mock(
+        return_value=httpx.Response(200, json=_github_repo_payload("acme-org/infra"))
+    )
+    branch_route = respx.get(f"{ghes}/repos/acme-org/infra/branches/main").mock(
+        return_value=httpx.Response(200, json=_branch_payload_github())
+    )
+
+    repos = await GithubDiscovery(
+        GithubCredentials(token="ghs_enterprise"),
+        base_url=ghes,
+    ).list_repos_with_terraform(["acme-org"])
+
+    assert {r.full_name for r in repos} == {"acme-org/infra"}
+    # All three endpoints were hit on the GHES host — confirms path
+    # composition against a base_url that itself carries a `/api/v3` path.
+    assert repo_route.called
+    assert branch_route.called
+    # And nothing leaked to the public api.github.com host.
+    assert all("ghe.example.com" in str(call.request.url) for call in respx.calls)
+
+
+async def test_github_discovery_strips_trailing_slash_from_base_url() -> None:
+    src = GithubDiscovery(GithubCredentials(token="x"), base_url="https://ghe.example.com/api/v3/")
+    assert src._base_url == "https://ghe.example.com/api/v3"
+
+
 # ─── discover() orchestrator ────────────────────────────────────────────
 
 

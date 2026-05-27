@@ -492,7 +492,7 @@ def test_secrets_live_bad_provider_config_is_fail() -> None:
 
 
 # Shared helper that builds a real LoadedSecrets for the downstream probes.
-def _build_secrets(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN202
+def _build_secrets(monkeypatch: pytest.MonkeyPatch):
     _set_core_secret_env(monkeypatch)
     return _load_secrets(EnvSecretsProvider(), "bedrock")
 
@@ -625,7 +625,7 @@ def test_publisher_live_github_wiki_ls_remote_ok(monkeypatch: pytest.MonkeyPatch
 def test_publisher_live_github_wiki_ls_remote_fail_redacts_token(monkeypatch: pytest.MonkeyPatch) -> None:
     secrets = _build_secrets(monkeypatch)
 
-    def _fail(*a, **k):  # noqa: ANN002, ANN003, ANN202
+    def _fail(*a, **k):
         return subprocess.CompletedProcess(a, 128, stdout="", stderr="fatal: ghp_AAAA auth failed for repo")
 
     monkeypatch.setattr(diagnose.subprocess, "run", _fail)
@@ -686,9 +686,7 @@ def test_run_diagnose_live_full_green(tmp_path: Path, monkeypatch: pytest.Monkey
     assert report.exit_code in (0, 1)
 
 
-def test_run_diagnose_live_skips_downstream_when_secrets_fail(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_diagnose_live_skips_downstream_when_secrets_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """If secrets-live can't resolve, discovery/llm/publisher live probes
     are explicitly skipped (never attempted with no credentials)."""
     _green_terraform_docs(monkeypatch)

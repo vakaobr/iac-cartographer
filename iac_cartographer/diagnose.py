@@ -525,8 +525,8 @@ def check_discovery_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
         # Reuse the source's auth headers + base URL (both private attrs the
         # discovery clients expose); make one tiny GET with a short timeout.
         with httpx.Client(
-            base_url=source._base_url,  # type: ignore[attr-defined]  # noqa: SLF001
-            headers=source._headers,  # type: ignore[attr-defined]  # noqa: SLF001
+            base_url=source._base_url,  # type: ignore[attr-defined]
+            headers=source._headers,  # type: ignore[attr-defined]
             timeout=_LIVE_HTTP_TIMEOUT_S,
         ) as client:
             return client.get(path, params=params or {})

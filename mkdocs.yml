@@ -83,6 +83,7 @@ nav:
       - Between-run diff (--diff): operations/diff.md
       - Lint mode (--lint): operations/lint.md
       - Cutting a release: operations/releases.md
+      - Observability (logs + metrics): operations/observability.md
       - Docs deployment (versioned): operations/docs-deploy.md
   - Examples:
       - Overview: examples/index.md

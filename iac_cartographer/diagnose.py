@@ -470,6 +470,15 @@ def check_secrets_live(config: AppConfig) -> tuple[CheckResult, LoadedSecrets | 
         secrets = _load_secrets(
             provider,
             config.llm.backend,
+            need_confluence=config.publisher.kind == "confluence",
+            need_gitlab=bool(config.discovery.gitlab_group_ids) or bool(config.discovery.repos_file),
+            need_github=(
+                bool(config.discovery.github_orgs)
+                or config.publisher.kind == "github_wiki"
+                or bool(config.discovery.repos_file)
+            ),
+            need_slack="slack" in notification_kinds,
+            try_slack=not config.notifications,
             need_bitbucket=bool(config.discovery.bitbucket_workspaces),
             need_gitea=bool(config.discovery.gitea_orgs),
             need_azure_openai=(config.llm.backend == "azure_openai" and not config.llm.azure_openai_use_aad),
@@ -531,7 +540,7 @@ def check_discovery_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
         ) as client:
             return client.get(path, params=params or {})
 
-    if d.gitlab_group_ids:
+    if d.gitlab_group_ids and secrets.gitlab is not None:
         src = GitlabDiscovery(secrets.gitlab, d.gitlab_group_ids, base_url=d.gitlab_base_url)
         resp = _get(src, "/user")
         if resp.status_code >= 400:
@@ -542,7 +551,7 @@ def check_discovery_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
                 hint="check the iac-cartographer/gitlab token scope (read_api) + base URL",
             )
         probed.append("gitlab")
-    if d.github_orgs:
+    if d.github_orgs and secrets.github is not None:
         src = GithubDiscovery(secrets.github, d.github_orgs)
         resp = _get(src, "/user")
         if resp.status_code >= 400:
@@ -657,6 +666,13 @@ def check_publisher_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
         from iac_cartographer.confluence import ConfluenceClient
         from iac_cartographer.secrets import build_provider
 
+        if secrets.confluence is None:  # pragma: no cover — offline probe + need_confluence gate this
+            return CheckResult(
+                name="publisher-live",
+                status=Status.FAIL,
+                detail="no ConfluenceCredentials loaded",
+                hint="populate the iac-cartographer/confluence secret",
+            )
         parent_id = config.confluence.parent_page_id
         if not parent_id:
             provider = build_provider(config.secrets)
@@ -706,6 +722,13 @@ def check_publisher_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResu
         )
 
     if kind == "github_wiki":
+        if secrets.github is None:  # pragma: no cover — offline probe + need_github gate this
+            return CheckResult(
+                name="publisher-live",
+                status=Status.FAIL,
+                detail="no GithubCredentials loaded",
+                hint="populate the iac-cartographer/github secret",
+            )
         owner = config.github_wiki.owner
         repo = config.github_wiki.repo
         url = f"https://{secrets.github.token}@github.com/{owner}/{repo}.wiki.git"

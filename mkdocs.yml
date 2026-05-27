@@ -79,6 +79,7 @@ nav:
       - Notifications: backends/notifications.md
   - Operations:
       - Running on a schedule: operations/runtime.md
+      - Pre-flight self-test (--diagnose): operations/diagnose.md
       - Between-run diff (--diff): operations/diff.md
       - Lint mode (--lint): operations/lint.md
       - Cutting a release: operations/releases.md

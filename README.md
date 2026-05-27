@@ -281,6 +281,10 @@ iac-cartographer --lint ./infra                       # exit 0/2 on undeclared p
 iac-cartographer --lint ./infra --fail-on=warn        # also fail on unpinned versions
 iac-cartographer --lint ./infra --format=github       # GitHub Actions annotations
 iac-cartographer --lint ./infra --format=json         # machine-readable for CI dashboards
+
+# Pre-flight self-test of the active config (offline, no API calls, sub-second).
+# Checks terraform-docs version, optional deps, discovery, LLM, publisher, notifications.
+iac-cartographer --diagnose --config ./config.yaml    # exit 0 ok / 1 warn / 2 fail
 ```
 
 ## How to run it on a schedule
@@ -459,12 +463,11 @@ Plus the Phase 3 distribution + onboarding wins:
 * **Docs site (versioned)** — mkdocs-material at [iac-cartographer.andersonleite.me](https://iac-cartographer.andersonleite.me/). Versioned via [`mike`](https://github.com/jimporter/mike); the header dropdown lets readers switch between `latest`, `dev`, and any tagged release. See [`docs/operations/docs-deploy.md`](docs/operations/docs-deploy.md).
 * **`--diff <prev-output>` mode** — between-run structural diff against a prior JSON-publisher snapshot. Adds / removes / provider bumps / module bumps / resource-count deltas. Prints Markdown to stdout and rides on the end-of-run Slack post as a one-liner (`3 new, 1 archived, 2 changed; 37 unchanged`). See [`docs/operations/diff.md`](docs/operations/diff.md).
 * **`iac-cartographer --lint <path>` subcommand** — IaC hygiene linter (undeclared providers, unpinned providers / modules) with text / JSON / GitHub-Actions-annotation output. Ships a `.pre-commit-hooks.yaml` for pre-commit users. CI-gating-friendly exit codes. See [`docs/operations/lint.md`](docs/operations/lint.md).
+* **`iac-cartographer --diagnose` pre-flight self-test** — offline checklist over the active config: `terraform-docs` version, optional-deps for the configured backends, discovery sources, LLM config consistency, publisher write target, notification routing. No live API calls; sub-second; CI-gating exit codes (0 ok / 1 warn / 2 fail). See [`docs/operations/diagnose.md`](docs/operations/diagnose.md).
 
 ### Coming next
 
 Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome on any of these — pick one and open one to claim it before sending a PR.
-
-* **`--diagnose` / `--doctor` subcommand** — single command that smoke-tests every backend the active config touches: secrets reachable, LLM ping with token-cost estimate, publisher dry-run (parent page exists? wiki repo writable? output dir creatable?), `terraform-docs` version check, discovery-source auth check, optional dependency group check. Output is a checklist on stderr. Replaces 4–5 hand-rolled smoke tests and turns first-run debugging from CloudWatch grep into one command.
 * **Close out test-coverage gaps from the feature wave.** The 60 % coverage floor is the CI gate, not a target. Concrete gaps to backfill from the Phase-3 work:
   * GitHub Wiki publisher's git-based commit + push-retry path.
   * Notion publisher block-rendering edge cases (nested lists, pages > 100 blocks).

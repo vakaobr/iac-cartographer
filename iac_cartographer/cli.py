@@ -1301,6 +1301,19 @@ def _build_parser() -> argparse.ArgumentParser:
             "--fail-on (error|warn|info)."
         ),
     )
+    mode.add_argument(
+        "--diagnose",
+        action="store_true",
+        help=(
+            "Pre-flight self-test of the active config. Probes the environment "
+            "(terraform-docs version, optional deps for the configured "
+            "backends) and the config itself (discovery sources, LLM, "
+            "publisher target, notifications) without making any live API "
+            "calls. Outputs a per-component checklist on stderr. Exit code: "
+            "0 = all OK, 1 = warnings, 2 = at least one failure. Combine with "
+            "--config to point at a non-default config path."
+        ),
+    )
     parser.add_argument(
         "--format",
         choices=["text", "json", "github"],
@@ -1367,6 +1380,8 @@ def main(argv: list[str] | None = None) -> int:
             return _run_init(args)
         if args.lint:
             return _run_lint(args)
+        if args.diagnose:
+            return _run_diagnose(args)
         return 0  # pragma: no cover — argparse `required=True` prevents this branch
     except CartographerError as exc:
         logger.exception("run aborted: %s", exc)
@@ -1386,6 +1401,19 @@ def _run_lint(args: argparse.Namespace) -> int:
     sys.stdout.write(render(report, args.format))
     sys.stdout.flush()
     return compute_exit_code(report, Severity(args.fail_on))
+
+
+def _run_diagnose(args: argparse.Namespace) -> int:
+    """Dispatcher for `iac-cartographer --diagnose`. Runs every probe
+    and renders to stderr (so it composes cleanly with `2>&1 | tee` in
+    operator shells and doesn't get mistaken for the normal program
+    output). Exit code comes from the report's worst status."""
+    from iac_cartographer.diagnose import render, run_diagnose
+
+    report = run_diagnose(args.config)
+    sys.stderr.write(render(report))
+    sys.stderr.flush()
+    return report.exit_code
 
 
 def _run_init(args: argparse.Namespace) -> int:

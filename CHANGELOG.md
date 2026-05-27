@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.9](https://github.com/vakaobr/iac-cartographer/compare/v0.1.8...v0.1.9) (2026-05-27)
+
+
+### Chores
+
+* release 0.1.9 ([0405dfe](https://github.com/vakaobr/iac-cartographer/commit/0405dfebfbc7fccf8cbbc0c58ca0049f41de7106))
+
 ## [0.1.8](https://github.com/vakaobr/iac-cartographer/compare/v0.1.7...v0.1.8) (2026-05-27)
 
 

@@ -25,6 +25,10 @@ From the repo root:
 ./examples/demo/run.sh
 ```
 
+That's the default (Markdown publisher, placeholder narratives). See
+[Try variations](#try-variations) below for HTML / JSON publishers and a
+real local LLM via Ollama — all still credential-free.
+
 That's it. The script:
 
 - Sets stub values for the `IAC_CARTOGRAPHER_SECRET_*` env vars so the
@@ -65,20 +69,72 @@ HEAD actually changed since the last run.
 
 ## Try variations
 
-Swap the publisher to standalone HTML:
+The runner takes two flags so you can exercise more of the matrix
+without touching any config by hand — and still with **zero cloud
+credentials**. Each variant has its own sibling config in this
+directory (`config-html.yaml`, `config-json.yaml`, `config-ollama.yaml`)
+and writes to its own output directory, so they don't clobber each
+other.
+
+### HTML publisher
+
+Self-contained HTML (embedded CSS, no JS, no external fonts) — works
+opened straight from disk, mailed as an attachment, or dropped on S3 /
+GitHub Pages with no build step:
 
 ```bash
-sed -i.bak 's/kind: markdown/kind: html/' examples/demo/config.yaml
-./examples/demo/run.sh
-open demo-output-html/index.html
+./examples/demo/run.sh --publisher html
+open demo-output-html/index.html        # macOS
+xdg-open demo-output-html/index.html    # Linux
 ```
 
-Or use the Anthropic LLM if you have an API key — drop `--no-bedrock`
-from the run script, set `llm.backend: anthropic`, and add:
+### JSON publisher
+
+Machine-readable output — an `index.json` feed plus one file per repo
+carrying the full inventory. Handy as a feed for Backstage catalogs,
+internal CMDBs, dashboards, or custom drift tooling:
+
+```bash
+./examples/demo/run.sh --publisher json
+cat demo-output-json/index.json
+cat demo-output-json/repos/*.json
+```
+
+### Real local LLM via Ollama
+
+The base demo passes `--no-bedrock`, so the "Purpose" section is a
+placeholder. If you have [Ollama](https://ollama.com) installed, this
+variant generates **real** one-paragraph narratives from a model running
+on your own machine — no API key, no outbound traffic:
+
+```bash
+ollama pull llama3.1:8b               # one-time; or any model you prefer
+./examples/demo/run.sh --llm ollama
+open demo-output-ollama/index.md
+```
+
+It degrades gracefully: if no Ollama server answers at
+`http://localhost:11434` (override with `OLLAMA_HOST`), the runner
+prints setup instructions and **skips** the run — it never hangs on a
+timeout or crashes. Point it at a different model by editing
+`model_id` in [`config-ollama.yaml`](config-ollama.yaml), or at a remote
+host via `ollama_base_url`. Narrative quality scales with model size;
+the structural inventory (providers, modules, resources) is identical
+regardless of the LLM.
+
+### Hosted Anthropic LLM (needs an API key)
+
+Not zero-credential, but if you have an Anthropic API key: set
+`llm.backend: anthropic` in a config, run without `--no-bedrock`, and
+provide the key:
 
 ```bash
 export IAC_CARTOGRAPHER_SECRET_ANTHROPIC='{"api_key":"sk-ant-..."}'
 ```
+
+Any unrecognised flags (e.g. `--verbose`) are forwarded to the
+`iac-cartographer` CLI as-is, so `./examples/demo/run.sh --publisher html --verbose`
+works too.
 
 ## What this is not
 

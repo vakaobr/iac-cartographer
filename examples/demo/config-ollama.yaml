@@ -1,0 +1,51 @@
+# Demo config — real local LLM via Ollama variant.
+#
+# Identical clone + extract flow to `config.yaml`, but instead of the
+# `--no-bedrock` placeholder narrative this points at a LOCAL Ollama
+# server (default http://localhost:11434) so adopters with Ollama
+# installed get REAL one-paragraph repo summaries.
+#
+# Still NO cloud credentials required — Ollama runs on your machine
+# with zero auth by default. The Markdown publisher writes locally.
+#
+# Pre-requisites for real narratives:
+#   * Ollama installed and running   (https://ollama.com)
+#   * A model pulled, e.g.           `ollama pull llama3.1:8b`
+#
+# If no Ollama server is reachable, `run.sh --llm ollama` prints a
+# clear message and skips the run (it does NOT hang or crash) — see
+# the reachability pre-check in run.sh.
+#
+# Drive it with: ./examples/demo/run.sh --llm ollama
+# Browse the output at ./demo-output-ollama/index.md.
+
+discovery:
+  repos_file: ./examples/demo/repos.yaml
+  gitlab_group_ids: []
+  github_orgs: []
+
+secrets:
+  backend: env
+
+llm:
+  # Real local inference — no API key, no outbound traffic.
+  backend: ollama
+  # Open-weight model name as known to your local Ollama. Override to
+  # whatever you've pulled (`ollama list`). 8B-class models follow the
+  # JSON-output instructions reliably; smaller ones fall back to the
+  # narrator's placeholder more often (structural facts still publish).
+  model_id: "llama3.1:8b"
+  max_tokens: 4096
+  # Ollama's standard local bind. Override for a remote/shared host.
+  ollama_base_url: "http://localhost:11434"
+  # Local CPU inference is slow; bump for big models or cold starts.
+  ollama_timeout_seconds: 300
+
+publisher:
+  kind: markdown
+
+markdown:
+  output_dir: ./demo-output-ollama
+
+slack:
+  channel: "#demo-not-actually-posted"

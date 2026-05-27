@@ -1,0 +1,39 @@
+# Demo config — JSON publisher variant.
+#
+# Identical clone + extract flow to `config.yaml`, but emits
+# machine-readable JSON (an `index.json` feed + one file per repo
+# carrying the full RepoInventory payload) under ./demo-output-json/.
+#
+# Useful as a feed for Backstage catalogs, internal CMDBs, dashboards,
+# or custom drift-detection tooling.
+#
+# Runs with NO real credentials, same as the base demo:
+#   * `discovery.repos_file` clones public repos via HTTPS — no auth.
+#   * `secrets.backend: env` reads dummy placeholder values set by run.sh.
+#   * `--no-bedrock` skips the LLM call; placeholder narratives are used.
+#   * `publisher.kind: json` writes locally; no Confluence access.
+#
+# Drive it with: ./examples/demo/run.sh --publisher json
+# Inspect the output at ./demo-output-json/index.json.
+
+discovery:
+  repos_file: ./examples/demo/repos.yaml
+  gitlab_group_ids: []
+  github_orgs: []
+
+secrets:
+  backend: env
+
+llm:
+  backend: bedrock
+  model_id: eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+  bedrock_region: eu-central-1
+
+publisher:
+  kind: json
+
+json:
+  output_dir: ./demo-output-json
+
+slack:
+  channel: "#demo-not-actually-posted"

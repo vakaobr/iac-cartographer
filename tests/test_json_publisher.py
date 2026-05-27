@@ -277,10 +277,22 @@ async def test_publisher_slugs_slashes_in_repo_name(tmp_path: Path) -> None:
 # ─── AppConfig wiring ─────────────────────────────────────────────────────
 
 
-def test_app_config_accepts_json_yaml_key() -> None:
-    """YAML uses `json:` (the alias); Python uses `json_output` (the
-    field name). Both must resolve to the same `JsonConfig`."""
-    parsed = yaml.safe_load("publisher:\n  kind: json\njson:\n  output_dir: ./out\n")
-    cfg = AppConfig.model_validate(parsed)
+def test_app_config_accepts_canonical_json_output_key() -> None:
+    """The canonical 1.0 key is `json_output:` — no deprecation warning."""
+    import warnings as _warnings
+
+    parsed = yaml.safe_load("publisher:\n  kind: json\njson_output:\n  output_dir: ./out\n")
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("error")  # any DeprecationWarning would fail here
+        cfg = AppConfig.model_validate(parsed)
     assert cfg.publisher.kind == "json"
+    assert cfg.json_output.output_dir == "./out"
+
+
+def test_app_config_accepts_deprecated_json_key_with_warning() -> None:
+    """The pre-1.0 `json:` key still validates (back-compat) but emits a
+    DeprecationWarning pointing at `json_output:`."""
+    parsed = yaml.safe_load("publisher:\n  kind: json\njson:\n  output_dir: ./out\n")
+    with pytest.warns(DeprecationWarning, match=r"`json:` is deprecated"):
+        cfg = AppConfig.model_validate(parsed)
     assert cfg.json_output.output_dir == "./out"

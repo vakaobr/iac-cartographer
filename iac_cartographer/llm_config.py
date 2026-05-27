@@ -77,11 +77,12 @@ class LLMConfig(_Strict):
     anthropic_base_url: str = "https://api.anthropic.com"
 
     # Vertex-only: GCP project ID hosting the Vertex AI Claude endpoint.
-    # Default empty so the model still validates with default settings
-    # (matching the `bedrock` + `anthropic` shape); required when
-    # backend=vertex — the cli's `_build_llm_backend` raises a clean
-    # ConfigError if it's missing.
-    vertex_project_id: str = ""
+    # `None` when unset (matching the `bedrock` + `anthropic` shape); required
+    # when backend=vertex — the cli's `_build_llm_backend` raises a clean
+    # ConfigError if it's missing. Uses None (not "") to match the
+    # `str | None = None` sentinel convention shared with `openai_organization`
+    # et al., and the documented type in docs/reference/configuration.md.
+    vertex_project_id: str | None = None
 
     # Vertex-only: Vertex AI region (e.g. `europe-west1`, `us-east5`).
     # Pick a region where Claude is available — see
@@ -91,8 +92,9 @@ class LLMConfig(_Strict):
 
     # Azure OpenAI-only: resource endpoint, e.g.
     # `https://my-resource.openai.azure.com/`. Required when
-    # backend=azure_openai.
-    azure_openai_endpoint: str = ""
+    # backend=azure_openai. `None` when unset (same sentinel convention as
+    # vertex_project_id; matches the documented type).
+    azure_openai_endpoint: str | None = None
 
     # Azure OpenAI-only: deployment NAME (NOT the underlying model —
     # Azure decouples them via the Studio UI). Required when

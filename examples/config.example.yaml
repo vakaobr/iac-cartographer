@@ -238,14 +238,17 @@ confluence:
   site: "acme.atlassian.net"
   # Space key — the parent page must already exist in this space.
   space_key: "DOCS"
-  # SSM Parameter Store path holding the parent page's numeric ID as a string.
-  # iac-cartographer reads this at startup (preflight check), so a missing /
-  # incorrect ID surfaces as a clean error on the first run.
-  parent_page_id_ssm_path: "/iac-cartographer/confluence-parent-id"
+  # Reference to the parameter holding the parent page's numeric ID as a
+  # string — resolved via the active secrets backend (AWS SSM path / env
+  # var / Vault path). iac-cartographer reads this at startup (preflight
+  # check), so a missing / incorrect ID surfaces as a clean error on the
+  # first run. (Pre-1.0 key name `parent_page_id_ssm_path` still works but
+  # is deprecated.)
+  parent_page_id_ref: "/iac-cartographer/confluence-parent-id"
   # Optional direct override — when set, the page ID is taken verbatim
-  # from here and `parent_page_id_ssm_path` is ignored. Use for small
-  # teams / file-based config where a parameter-store round-trip is
-  # overkill (the parent page ID isn't a secret — it's a stable integer).
+  # from here and `parent_page_id_ref` is ignored. Use for small teams /
+  # file-based config where a parameter-store round-trip is overkill (the
+  # parent page ID isn't a secret — it's a stable integer).
   # parent_page_id: "123456789"
 
 markdown:
@@ -269,7 +272,7 @@ html:
   # `<meta name="iac-cartographer-sha">` tag in each file's head.
   output_dir: "./iac-inventory-html"
 
-json:
+json_output:   # pre-1.0 key `json:` still works but is deprecated
   # Only used when `publisher.kind == "json"`. Same layout as the
   # markdown / html publishers (index.json + repos/<slug>.json) but the
   # output is structured JSON for machine consumption:

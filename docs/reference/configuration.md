@@ -19,14 +19,27 @@ notion:        {...}   # publisher.kind == "notion" specifics
 github_wiki:   {...}   # publisher.kind == "github_wiki" specifics
 markdown:      {...}   # publisher.kind == "markdown" specifics
 html:          {...}   # publisher.kind == "html" specifics
-json:          {...}   # publisher.kind == "json" specifics
-slack:         {...}   # legacy single-Slack notification config
+json_output:   {...}   # publisher.kind == "json" specifics (pre-1.0 key: `json:`, deprecated)
+slack:         {...}   # legacy single-Slack notification config (deprecated — prefer notifications:)
 notifications: [...]   # modern multi-channel notification list (preferred)
 ```
 
 All sections are optional — every field has a default. The minimal
 valid config is `{}` (assuming you also export the right secrets and
 have an LLM backend reachable).
+
+## Deprecations (pre-1.0 → 1.0)
+
+These pre-1.0 names still work but emit a `DeprecationWarning` and will
+be **removed in 2.0**. Rename them now; each old form is accepted via an
+alias so the migration is non-breaking.
+
+| Deprecated | Replace with | Where |
+|---|---|---|
+| `json:` (YAML key) | `json_output:` | top-level config section |
+| `confluence.parent_page_id_ssm_path` | `confluence.parent_page_id_ref` | `confluence` section |
+| legacy `slack:` block + empty `notifications:` | a `notifications:` list with a `kind: slack` entry | notifications |
+| `--no-bedrock` (CLI flag) | `--no-llm` | command line |
 
 ## `discovery`
 
@@ -87,7 +100,7 @@ that backend's namespace. Six backends ship today.
 | `openai_base_url` | `str` | `"https://api.openai.com/v1"` | `openai` | API base — override for OpenAI-compatible gateways (LiteLLM, vLLM, …). |
 | `openai_organization` | `str \| None` | `None` | `openai` | Org ID for multi-org accounts. |
 | `ollama_base_url` | `str` | `"http://localhost:11434"` | `ollama` | Ollama server URL. |
-| `ollama_timeout_seconds` | `int` | `300` | `ollama` | HTTP timeout — local CPU inference is slow on cold starts. |
+| `ollama_timeout_seconds` | `float` | `300.0` | `ollama` | HTTP timeout — local CPU inference is slow on cold starts. |
 | `ollama_extra_headers` | `dict[str, str]` | `{}` | `ollama` | Headers attached to every request (for reverse-proxy auth). |
 
 ### Optional dependency groups
@@ -115,7 +128,7 @@ Only honoured when `publisher.kind == "confluence"`.
 |---|---|---|---|
 | `site` | `str` | `"your-org.atlassian.net"` | Atlassian Cloud site (no protocol, no trailing slash). |
 | `space_key` | `str` | `"DOCS"` | Confluence space key (the parent page must already exist there). |
-| `parent_page_id_ssm_path` | `str` | `"/iac-cartographer/confluence-parent-id"` | Logical name of the parameter holding the parent page's numeric ID. Resolved via the active `SecretsProvider.get_parameter()`. |
+| `parent_page_id_ref` | `str` | `"/iac-cartographer/confluence-parent-id"` | Logical name of the parameter holding the parent page's numeric ID. Resolved via the active `SecretsProvider.get_parameter()` (AWS SSM path / env var / Vault path — backend-agnostic). The pre-1.0 name `parent_page_id_ssm_path` still works (deprecated; emits a warning) and will be removed in 2.0. |
 | `parent_page_id` | `str \| None` | `None` | Direct override. When set, the parameter-store lookup is skipped entirely. |
 
 ## `notion`
@@ -157,17 +170,19 @@ Only honoured when `publisher.kind == "html"`.
 |---|---|---|
 | `output_dir` | `str` | `"./iac-inventory-html"` |
 
-## `json`
+## `json_output`
 
-Only honoured when `publisher.kind == "json"`. The YAML key is `json:`;
-the Python attribute on `AppConfig` is `json_output` (to avoid
-shadowing Pydantic's `BaseModel.json()` method).
+Only honoured when `publisher.kind == "json"`. The canonical YAML key is
+`json_output:` (also the Python attribute on `AppConfig`). The pre-1.0
+key `json:` still works (deprecated; emits a warning) and will be
+removed in 2.0 — it was renamed because the bare `json` key collided
+awkwardly with the publisher-format concept and forced an alias hack.
 
 | Field | Type | Default |
 |---|---|---|
 | `output_dir` | `str` | `"./iac-inventory-json"` |
 
-## `slack` (legacy single-channel)
+## `slack` (legacy single-channel — deprecated)
 
 | Field | Type | Default |
 |---|---|---|
@@ -175,8 +190,16 @@ shadowing Pydantic's `BaseModel.json()` method).
 
 When `notifications:` is empty (default), the dispatcher uses this
 block + the `iac-cartographer/slack` secret as the sole destination
-at all three severities. Existing single-Slack deployments need no
-changes. Set `notifications:` to opt into multi-channel routing.
+at all three severities. Existing single-Slack deployments keep
+working — but this path is **deprecated** as of the 1.0 track and
+emits a `DeprecationWarning`; it will be removed in 2.0. Migrate to an
+explicit `notifications:` list with a `kind: slack` entry:
+
+```yaml
+notifications:
+  - kind: slack
+    channel: "#alerts"   # same channel, now explicit
+```
 
 ## `notifications` (multi-channel — preferred)
 

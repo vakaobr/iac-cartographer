@@ -177,6 +177,7 @@ def _slack_creds() -> SlackCredentials:
     return SlackCredentials(bot_token="xoxb", channel_id="C-default")
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_build_dispatcher_legacy_path_single_slack() -> None:
     """Empty `notifications:` + Slack creds → one SlackChannel at all levels."""
     config = AppConfig()  # notifications=[] by default
@@ -188,6 +189,7 @@ def test_build_dispatcher_legacy_path_single_slack() -> None:
     assert levels == set(NotificationLevel)
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_build_dispatcher_legacy_path_uses_top_level_slack_channel() -> None:
     """Legacy shape pulls `slack.channel` from the top-level block."""
     config = AppConfig.model_validate({"slack": {"channel": "#infra-alerts"}})
@@ -196,6 +198,16 @@ def test_build_dispatcher_legacy_path_uses_top_level_slack_channel() -> None:
     channel, _ = d._channels[0]
     assert isinstance(channel, SlackChannel)
     assert channel._channel == "#infra-alerts"
+
+
+def test_build_dispatcher_legacy_slack_block_is_deprecated() -> None:
+    """The legacy `slack:` + empty-`notifications:` path still builds a
+    working dispatcher but emits a DeprecationWarning steering operators to
+    the `notifications:` list."""
+    config = AppConfig()
+    with pytest.warns(DeprecationWarning, match=r"legacy `slack:` block"):
+        d = build_dispatcher(config, secrets=NotificationSecrets(slack=_slack_creds()))
+    assert len(d._channels) == 1  # still works
 
 
 def test_build_dispatcher_modern_path_with_per_entry_levels() -> None:

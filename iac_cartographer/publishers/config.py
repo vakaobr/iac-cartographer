@@ -9,7 +9,10 @@ Re-exported from `iac_cartographer.models` for back-compat.
 
 from __future__ import annotations
 
+import warnings
 from typing import Literal
+
+from pydantic import AliasChoices, Field, model_validator
 
 from iac_cartographer.models import _Strict
 
@@ -60,20 +63,40 @@ class ConfluenceConfig(_Strict):
     space_key: str = "DOCS"
     # Logical name of the parameter holding the parent page's numeric ID
     # as a plain string. Resolved via the configured `SecretsProvider`
-    # (`get_parameter()`):
-    #   * AWS:   SSM Parameter Store path — same as the original
-    #            behaviour (`/iac-cartographer/confluence-parent-id`).
+    # (`get_parameter()`) — NOT AWS-specific despite the legacy `_ssm_path`
+    # name (which is deprecated; see the validator below):
+    #   * AWS:   SSM Parameter Store path
+    #            (`/iac-cartographer/confluence-parent-id`).
     #   * env:   env var `IAC_CARTOGRAPHER_PARAM_CONFLUENCE_PARENT_ID`.
     #   * vault: `{mount}/data/iac-cartographer/confluence-parent-id`
     #            with the page ID stored under a `value` field.
     # The parent page is the overview; child pages live under it.
-    parent_page_id_ssm_path: str = "/iac-cartographer/confluence-parent-id"
+    # Canonical key is `parent_page_id_ref`; the pre-1.0
+    # `parent_page_id_ssm_path` still validates via AliasChoices but is
+    # deprecated (it baked the AWS/SSM backend into a backend-agnostic field).
+    parent_page_id_ref: str = Field(
+        default="/iac-cartographer/confluence-parent-id",
+        validation_alias=AliasChoices("parent_page_id_ref", "parent_page_id_ssm_path"),
+    )
 
     # Optional direct override. When set, the page ID is taken verbatim
-    # from here and `parent_page_id_ssm_path` is ignored. Use for
-    # deployments where storing a non-secret integer ID in an external
-    # parameter store is overkill (small teams, file-based config, etc.).
+    # from here and `parent_page_id_ref` is ignored. Use for deployments
+    # where storing a non-secret integer ID in an external parameter store
+    # is overkill (small teams, file-based config, etc.).
     parent_page_id: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _warn_deprecated_ssm_path_key(cls, data: object) -> object:
+        if isinstance(data, dict) and "parent_page_id_ssm_path" in data and "parent_page_id_ref" not in data:
+            warnings.warn(
+                "config key `confluence.parent_page_id_ssm_path` is deprecated; rename it to "
+                "`confluence.parent_page_id_ref` (it's resolved via the active secrets backend, "
+                "not just SSM). The old key still works for now and will be removed in 2.0.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return data
 
 
 class MarkdownConfig(_Strict):

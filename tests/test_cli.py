@@ -53,7 +53,7 @@ def test_main_once_with_flags_exits_0(monkeypatch: pytest.MonkeyPatch) -> None:
     from iac_cartographer import cli
 
     monkeypatch.setattr(cli, "run_once", lambda _args: 0)
-    assert main(["--once", "--dry-run", "--no-bedrock", "--repos", "a/b,c/d", "--verbose"]) == 0
+    assert main(["--once", "--dry-run", "--no-llm", "--repos", "a/b,c/d", "--verbose"]) == 0
 
 
 def test_json_formatter_produces_valid_json() -> None:
@@ -460,8 +460,62 @@ def test_run_once_with_dry_run_and_stubbed_discovery_exits_0(
     monkeypatch.setattr(_cli, "discover_from_sources", fake_discover)
     monkeypatch.setattr(_cli, "_process_repo", fake_process_repo)
 
-    rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-bedrock"])
+    rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-llm"])
     assert rc == 0
+
+
+@mock_aws
+def test_run_once_no_bedrock_is_deprecated_alias_for_no_llm(
+    _aws_region: None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`--no-bedrock` is the pre-1.0 spelling of `--no-llm`; it still works
+    but emits a DeprecationWarning. Verifies both the back-compat behaviour
+    AND that the placeholder-narrative path is taken (no_llm threaded
+    through)."""
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("discovery:\n  gitlab_group_ids: [1]\n", encoding="utf-8")
+    sm = boto3.client("secretsmanager", region_name=DEFAULT_REGION)
+    sm.create_secret(
+        Name="iac-cartographer/confluence",
+        SecretString=json.dumps({"email": "bot@acme.example.com", "api_token": "ATATT"}),
+    )
+    sm.create_secret(Name="iac-cartographer/gitlab", SecretString=json.dumps({"token": "glpat"}))
+
+    from datetime import UTC
+    from datetime import datetime as _dt
+
+    from iac_cartographer import cli as _cli
+    from iac_cartographer.models import RepoInventory, RepoMetadata, TerraformSummary
+
+    no_llm_seen: list[bool] = []
+
+    async def fake_discover(*_a: object, **_kw: object) -> list[RepoMetadata]:
+        return [
+            RepoMetadata(
+                host="gitlab",
+                full_name="acme/x",
+                clone_url="https://x.test/acme/x.git",
+                web_url="https://x.test/acme/x",
+                default_branch="main",
+                last_commit_sha="a" * 40,
+                last_commit_at=_dt(2026, 5, 22, tzinfo=UTC),
+            )
+        ]
+
+    async def fake_process_repo(meta: RepoMetadata, *_a: object, **kwargs: object):
+        no_llm_seen.append(bool(kwargs.get("no_llm")))
+        return (RepoInventory(meta=meta, summary=TerraformSummary(), narrative=None), None, 0, 0)
+
+    monkeypatch.setattr(_cli, "discover_from_sources", fake_discover)
+    monkeypatch.setattr(_cli, "_process_repo", fake_process_repo)
+
+    with pytest.warns(DeprecationWarning, match=r"--no-bedrock is deprecated"):
+        rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-bedrock"])
+    assert rc == 0
+    # `--no-bedrock` folded into `no_llm=True` and threaded to the per-repo pipeline.
+    assert no_llm_seen == [True]
 
 
 def test_run_once_missing_config_returns_2(tmp_path: Path) -> None:
@@ -574,7 +628,7 @@ def test_run_once_model_flag_overrides_bedrock_model_id(
             "--config",
             str(cfg),
             "--dry-run",
-            "--no-bedrock",
+            "--no-llm",
             "--model",
             "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
         ]
@@ -636,7 +690,7 @@ def test_run_once_no_model_flag_uses_config_default(
     monkeypatch.setattr(_cli, "discover_from_sources", fake_discover)
     monkeypatch.setattr(_cli, "_process_repo", fake_process_repo)
 
-    rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-bedrock"])
+    rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-llm"])
     assert rc == 0
     assert seen_model_ids == ["eu.anthropic.claude-sonnet-4-5-20250929-v1:0"]
 
@@ -739,7 +793,7 @@ def test_run_once_preflight_skipped_in_dry_run(
 
     # If preflight ran in dry-run, this would hit an unmocked Confluence URL.
     # Test passes only if preflight is correctly skipped.
-    rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-bedrock"])
+    rc = main(["--once", "--config", str(cfg), "--dry-run", "--no-llm"])
     assert rc == 0
 
 

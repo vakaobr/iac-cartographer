@@ -10,6 +10,20 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.7](https://github.com/vakaobr/iac-cartographer/compare/v0.1.6...v0.1.7) (2026-05-27)
+
+
+### Added
+
+* **diagnose:** --probe-llm for an opt-in real LLM completion check ([#68](https://github.com/vakaobr/iac-cartographer/issues/68)) ([e4036dd](https://github.com/vakaobr/iac-cartographer/commit/e4036dde315b63ccaa65392224f6204fb7b40992))
+* **discovery:** support self-hosted GitHub Enterprise Server ([#69](https://github.com/vakaobr/iac-cartographer/issues/69)) ([1ca9d0e](https://github.com/vakaobr/iac-cartographer/commit/1ca9d0ec24d787c2ca1c62f5b618798d8b01177c))
+* **secrets:** load confluence / gitlab / github / slack lazily ([#67](https://github.com/vakaobr/iac-cartographer/issues/67)) ([5dcd9de](https://github.com/vakaobr/iac-cartographer/commit/5dcd9dea30386745b7904f3fba8f66cd7036a26e))
+
+
+### Documentation
+
+* sweep stale roadmap/future references after the feature wave ([#66](https://github.com/vakaobr/iac-cartographer/issues/66)) ([da933e1](https://github.com/vakaobr/iac-cartographer/commit/da933e115b147661c354d706484a3326b7249aaf))
+
 ## [0.1.6](https://github.com/vakaobr/iac-cartographer/compare/v0.1.5...v0.1.6) (2026-05-27)
 
 

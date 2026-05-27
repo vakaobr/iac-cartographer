@@ -1705,6 +1705,12 @@ have an LLM backend reachable).</p>
 <td>GitHub organisation slugs. Empty = skip GitHub.</td>
 </tr>
 <tr>
+<td><code>github_base_url</code></td>
+<td><code>str</code></td>
+<td><code>"https://api.github.com"</code></td>
+<td>GitHub REST API base. Override for self-hosted GitHub Enterprise Server (include the <code>/api/v3</code> suffix; it is NOT auto-added). Public GitHub + GitHub Enterprise Cloud use the default.</td>
+</tr>
+<tr>
 <td><code>bitbucket_workspaces</code></td>
 <td><code>list[str]</code></td>
 <td><code>[]</code></td>

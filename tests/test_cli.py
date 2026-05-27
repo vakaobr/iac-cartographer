@@ -15,7 +15,7 @@ from moto import mock_aws
 from iac_cartographer import __version__
 from iac_cartographer.aws import DEFAULT_REGION
 from iac_cartographer.cli import (
-    _JsonFormatter,
+    JSONFormatter,
     _load_config,
     _load_secrets,
     _RedactSecretsFilter,
@@ -57,7 +57,7 @@ def test_main_once_with_flags_exits_0(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_json_formatter_produces_valid_json() -> None:
-    formatter = _JsonFormatter()
+    formatter = JSONFormatter()
     record = logging.LogRecord(
         name="test",
         level=logging.INFO,
@@ -76,7 +76,7 @@ def test_json_formatter_produces_valid_json() -> None:
 
 
 def test_json_formatter_includes_exception() -> None:
-    formatter = _JsonFormatter()
+    formatter = JSONFormatter()
     try:
         raise ValueError("boom")
     except ValueError:
@@ -135,12 +135,52 @@ def test_redact_secrets_filter_preserves_non_secret_text() -> None:
 
 
 def test_setup_logging_installs_handler_with_filter(capsys: pytest.CaptureFixture[str]) -> None:
+    """Redaction applies regardless of format — here in the default (text) mode."""
     _setup_logging(verbose=False)
     logger = logging.getLogger("iac_cartographer.test")
     logger.info('loaded {"api_token": "should-not-appear"}')
     out = capsys.readouterr().out
     assert "should-not-appear" not in out
     assert "***REDACTED***" in out
+
+
+def test_setup_logging_default_is_text(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.delenv("IAC_CARTOGRAPHER_LOG_FORMAT", raising=False)
+    _setup_logging()
+    logging.getLogger("iac_cartographer.test").info("hello-text")
+    out = capsys.readouterr().out.strip()
+    assert "hello-text" in out
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(out)
+
+
+def test_setup_logging_json_when_env_set(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("IAC_CARTOGRAPHER_LOG_FORMAT", "json")
+    _setup_logging()
+    logging.getLogger("iac_cartographer.test").info("hello-json")
+    line = capsys.readouterr().out.strip().splitlines()[0]
+    payload = json.loads(line)
+    assert payload["msg"] == "hello-json"
+
+
+def test_setup_logging_json_redacts(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("IAC_CARTOGRAPHER_LOG_FORMAT", "json")
+    _setup_logging()
+    logging.getLogger("iac_cartographer.test").info('loaded {"password": "hunter2"}')
+    line = capsys.readouterr().out.strip().splitlines()[0]
+    payload = json.loads(line)
+    assert "hunter2" not in line
+    assert "***REDACTED***" in payload["msg"]
+
+
+def test_json_formatter_carries_extra_fields() -> None:
+    formatter = JSONFormatter()
+    record = logging.LogRecord(name="t", level=logging.INFO, pathname="x", lineno=1, msg="m", args=(), exc_info=None)
+    record.repo = "acme/main"
+    record.duration_seconds = 4.2
+    payload = json.loads(formatter.format(record))
+    assert payload["repo"] == "acme/main"
+    assert payload["duration_seconds"] == 4.2
 
 
 def test_setup_logging_verbose_enables_debug() -> None:
@@ -183,7 +223,7 @@ def test_logger_output_is_one_json_line_per_record() -> None:
     _setup_logging()
     buf = io.StringIO()
     handler = logging.StreamHandler(buf)
-    handler.setFormatter(_JsonFormatter())
+    handler.setFormatter(JSONFormatter())
     root = logging.getLogger()
     root.addHandler(handler)
     try:

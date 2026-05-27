@@ -42,7 +42,7 @@ from typing import Any
 
 import yaml
 
-from iac_cartographer import __version__
+from iac_cartographer import __version__, observability
 from iac_cartographer.aws import get_ssm_parameter, put_metric_data
 from iac_cartographer.confluence import ConfluenceClient
 from iac_cartographer.constants import CartographerError, ConfigError, MissingSecretError
@@ -134,9 +134,21 @@ _SSM_PREFIX = "ssm://"
 # ---------------------------------------------------------------------------
 
 
-class _JsonFormatter(logging.Formatter):
+# Standard LogRecord attributes — anything NOT in this set was passed via
+# `logger.info(..., extra={...})` and should ride along in the JSON envelope.
+_RESERVED_LOG_ATTRS = frozenset(logging.LogRecord("", 0, "", 0, "", (), None).__dict__.keys()) | {
+    "message",
+    "asctime",
+    "taskName",
+}
+
+
+class JSONFormatter(logging.Formatter):
     """Emit one JSON object per log record — easy to query in CloudWatch Logs
-    Insights, ELK, Loki, or any structured-log backend."""
+    Insights, ELK, Loki, Grafana, or any structured-log backend.
+
+    Carries any structured `extra=` fields through into the JSON envelope so
+    machine-readable context (repo names, durations, counts) survives."""
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
@@ -145,6 +157,7 @@ class _JsonFormatter(logging.Formatter):
             "logger": record.name,
             "msg": record.getMessage(),
         }
+        payload.update({k: v for k, v in record.__dict__.items() if k not in _RESERVED_LOG_ATTRS})
         if record.exc_info:
             payload["exc"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False, default=str)
@@ -176,11 +189,21 @@ class _RedactSecretsFilter(logging.Filter):
         return True
 
 
+# Human-readable text format — the OSS-friendly default. JSON is opt-in via
+# IAC_CARTOGRAPHER_LOG_FORMAT=json for adopters shipping to structured backends.
+_TEXT_LOG_FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
+
+
 def _setup_logging(verbose: bool = False) -> None:
     root = logging.getLogger()
     root.handlers.clear()
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(_JsonFormatter())
+    if os.environ.get("IAC_CARTOGRAPHER_LOG_FORMAT", "").strip().lower() == "json":
+        handler.setFormatter(JSONFormatter())
+    else:
+        handler.setFormatter(logging.Formatter(_TEXT_LOG_FORMAT))
+    # Redaction runs as a filter so it scrubs secrets out of BOTH formats
+    # before the formatter ever sees the message.
     handler.addFilter(_RedactSecretsFilter())
     root.addHandler(handler)
     root.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -830,6 +853,7 @@ async def _process_repo(
     when the backend doesn't supply usage counts).
     """
     path: Path | None = None
+    repo_started = time.monotonic()
     try:
         path = await asyncio.to_thread(clone, meta, gitlab_token, github_token, gitea_token)
         summary = await asyncio.to_thread(run_terraform_docs, path)
@@ -858,6 +882,7 @@ async def _process_repo(
         logger.exception("unexpected error processing %s", meta.full_name)
         return None, f"unexpected: {exc}", 0, 0
     finally:
+        observability.record_repo_duration(time.monotonic() - repo_started)
         if path is not None:
             cleanup(path)
 
@@ -914,6 +939,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
     # task failing to start, EventBridge broken).
     if not args.dry_run:
         put_metric_data("IacCartographer", "RunCount", 1.0)
+        observability.run_started()
 
     config = _load_config(args.config)
     # Per-run model override (e.g. validation runs on Haiku, scheduled runs
@@ -1183,6 +1209,13 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # AI-H1: surface narrative-review-queue hits as a CloudWatch metric so
         # alarms can fire on any suspected indirect prompt injection.
         put_metric_data("IacCartographer", "SuspiciousNarratives", float(len(suspicious_repos)))
+
+        # OTLP fan-out — silent no-op unless an OTLP endpoint env var is set
+        # AND the `[otel]` extra is installed. Additive to the CloudWatch leg.
+        observability.record_llm_tokens(config.llm.backend, tokens_in, tokens_out)
+        observability.record_publish_outcome("updated", len(pages_updated))
+        observability.record_publish_outcome("failed", len(all_failures))
+        observability.shutdown()
 
         logger.info(
             "run complete: %s",

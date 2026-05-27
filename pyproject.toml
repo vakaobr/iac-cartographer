@@ -103,6 +103,15 @@ email = [
 notion = [
     "notion-client>=2.2",
 ]
+# `pip install 'iac-cartographer[otel]'` enables the OpenTelemetry (OTLP)
+# metrics exporter for non-AWS deployments. Activated at runtime by setting
+# `IAC_CARTOGRAPHER_OTEL_EXPORTER_OTLP_ENDPOINT` (or the standard
+# `OTEL_EXPORTER_OTLP_ENDPOINT`). Default OFF; the CloudWatch path is
+# unaffected. SDK is imported lazily so the base install never pays for it.
+otel = [
+    "opentelemetry-sdk>=1.27",
+    "opentelemetry-exporter-otlp>=1.27",
+]
 # `pip install -e ".[docs]"` to build the mkdocs site locally:
 #   mkdocs serve   # http://127.0.0.1:8000
 #   mkdocs build --strict

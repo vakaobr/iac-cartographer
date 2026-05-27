@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.10](https://github.com/vakaobr/iac-cartographer/compare/v0.1.9...v0.1.10) (2026-05-27)
+
+
+### Added
+
+* add Bitbucket clone auth via HTTP Basic ([#80](https://github.com/vakaobr/iac-cartographer/issues/80)) ([9dcd229](https://github.com/vakaobr/iac-cartographer/commit/9dcd2294c9ec6896476250cb7ded4d307932ed9e))
+
 ## [0.1.9](https://github.com/vakaobr/iac-cartographer/compare/v0.1.8...v0.1.9) (2026-05-27)
 
 

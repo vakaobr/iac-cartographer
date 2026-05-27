@@ -11,4 +11,4 @@ Runs as a scheduled batch job (ECS Fargate, Kubernetes CronJob, GitHub Actions
 schedule, plain cron — runtime is your call).
 """
 
-__version__ = "0.1.9"
+__version__ = "0.1.10"

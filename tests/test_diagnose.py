@@ -9,26 +9,35 @@ The only probe that touches the outside world is `check_terraform_docs`
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 
 from iac_cartographer import diagnose
+from iac_cartographer.cli import _load_secrets
 from iac_cartographer.diagnose import (
     CheckResult,
     DiagnoseReport,
     Status,
     check_discovery,
+    check_discovery_live,
     check_llm,
+    check_llm_live,
     check_notifications,
     check_optional_deps,
+    check_publisher_live,
     check_publisher_target,
+    check_secrets_live,
     check_terraform_docs,
     render,
     run_diagnose,
 )
 from iac_cartographer.models import AppConfig
+from iac_cartographer.secrets import EnvSecretsProvider
 
 
 def _config(**overrides) -> AppConfig:
@@ -423,3 +432,304 @@ def test_optional_deps_multiple_missing_groups_in_hint(monkeypatch: pytest.Monke
     assert r.status == Status.FAIL
     # Both groups present in the combined install hint.
     assert r.hint and "notion" in r.hint and "openai" in r.hint
+
+
+# ── live probes ──────────────────────────────────────────────────────
+#
+# Everything below runs OFFLINE: env-backed secrets via monkeypatched env
+# vars, httpx clients mocked with respx, subprocess/git monkeypatched. No
+# real network ever fires.
+
+
+def _set_core_secret_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Populate the env vars the `env` secrets backend reads for the four
+    always-required credentials (confluence / gitlab / github / slack)."""
+    monkeypatch.setenv(
+        "IAC_CARTOGRAPHER_SECRET_CONFLUENCE",
+        json.dumps({"email": "bot@x.test", "api_token": "ATATT"}),
+    )
+    monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_GITLAB", json.dumps({"token": "glpat-AAAA"}))
+    monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_GITHUB", json.dumps({"token": "ghp_AAAA"}))
+    monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_SLACK", json.dumps({"bot_token": "xoxb-AAAA"}))
+
+
+# ── secrets-live ─────────────────────────────────────────────────────
+
+
+def test_secrets_live_resolves_required_bundle(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_core_secret_env(monkeypatch)
+    cfg = _config(secrets={"backend": "env"}, discovery={"github_orgs": ["acme"]})
+    result, secrets = check_secrets_live(cfg)
+    assert result.status == Status.OK
+    assert "resolved via env" in result.detail
+    assert secrets is not None
+    assert secrets.github.token == "ghp_AAAA"
+
+
+def test_secrets_live_missing_secret_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Only set three of the four required secrets — slack is missing.
+    monkeypatch.setenv(
+        "IAC_CARTOGRAPHER_SECRET_CONFLUENCE",
+        json.dumps({"email": "bot@x.test", "api_token": "ATATT"}),
+    )
+    monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_GITLAB", json.dumps({"token": "glpat"}))
+    monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_GITHUB", json.dumps({"token": "ghp"}))
+    monkeypatch.delenv("IAC_CARTOGRAPHER_SECRET_SLACK", raising=False)
+    cfg = _config(secrets={"backend": "env"}, discovery={"github_orgs": ["acme"]})
+    result, secrets = check_secrets_live(cfg)
+    assert result.status == Status.FAIL
+    assert secrets is None
+    assert result.hint and "env" in result.hint
+
+
+def test_secrets_live_bad_provider_config_is_fail() -> None:
+    # vault backend with no vault_addr → build_provider raises ConfigError.
+    cfg = _config(secrets={"backend": "vault"}, discovery={"github_orgs": ["acme"]})
+    result, secrets = check_secrets_live(cfg)
+    assert result.status == Status.FAIL
+    assert secrets is None
+    assert "vault" in result.detail
+
+
+# Shared helper that builds a real LoadedSecrets for the downstream probes.
+def _build_secrets(monkeypatch: pytest.MonkeyPatch):
+    _set_core_secret_env(monkeypatch)
+    return _load_secrets(EnvSecretsProvider(), "bedrock")
+
+
+# ── discovery-live ───────────────────────────────────────────────────
+
+
+@respx.mock
+def test_discovery_live_github_auth_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    respx.get("https://api.github.com/user").mock(return_value=httpx.Response(200, json={"login": "bot"}))
+    cfg = _config(discovery={"github_orgs": ["acme"]})
+    r = check_discovery_live(cfg, secrets)
+    assert r.status == Status.OK
+    assert "github" in r.detail
+
+
+@respx.mock
+def test_discovery_live_bad_token_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    respx.get("https://api.github.com/user").mock(return_value=httpx.Response(401, json={"message": "Bad credentials"}))
+    cfg = _config(discovery={"github_orgs": ["acme"]})
+    r = check_discovery_live(cfg, secrets)
+    assert r.status == Status.FAIL
+    assert "github auth failed" in r.detail
+
+
+def test_discovery_live_file_only_is_skip(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    cfg = _config(discovery={"repos_file": "./repos.yaml"})
+    r = check_discovery_live(cfg, secrets)
+    assert r.status == Status.SKIP
+    assert "file source only" in r.detail
+
+
+# ── llm-live ─────────────────────────────────────────────────────────
+
+
+@respx.mock
+def test_llm_live_ollama_tags_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    respx.get("http://localhost:11434/api/tags").mock(
+        return_value=httpx.Response(200, json={"models": [{"name": "llama3"}, {"name": "qwen"}]})
+    )
+    cfg = _config(llm={"backend": "ollama"})
+    r = check_llm_live(cfg, secrets)
+    assert r.status == Status.OK
+    assert "2 model(s)" in r.detail
+
+
+@respx.mock
+def test_llm_live_ollama_unreachable_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    respx.get("http://localhost:11434/api/tags").mock(return_value=httpx.Response(503))
+    cfg = _config(llm={"backend": "ollama"})
+    r = check_llm_live(cfg, secrets)
+    assert r.status == Status.FAIL
+    assert "503" in r.detail
+
+
+def test_llm_live_bedrock_is_cost_safe_build_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Bedrock probe constructs the client but NEVER runs a completion."""
+    secrets = _build_secrets(monkeypatch)
+    cfg = _config(llm={"backend": "bedrock"})
+    r = check_llm_live(cfg, secrets)
+    assert r.status == Status.OK
+    assert "cost-safe" in r.detail
+    assert "no completion" in r.detail
+
+
+# ── publisher-live ───────────────────────────────────────────────────
+
+
+def test_publisher_live_markdown_is_skip(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    cfg = _config(publisher={"kind": "markdown"}, markdown={"output_dir": "/tmp"})
+    r = check_publisher_live(cfg, secrets)
+    assert r.status == Status.SKIP
+    assert "no remote target" in r.detail
+
+
+@respx.mock
+def test_publisher_live_confluence_reachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    respx.get("https://acme.atlassian.net/wiki/api/v2/pages/12345").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": "12345",
+                "title": "IaC Inventory",
+                "version": {"number": 3},
+                "body": {"atlas_doc_format": {"value": "{}"}},
+            },
+        )
+    )
+    cfg = _config(
+        publisher={"kind": "confluence"},
+        confluence={"site": "acme.atlassian.net", "parent_page_id": "12345"},
+    )
+    r = check_publisher_live(cfg, secrets)
+    assert r.status == Status.OK
+    assert "IaC Inventory" in r.detail
+
+
+@respx.mock
+def test_publisher_live_notion_bad_token_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    _set_core_secret_env(monkeypatch)
+    monkeypatch.setenv("IAC_CARTOGRAPHER_SECRET_NOTION", json.dumps({"integration_token": "secret_X"}))
+    secrets = _load_secrets(EnvSecretsProvider(), "bedrock", need_notion=True)
+    respx.get("https://api.notion.com/v1/pages/abcd1234").mock(return_value=httpx.Response(401))
+    cfg = _config(publisher={"kind": "notion"}, notion={"parent_page_id": "abcd1234"})
+    r = check_publisher_live(cfg, secrets)
+    assert r.status == Status.FAIL
+    assert "401" in r.detail
+
+
+def test_publisher_live_github_wiki_ls_remote_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+    monkeypatch.setattr(
+        diagnose.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout="abc123\tHEAD", stderr=""),
+    )
+    cfg = _config(publisher={"kind": "github_wiki"}, github_wiki={"owner": "acme", "repo": "infra"})
+    r = check_publisher_live(cfg, secrets)
+    assert r.status == Status.OK
+    assert "acme/infra.wiki" in r.detail
+
+
+def test_publisher_live_github_wiki_ls_remote_fail_redacts_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    secrets = _build_secrets(monkeypatch)
+
+    def _fail(*a, **k):
+        return subprocess.CompletedProcess(a, 128, stdout="", stderr="fatal: ghp_AAAA auth failed for repo")
+
+    monkeypatch.setattr(diagnose.subprocess, "run", _fail)
+    cfg = _config(publisher={"kind": "github_wiki"}, github_wiki={"owner": "acme", "repo": "infra"})
+    r = check_publisher_live(cfg, secrets)
+    assert r.status == Status.FAIL
+    assert "ghp_AAAA" not in r.detail  # token redacted
+    assert "<TOKEN>" in r.detail
+
+
+# ── run_diagnose orchestration with --live ───────────────────────────
+
+
+def _green_terraform_docs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(diagnose.shutil, "which", lambda _: "/usr/local/bin/terraform-docs")
+    monkeypatch.setattr(
+        diagnose.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout="terraform-docs version v0.20.0", stderr=""),
+    )
+
+
+def _write_config(tmp_path: Path) -> Path:
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "discovery:\n"
+        "  github_orgs: [acme]\n"
+        "secrets:\n"
+        "  backend: env\n"
+        "llm:\n"
+        "  backend: bedrock\n"
+        "publisher:\n"
+        "  kind: markdown\n"
+        f"markdown:\n  output_dir: {tmp_path}/out\n"
+    )
+    return cfg
+
+
+def test_run_diagnose_without_live_runs_no_live_probes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`--live` off → identical probe set to today (no *-live checks)."""
+    _green_terraform_docs(monkeypatch)
+    report = run_diagnose(str(_write_config(tmp_path)))
+    names = [c.name for c in report.checks]
+    assert not any(n.endswith("-live") for n in names)
+
+
+@respx.mock
+def test_run_diagnose_live_full_green(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _green_terraform_docs(monkeypatch)
+    _set_core_secret_env(monkeypatch)
+    respx.get("https://api.github.com/user").mock(return_value=httpx.Response(200, json={"login": "bot"}))
+    report = run_diagnose(str(_write_config(tmp_path)), live=True)
+    statuses = {c.name: c.status for c in report.checks}
+    assert statuses["secrets-live"] == Status.OK
+    assert statuses["discovery-live"] == Status.OK
+    assert statuses["llm-live"] == Status.OK  # bedrock build-only
+    assert statuses["publisher-live"] == Status.SKIP  # markdown has no remote
+    assert report.exit_code in (0, 1)
+
+
+def test_run_diagnose_live_skips_downstream_when_secrets_fail(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """If secrets-live can't resolve, discovery/llm/publisher live probes
+    are explicitly skipped (never attempted with no credentials)."""
+    _green_terraform_docs(monkeypatch)
+    # No secret env vars set → secrets-live fails.
+    for var in (
+        "IAC_CARTOGRAPHER_SECRET_CONFLUENCE",
+        "IAC_CARTOGRAPHER_SECRET_GITLAB",
+        "IAC_CARTOGRAPHER_SECRET_GITHUB",
+        "IAC_CARTOGRAPHER_SECRET_SLACK",
+    ):
+        monkeypatch.delenv(var, raising=False)
+    report = run_diagnose(str(_write_config(tmp_path)), live=True)
+    statuses = {c.name: c.status for c in report.checks}
+    assert statuses["secrets-live"] == Status.FAIL
+    assert statuses["discovery-live"] == Status.SKIP
+    assert statuses["llm-live"] == Status.SKIP
+    assert statuses["publisher-live"] == Status.SKIP
+
+
+def test_run_diagnose_live_skips_live_when_offline_probe_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A component whose OFFLINE probe failed doesn't get a live probe."""
+    _green_terraform_docs(monkeypatch)
+    _set_core_secret_env(monkeypatch)
+    # vertex backend with no project_id → offline llm probe FAILS, so the
+    # llm-live probe must be skipped (not attempted).
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "discovery:\n"
+        "  github_orgs: [acme]\n"
+        "secrets:\n"
+        "  backend: env\n"
+        "llm:\n"
+        "  backend: vertex\n"  # no vertex_project_id → offline llm fail
+        "publisher:\n"
+        "  kind: markdown\n"
+        f"markdown:\n  output_dir: {tmp_path}/out\n"
+    )
+    with respx.mock:
+        respx.get("https://api.github.com/user").mock(return_value=httpx.Response(200, json={"login": "bot"}))
+        report = run_diagnose(str(cfg), live=True)
+    statuses = {c.name: c.status for c in report.checks}
+    assert statuses["llm"] == Status.FAIL
+    assert statuses["llm-live"] == Status.SKIP
+    assert "offline llm probe failed" in next(c.detail for c in report.checks if c.name == "llm-live")

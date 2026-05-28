@@ -1,15 +1,24 @@
-"""GitHub discovery — `code search` for `.tf` files across one or more orgs.
+"""GitHub discovery — list org repos and probe each one's git tree for `.tf`.
 
-Strategy: `GET /search/code?q=org:{org}+extension:tf` returns repos with at
-least one `.tf` file. We then call `GET /repos/{o}/{r}` + branches API for
-default-branch + last-commit metadata.
+Strategy: page `GET /orgs/{org}/repos?type=all`, then for each repo call
+`GET /repos/{o}/{r}/git/trees/{default_branch}?recursive=1` and keep the
+repos that have at least one `.tf` blob. We then call `GET /repos/{o}/{r}`
++ branches API for default-branch + last-commit metadata.
+
+Why not `/search/code`? GitHub deprecated several `/search/code` query
+fields on 2026-03-27. The practical effect for fine-grained PATs is that
+`q=org:{org}+extension:tf` silently returns `total_count=0` for private
+repos even when the same PAT can read those repos through the REST API.
+The git-tree probe uses only the `Contents:read` permission the rest of
+discovery already needs, so it works the moment the PAT is authorized
+for the org.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -75,7 +84,7 @@ class GithubDiscovery(DiscoverySource):
         return list(merged.values())
 
     async def _discover_org(self, client: httpx.AsyncClient, org: str) -> list[RepoMetadata]:
-        repo_full_names = await self._search_code_for_repo_names(client, org)
+        repo_full_names = await self._list_repos_with_tf(client, org)
         logger.info("github: org %s → %d repos with .tf files", org, len(repo_full_names))
         tasks = [self._fetch_repo_metadata(client, name) for name in repo_full_names]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -87,34 +96,66 @@ class GithubDiscovery(DiscoverySource):
                 logger.warning("github: skipped repo (metadata fetch failed): %s", r)
         return out
 
-    async def _search_code_for_repo_names(self, client: httpx.AsyncClient, org: str) -> list[str]:
-        names: set[str] = set()
+    async def _list_repos_with_tf(self, client: httpx.AsyncClient, org: str) -> list[str]:
+        """List the org's repos and keep only those with `.tf` on the default branch.
+
+        Uses `GET /orgs/{org}/repos` + a per-repo git-tree probe instead of
+        `/search/code`, which became unreliable for fine-grained PATs after
+        GitHub's 2026-03-27 API change.
+        """
+        names: list[str] = []
         page = 1
         while page <= MAX_PAGES:
             resp = await client.get(
-                "/search/code",
-                params={"q": f"org:{org} extension:tf", "per_page": 100, "page": page},
+                f"/orgs/{org}/repos",
+                params={"type": "all", "per_page": 100, "page": page},
             )
-            if resp.status_code == 422:
-                # GitHub returns 422 if the query is invalid OR if no commits
-                # match — for an org with no .tf files, treat as empty.
-                logger.info("github: search/code returned 422 for org=%s — assuming empty", org)
-                return sorted(names)
             if resp.status_code >= 400:
                 raise DiscoveryError(
-                    f"github code search failed (org={org}, status={resp.status_code}): {resp.text[:200]}"
+                    f"github org listing failed (org={org}, status={resp.status_code}): {resp.text[:200]}"
                 )
-            data = resp.json()
-            for item in data.get("items", []):
-                repo = item.get("repository", {})
-                full = repo.get("full_name")
-                if isinstance(full, str):
-                    names.add(full)
-            link = resp.headers.get("Link", "")
-            if 'rel="next"' not in link:
+            repos = resp.json() or []
+            candidates = [r for r in repos if r.get("default_branch") and r.get("full_name")]
+            probes = await asyncio.gather(
+                *(self._repo_has_tf(client, r) for r in candidates),
+                return_exceptions=True,
+            )
+            for repo_obj, has_tf in zip(candidates, probes, strict=True):
+                if isinstance(has_tf, Exception):
+                    logger.warning("github: tree probe failed for %s: %s", repo_obj["full_name"], has_tf)
+                    continue
+                if has_tf:
+                    names.append(repo_obj["full_name"])
+            if 'rel="next"' not in resp.headers.get("Link", ""):
                 break
             page += 1
-        return sorted(names)
+        return sorted(set(names))
+
+    async def _repo_has_tf(self, client: httpx.AsyncClient, repo: dict[str, Any]) -> bool:
+        """True if the repo's default branch has any `.tf` blob in its git tree.
+
+        Empty repos (no commits on the default branch) return 404 or 409 on
+        the tree endpoint — these are silently skipped. If GitHub marks the
+        tree response `truncated` (repos with >100k entries or >7MB JSON)
+        and no `.tf` has surfaced, we log a warning and treat the repo as
+        having none; per-directory tree walks aren't worth the request
+        budget for typical IaC repositories.
+        """
+        full = repo["full_name"]
+        branch = repo["default_branch"]
+        resp = await client.get(f"/repos/{full}/git/trees/{branch}", params={"recursive": "1"})
+        if resp.status_code in (404, 409):
+            return False
+        resp.raise_for_status()
+        data = resp.json()
+        tree = data.get("tree") or []
+        has_tf = any(node.get("type") == "blob" and node.get("path", "").endswith(".tf") for node in tree)
+        if data.get("truncated") and not has_tf:
+            logger.warning(
+                "github: %s tree truncated, no .tf seen in first page — repo may be too large to enumerate",
+                full,
+            )
+        return has_tf
 
     async def _fetch_repo_metadata(self, client: httpx.AsyncClient, full_name: str) -> RepoMetadata:
         resp = await client.get(f"/repos/{full_name}")

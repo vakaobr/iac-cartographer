@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.11](https://github.com/vakaobr/iac-cartographer/compare/v0.1.10...v0.1.11) (2026-05-28)
+
+
+### Fixed
+
+* **discovery:** replace GitHub Code Search with /orgs + git-tree probe ([#82](https://github.com/vakaobr/iac-cartographer/issues/82)) ([7f31da1](https://github.com/vakaobr/iac-cartographer/commit/7f31da16769fcbd9f04eeb43d7c36f05e2269191))
+
 ## [0.1.10](https://github.com/vakaobr/iac-cartographer/compare/v0.1.9...v0.1.10) (2026-05-27)
 
 

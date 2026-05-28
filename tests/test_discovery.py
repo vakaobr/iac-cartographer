@@ -44,6 +44,19 @@ def _branch_payload_gitlab(
     return {"name": "main", "commit": {"id": sha, "committed_date": when, "author_name": author}}
 
 
+def _github_tree_payload(paths: list[str], truncated: bool = False) -> dict[str, object]:
+    return {
+        "tree": [{"type": "blob", "path": p} for p in paths],
+        "truncated": truncated,
+    }
+
+
+def _mock_tree(full_name: str, paths: list[str], truncated: bool = False, base: str = GITHUB_BASE_URL) -> None:
+    respx.get(f"{base}/repos/{full_name}/git/trees/main").mock(
+        return_value=httpx.Response(200, json=_github_tree_payload(paths, truncated=truncated))
+    )
+
+
 def _github_repo_payload(full_name: str) -> dict[str, object]:
     return {
         "full_name": full_name,
@@ -213,18 +226,19 @@ async def test_gitlab_discovery_empty_groups_returns_empty() -> None:
 
 @respx.mock
 async def test_github_discovery_happy_path() -> None:
-    respx.get(f"{GITHUB_BASE_URL}/search/code").mock(
+    respx.get(f"{GITHUB_BASE_URL}/orgs/acme-org/repos").mock(
         return_value=httpx.Response(
             200,
-            json={
-                "items": [
-                    {"repository": {"full_name": "acme-org/runner-fleet"}},
-                    {"repository": {"full_name": "acme-org/runner-fleet"}},  # dup OK
-                    {"repository": {"full_name": "acme-org/database-setup"}},
-                ]
-            },
+            json=[
+                _github_repo_payload("acme-org/runner-fleet"),
+                _github_repo_payload("acme-org/database-setup"),
+                _github_repo_payload("acme-org/no-tf-here"),
+            ],
         )
     )
+    _mock_tree("acme-org/runner-fleet", ["main.tf", "README.md"])
+    _mock_tree("acme-org/database-setup", ["bastion.tf", "rds.tf"])
+    _mock_tree("acme-org/no-tf-here", ["README.md", "package.json"])
     for name in ("acme-org/runner-fleet", "acme-org/database-setup"):
         respx.get(f"{GITHUB_BASE_URL}/repos/{name}").mock(
             return_value=httpx.Response(200, json=_github_repo_payload(name))
@@ -242,37 +256,64 @@ async def test_github_discovery_happy_path() -> None:
 
 
 @respx.mock
-async def test_github_discovery_422_returns_empty() -> None:
-    """GitHub returns 422 when search has no commit history. Treat as empty."""
-    respx.get(f"{GITHUB_BASE_URL}/search/code").mock(
-        return_value=httpx.Response(422, json={"message": "Validation Failed"})
-    )
+async def test_github_discovery_empty_org_returns_empty() -> None:
+    """Org with no repos → discovery returns empty without error."""
+    respx.get(f"{GITHUB_BASE_URL}/orgs/empty/repos").mock(return_value=httpx.Response(200, json=[]))
     repos = await GithubDiscovery(GithubCredentials(token="x")).list_repos_with_terraform(["empty"])
     assert repos == []
 
 
 @respx.mock
+async def test_github_discovery_skips_empty_repos() -> None:
+    """A repo with no commits returns 404 or 409 on the tree endpoint —
+    must be silently skipped, not raise."""
+    respx.get(f"{GITHUB_BASE_URL}/orgs/acme-org/repos").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                _github_repo_payload("acme-org/empty-repo"),
+                _github_repo_payload("acme-org/has-tf"),
+            ],
+        )
+    )
+    respx.get(f"{GITHUB_BASE_URL}/repos/acme-org/empty-repo/git/trees/main").mock(
+        return_value=httpx.Response(409, json={"message": "Git Repository is empty."})
+    )
+    _mock_tree("acme-org/has-tf", ["main.tf"])
+    respx.get(f"{GITHUB_BASE_URL}/repos/acme-org/has-tf").mock(
+        return_value=httpx.Response(200, json=_github_repo_payload("acme-org/has-tf"))
+    )
+    respx.get(f"{GITHUB_BASE_URL}/repos/acme-org/has-tf/branches/main").mock(
+        return_value=httpx.Response(200, json=_branch_payload_github())
+    )
+    repos = await GithubDiscovery(GithubCredentials(token="x")).list_repos_with_terraform(["acme-org"])
+    assert {r.full_name for r in repos} == {"acme-org/has-tf"}
+
+
+@respx.mock
 async def test_github_discovery_paginates_via_link_header() -> None:
     page1 = respx.get(
-        f"{GITHUB_BASE_URL}/search/code",
-        params={"q": "org:acme-org extension:tf", "per_page": 100, "page": 1},
+        f"{GITHUB_BASE_URL}/orgs/acme-org/repos",
+        params={"type": "all", "per_page": 100, "page": 1},
     ).mock(
         return_value=httpx.Response(
             200,
-            json={"items": [{"repository": {"full_name": "acme-org/a"}}]},
+            json=[_github_repo_payload("acme-org/a")],
             headers={"Link": '<...>; rel="next"'},
         )
     )
     page2 = respx.get(
-        f"{GITHUB_BASE_URL}/search/code",
-        params={"q": "org:acme-org extension:tf", "per_page": 100, "page": 2},
+        f"{GITHUB_BASE_URL}/orgs/acme-org/repos",
+        params={"type": "all", "per_page": 100, "page": 2},
     ).mock(
         return_value=httpx.Response(
             200,
-            json={"items": [{"repository": {"full_name": "acme-org/b"}}]},
+            json=[_github_repo_payload("acme-org/b")],
             headers={},  # no next
         )
     )
+    _mock_tree("acme-org/a", ["main.tf"])
+    _mock_tree("acme-org/b", ["infra.tf"])
     for name in ("acme-org/a", "acme-org/b"):
         respx.get(f"{GITHUB_BASE_URL}/repos/{name}").mock(
             return_value=httpx.Response(200, json=_github_repo_payload(name))
@@ -288,15 +329,29 @@ async def test_github_discovery_paginates_via_link_header() -> None:
 
 @respx.mock
 async def test_github_discovery_500_raises() -> None:
-    respx.get(f"{GITHUB_BASE_URL}/search/code").mock(return_value=httpx.Response(500, json={"message": "boom"}))
+    respx.get(f"{GITHUB_BASE_URL}/orgs/acme-org/repos").mock(return_value=httpx.Response(500, json={"message": "boom"}))
     with pytest.raises(DiscoveryError):
         await GithubDiscovery(GithubCredentials(token="x")).list_repos_with_terraform(["acme-org"])
 
 
 @respx.mock
+async def test_github_discovery_truncated_tree_without_tf_skipped() -> None:
+    """Truncated tree response with no `.tf` blobs surfaced → treat as
+    'no .tf' and log a warning."""
+    respx.get(f"{GITHUB_BASE_URL}/orgs/acme-org/repos").mock(
+        return_value=httpx.Response(200, json=[_github_repo_payload("acme-org/huge")])
+    )
+    respx.get(f"{GITHUB_BASE_URL}/repos/acme-org/huge/git/trees/main").mock(
+        return_value=httpx.Response(200, json=_github_tree_payload(["docs/intro.md", "package.json"], truncated=True))
+    )
+    repos = await GithubDiscovery(GithubCredentials(token="x")).list_repos_with_terraform(["acme-org"])
+    assert repos == []
+
+
+@respx.mock
 async def test_github_discovery_default_base_is_public_api() -> None:
     """Sanity: with no base_url override, requests hit api.github.com."""
-    route = respx.get("https://api.github.com/search/code").mock(return_value=httpx.Response(200, json={"items": []}))
+    route = respx.get("https://api.github.com/orgs/acme-org/repos").mock(return_value=httpx.Response(200, json=[]))
     await GithubDiscovery(GithubCredentials(token="x")).list_repos_with_terraform(["acme-org"])
     assert route.called
 
@@ -307,9 +362,10 @@ async def test_github_discovery_uses_ghes_base_url() -> None:
     `https://<host>/api/v3` base, with paths composed correctly (no double
     /api/v3, no dropped path segment)."""
     ghes = "https://ghe.example.com/api/v3"
-    respx.get(f"{ghes}/search/code").mock(
-        return_value=httpx.Response(200, json={"items": [{"repository": {"full_name": "acme-org/infra"}}]})
+    respx.get(f"{ghes}/orgs/acme-org/repos").mock(
+        return_value=httpx.Response(200, json=[_github_repo_payload("acme-org/infra")])
     )
+    _mock_tree("acme-org/infra", ["main.tf"], base=ghes)
     repo_route = respx.get(f"{ghes}/repos/acme-org/infra").mock(
         return_value=httpx.Response(200, json=_github_repo_payload("acme-org/infra"))
     )
@@ -323,8 +379,6 @@ async def test_github_discovery_uses_ghes_base_url() -> None:
     ).list_repos_with_terraform(["acme-org"])
 
     assert {r.full_name for r in repos} == {"acme-org/infra"}
-    # All three endpoints were hit on the GHES host — confirms path
-    # composition against a base_url that itself carries a `/api/v3` path.
     assert repo_route.called
     assert branch_route.called
     # And nothing leaked to the public api.github.com host.
@@ -352,9 +406,10 @@ async def test_discover_merges_and_applies_deny_list() -> None:
         return_value=httpx.Response(200, json=_branch_payload_gitlab())
     )
     # GitHub: 1 repo
-    respx.get(f"{GITHUB_BASE_URL}/search/code").mock(
-        return_value=httpx.Response(200, json={"items": [{"repository": {"full_name": "acme-org/active"}}]})
+    respx.get(f"{GITHUB_BASE_URL}/orgs/acme-org/repos").mock(
+        return_value=httpx.Response(200, json=[_github_repo_payload("acme-org/active")])
     )
+    _mock_tree("acme-org/active", ["main.tf"])
     respx.get(f"{GITHUB_BASE_URL}/repos/acme-org/active").mock(
         return_value=httpx.Response(200, json=_github_repo_payload("acme-org/active"))
     )
@@ -381,7 +436,7 @@ async def test_discover_zero_repos_raises() -> None:
     respx.get(f"{GITLAB_DEFAULT_BASE_URL}/api/v4/groups/1/search").mock(
         return_value=httpx.Response(200, json=[], headers={"X-Next-Page": ""})
     )
-    respx.get(f"{GITHUB_BASE_URL}/search/code").mock(return_value=httpx.Response(200, json={"items": []}))
+    respx.get(f"{GITHUB_BASE_URL}/orgs/acme-org/repos").mock(return_value=httpx.Response(200, json=[]))
     config = DiscoveryConfig(gitlab_group_ids=[1], github_orgs=["acme-org"])
     with pytest.raises(DiscoveryError, match="no repos found"):
         await discover(config, GitlabCredentials(token="x"), GithubCredentials(token="y"))
@@ -423,9 +478,10 @@ async def test_gitlab_discovery_populates_last_commit_author() -> None:
 
 @respx.mock
 async def test_github_discovery_populates_last_commit_author() -> None:
-    respx.get(f"{GITHUB_BASE_URL}/search/code").mock(
-        return_value=httpx.Response(200, json={"items": [{"repository": {"full_name": "acme-org/x"}}]})
+    respx.get(f"{GITHUB_BASE_URL}/orgs/acme-org/repos").mock(
+        return_value=httpx.Response(200, json=[_github_repo_payload("acme-org/x")])
     )
+    _mock_tree("acme-org/x", ["main.tf"])
     respx.get(f"{GITHUB_BASE_URL}/repos/acme-org/x").mock(
         return_value=httpx.Response(200, json=_github_repo_payload("acme-org/x"))
     )

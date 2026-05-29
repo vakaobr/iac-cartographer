@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.12](https://github.com/vakaobr/iac-cartographer/compare/v0.1.11...v0.1.12) (2026-05-29)
+
+
+### Fixed
+
+* **llm:** pin temperature=0 across all backends for narrative determinism ([#84](https://github.com/vakaobr/iac-cartographer/issues/84)) ([1b84a4b](https://github.com/vakaobr/iac-cartographer/commit/1b84a4b2c299fd45e68d38610af641c0825a6653))
+
 ## [0.1.11](https://github.com/vakaobr/iac-cartographer/compare/v0.1.10...v0.1.11) (2026-05-28)
 
 

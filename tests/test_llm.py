@@ -66,6 +66,9 @@ def test_bedrock_backend_invokes_with_wrapped_body(monkeypatch: pytest.MonkeyPat
     assert body["anthropic_version"] == "bedrock-2023-05-31"
     assert "model" not in body
     assert body["max_tokens"] == 4096
+    # Greedy decoding so the narrator output is deterministic across runs
+    # (banner-SHA stability — see BedrockBackend.invoke docstring).
+    assert body["temperature"] == 0
     # System block carries cache_control so Bedrock can serve repeated
     # system-prompt tokens from cache.
     assert body["system"][0]["cache_control"] == {"type": "ephemeral"}

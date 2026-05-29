@@ -132,6 +132,13 @@ class BedrockBackend(LLMBackend):
         body = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_tokens,
+            # Greedy decoding. The narrator extracts structured fields
+            # from terraform-docs JSON + HCL; the banner-SHA stored on
+            # each Confluence/Markdown page is a hash of the rendered
+            # narrative, so non-deterministic sampling would invalidate
+            # every page on every run and make `skipped_unchanged`
+            # always 0. Without this Bedrock defaults to temperature=1.
+            "temperature": 0,
             # `cache_control: ephemeral` on the system block lets Bedrock
             # serve repeated system-prompt tokens from cache at ~10% of
             # the input-token price — a big saver when the run hits N
@@ -194,6 +201,9 @@ class AnthropicBackend(LLMBackend):
         body = {
             "model": model_id,
             "max_tokens": max_tokens,
+            # See BedrockBackend.invoke — banner-SHA stability requires
+            # deterministic narrative output.
+            "temperature": 0,
             "system": [
                 {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
             ],
@@ -293,6 +303,9 @@ class VertexBackend(LLMBackend):
         message = client.messages.create(
             model=model_id,
             max_tokens=max_tokens,
+            # See BedrockBackend.invoke — banner-SHA stability requires
+            # deterministic narrative output.
+            temperature=0,
             system=[
                 {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}},
             ],
@@ -446,6 +459,9 @@ class AzureOpenAIBackend(LLMBackend):
         completion = client.chat.completions.create(
             model=self._deployment,
             max_tokens=max_tokens,
+            # See BedrockBackend.invoke — banner-SHA stability requires
+            # deterministic narrative output.
+            temperature=0,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -548,6 +564,9 @@ class OpenAIBackend(LLMBackend):
         completion = client.chat.completions.create(
             model=model_id,
             max_tokens=max_tokens,
+            # See BedrockBackend.invoke — banner-SHA stability requires
+            # deterministic narrative output.
+            temperature=0,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -630,6 +649,9 @@ class OllamaBackend(LLMBackend):
             "options": {
                 # Ollama uses `num_predict` for max output tokens.
                 "num_predict": max_tokens,
+                # See BedrockBackend.invoke — banner-SHA stability
+                # requires deterministic narrative output.
+                "temperature": 0,
             },
             "messages": [
                 {"role": "system", "content": system_prompt},

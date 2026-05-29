@@ -126,9 +126,11 @@ def infer_provider_source(name: str) -> str:
 def compute_sha(payload: object) -> str:
     """Canonical-JSON SHA-256 (first 8 hex chars).
 
-    The 8-char prefix is enough to detect any realistic content change while
-    keeping the banner readable. Pydantic models are dumped to their
-    canonical JSON; lists/dicts are passed through directly.
+    Generic primitive — use the higher-level `compute_inventory_sha` /
+    `compute_overview_sha` for banner-SHAs on pages. The 8-char prefix is
+    enough to detect any realistic content change while keeping the banner
+    readable. Pydantic models are dumped to their canonical JSON;
+    lists/dicts are passed through directly.
     """
     if hasattr(payload, "model_dump"):
         data: Any = payload.model_dump(mode="json")
@@ -138,6 +140,41 @@ def compute_sha(payload: object) -> str:
         data = payload
     blob = json.dumps(data, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:8]
+
+
+def _inventory_input_payload(inv: RepoInventory, *, model_id: str, system_prompt_version: str) -> dict[str, object]:
+    """Change-detection payload for one repo's child page.
+
+    Strictly the *inputs* that should trigger a republish — never the LLM
+    output. Including `inv.narrative` here would mean narrative drift
+    alone invalidates the SHA on every run, because LLM backends aren't
+    reliably deterministic even at temperature=0 (different replicas /
+    floating-point order / tied-token tiebreaks → slightly different
+    wording for byte-identical prompts). The model id and prompt version
+    are part of the payload so a backend/model swap or a manual prompt
+    version bump still force-republishes the world.
+    """
+    return {
+        "meta": inv.meta.model_dump(mode="json"),
+        "summary": inv.summary.model_dump(mode="json"),
+        "model_id": model_id,
+        "system_prompt_version": system_prompt_version,
+    }
+
+
+def compute_inventory_sha(inv: RepoInventory, *, model_id: str, system_prompt_version: str) -> str:
+    """Banner-SHA for a child page. See `_inventory_input_payload`."""
+    return compute_sha(_inventory_input_payload(inv, model_id=model_id, system_prompt_version=system_prompt_version))
+
+
+def compute_overview_sha(inventories: list[RepoInventory], *, model_id: str, system_prompt_version: str) -> str:
+    """Banner-SHA for the overview page. Hashes the list of per-repo input
+    payloads — same exclusion rules as `compute_inventory_sha`."""
+    payloads = [
+        _inventory_input_payload(inv, model_id=model_id, system_prompt_version=system_prompt_version)
+        for inv in inventories
+    ]
+    return compute_sha(payloads)
 
 
 # ─── Banner injection + extraction ──────────────────────────────────────
@@ -607,6 +644,8 @@ __all__ = [
     "build_banner",
     "build_child",
     "build_overview",
+    "compute_inventory_sha",
+    "compute_overview_sha",
     "compute_sha",
     "extract_banner_sha",
 ]

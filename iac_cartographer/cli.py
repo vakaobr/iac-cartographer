@@ -119,7 +119,7 @@ from iac_cartographer.publishers import (
     NotionPublisher,
     Publisher,
 )
-from iac_cartographer.renderer import OVERVIEW_TITLE, compute_sha
+from iac_cartographer.renderer import OVERVIEW_TITLE, compute_inventory_sha, compute_overview_sha
 from iac_cartographer.secrets import SecretsProvider, build_provider
 
 logger = logging.getLogger("iac_cartographer.cli")
@@ -1296,7 +1296,11 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                 # Publish children first so the overview can link to them.
                 child_page_ids: dict[str, str] = {}
                 for inv in inventories:
-                    child_sha = compute_sha(inv)
+                    child_sha = compute_inventory_sha(
+                        inv,
+                        model_id=config.llm.model_id,
+                        system_prompt_version=config.llm.system_prompt_version,
+                    )
                     try:
                         result = await publisher.publish_child(
                             inv, sha=child_sha, updated_at=now, pipeline_url=pipeline_url
@@ -1310,9 +1314,15 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                         publish_failures[inv.meta.full_name] = f"publisher: {exc}"
                         logger.exception("publisher failed for %s", inv.meta.full_name)
 
-                # Overview SHA includes the full inventory list — adding /
-                # removing a repo invalidates the overview banner-SHA.
-                overview_sha = compute_sha([inv.model_dump(mode="json") for inv in inventories])
+                # Overview SHA tracks the per-repo inputs (same exclusion rules
+                # as `compute_inventory_sha` — no LLM output). Adding or
+                # removing a repo invalidates the overview banner-SHA via the
+                # changed payload list.
+                overview_sha = compute_overview_sha(
+                    inventories,
+                    model_id=config.llm.model_id,
+                    system_prompt_version=config.llm.system_prompt_version,
+                )
                 try:
                     overview_result = await publisher.publish_overview(
                         inventories,

@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.13](https://github.com/vakaobr/iac-cartographer/compare/v0.1.12...v0.1.13) (2026-05-29)
+
+
+### Fixed
+
+* **renderer:** exclude LLM narrative from banner-SHA ([#86](https://github.com/vakaobr/iac-cartographer/issues/86)) ([f3d1fa5](https://github.com/vakaobr/iac-cartographer/commit/f3d1fa575854557c77557e773e3aef983fc930aa))
+
 ## [0.1.12](https://github.com/vakaobr/iac-cartographer/compare/v0.1.11...v0.1.12) (2026-05-29)
 
 

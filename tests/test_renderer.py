@@ -22,6 +22,8 @@ from iac_cartographer.renderer import (
     build_banner,
     build_child,
     build_overview,
+    compute_inventory_sha,
+    compute_overview_sha,
     compute_sha,
     extract_banner_sha,
     infer_provider_source,
@@ -69,17 +71,12 @@ def _inventory(name: str = "acme/iac/main-cluster", with_narrative: bool = True)
 # ─── compute_sha ─────────────────────────────────────────────────────────
 
 
+_SHA_KWARGS = {"model_id": "eu.anthropic.claude-sonnet-4-6", "system_prompt_version": "v1"}
+
+
 def test_compute_sha_is_deterministic() -> None:
     inv = _inventory()
     assert compute_sha(inv) == compute_sha(inv)
-
-
-def test_compute_sha_changes_when_input_changes() -> None:
-    a = _inventory()
-    b_meta = _meta()
-    b_summary = a.summary
-    b = RepoInventory(meta=b_meta, summary=b_summary, narrative=None)  # narrative differs
-    assert compute_sha(a) != compute_sha(b)
 
 
 def test_compute_sha_on_plain_list_of_inventories() -> None:
@@ -92,6 +89,84 @@ def test_compute_sha_on_plain_list_of_inventories() -> None:
 def test_compute_sha_on_plain_dict() -> None:
     sha = compute_sha({"a": 1, "b": 2})
     assert len(sha) == 8
+
+
+# ─── compute_inventory_sha (banner-SHA for child pages) ──────────────────
+
+
+def test_compute_inventory_sha_is_deterministic() -> None:
+    inv = _inventory()
+    assert compute_inventory_sha(inv, **_SHA_KWARGS) == compute_inventory_sha(inv, **_SHA_KWARGS)
+
+
+def test_compute_inventory_sha_ignores_narrative_drift() -> None:
+    """LLM output noise must NOT invalidate the SHA — backends aren't
+    reliably deterministic even at temperature=0, so including narrative
+    would force a republish every run."""
+    with_narrative = _inventory(with_narrative=True)
+    without_narrative = RepoInventory(meta=with_narrative.meta, summary=with_narrative.summary, narrative=None)
+    different_narrative = RepoInventory(
+        meta=with_narrative.meta,
+        summary=with_narrative.summary,
+        narrative=BedrockNarrative(
+            purpose="A different purpose statement of sufficient length to pass validation.",
+            key_resources_explained=[],
+            environments=["staging"],
+            owning_team_guess="Some Other Team",
+            notable_patterns=["different pattern"],
+        ),
+    )
+    sha = compute_inventory_sha(with_narrative, **_SHA_KWARGS)
+    assert compute_inventory_sha(without_narrative, **_SHA_KWARGS) == sha
+    assert compute_inventory_sha(different_narrative, **_SHA_KWARGS) == sha
+
+
+def test_compute_inventory_sha_changes_on_summary_change() -> None:
+    a = _inventory()
+    b_summary = a.summary.model_copy(
+        update={"providers": [ProviderRef(name="aws", source="hashicorp/aws", version=">= 7.0")]}
+    )
+    b = RepoInventory(meta=a.meta, summary=b_summary, narrative=a.narrative)
+    assert compute_inventory_sha(a, **_SHA_KWARGS) != compute_inventory_sha(b, **_SHA_KWARGS)
+
+
+def test_compute_inventory_sha_changes_on_meta_change() -> None:
+    a = _inventory()
+    b_meta = a.meta.model_copy(update={"last_commit_sha": "b" * 40})
+    b = RepoInventory(meta=b_meta, summary=a.summary, narrative=a.narrative)
+    assert compute_inventory_sha(a, **_SHA_KWARGS) != compute_inventory_sha(b, **_SHA_KWARGS)
+
+
+def test_compute_inventory_sha_changes_on_model_swap() -> None:
+    """A model swap must force-republish — narratives shift in tone even if
+    the structured fields parse identically."""
+    inv = _inventory()
+    a = compute_inventory_sha(inv, model_id="eu.anthropic.claude-sonnet-4-6", system_prompt_version="v1")
+    b = compute_inventory_sha(inv, model_id="eu.anthropic.claude-sonnet-4-5-20250929-v1:0", system_prompt_version="v1")
+    assert a != b
+
+
+def test_compute_inventory_sha_changes_on_prompt_version_bump() -> None:
+    """The `system_prompt_version` knob is the manual force-republish lever."""
+    inv = _inventory()
+    a = compute_inventory_sha(inv, model_id="eu.anthropic.claude-sonnet-4-6", system_prompt_version="v1")
+    b = compute_inventory_sha(inv, model_id="eu.anthropic.claude-sonnet-4-6", system_prompt_version="v2")
+    assert a != b
+
+
+# ─── compute_overview_sha ─────────────────────────────────────────────────
+
+
+def test_compute_overview_sha_ignores_narrative_drift() -> None:
+    a = [_inventory("acme/a"), _inventory("acme/b")]
+    b = [RepoInventory(meta=inv.meta, summary=inv.summary, narrative=None) for inv in a]
+    assert compute_overview_sha(a, **_SHA_KWARGS) == compute_overview_sha(b, **_SHA_KWARGS)
+
+
+def test_compute_overview_sha_changes_on_repo_added() -> None:
+    a = [_inventory("acme/a")]
+    b = [_inventory("acme/a"), _inventory("acme/b")]
+    assert compute_overview_sha(a, **_SHA_KWARGS) != compute_overview_sha(b, **_SHA_KWARGS)
 
 
 # ─── build_banner + extract_banner_sha ──────────────────────────────────
@@ -436,6 +511,6 @@ def test_build_child_resources_by_type_sorted_by_count_desc() -> None:
 
 def test_round_trip_sha_to_extract() -> None:
     inv = _inventory()
-    sha = compute_sha(inv)
+    sha = compute_inventory_sha(inv, **_SHA_KWARGS)
     _, doc = build_child(inv, sha=sha, updated_at=datetime(2026, 5, 22, tzinfo=UTC))
     assert extract_banner_sha(doc) == sha

@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.16](https://github.com/vakaobr/iac-cartographer/compare/v0.1.15...v0.1.16) (2026-06-02)
+
+
+### Added
+
+* **state-backend:** parse and surface terraform { backend "..." {} } posture ([#113](https://github.com/vakaobr/iac-cartographer/issues/113)) ([1f1ec45](https://github.com/vakaobr/iac-cartographer/commit/1f1ec45c512b6e25df8be64456c4fc5a58627498))
+
 ## [0.1.15](https://github.com/vakaobr/iac-cartographer/compare/v0.1.14...v0.1.15) (2026-06-02)
 
 

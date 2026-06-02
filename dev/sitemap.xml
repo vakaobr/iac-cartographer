@@ -2,102 +2,102 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/contributing/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/quickstart/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/backends/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/backends/discovery/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/backends/llm/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/backends/notifications/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/backends/publishers/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/backends/secrets/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/examples/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/examples/cron/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/examples/docker-compose/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/examples/github-actions/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/examples/kubernetes-helm/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/examples/kubernetes-manifest/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/operations/diagnose/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/operations/diff/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/operations/docs-deploy/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/operations/lint/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/operations/observability/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/operations/releases/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/operations/runtime/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/reference/architecture/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/reference/configuration/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
     <url>
          <loc>https://iac-cartographer.andersonleite.me/dev/reference/security/</loc>
-         <lastmod>2026-05-29</lastmod>
+         <lastmod>2026-06-02</lastmod>
     </url>
 </urlset>

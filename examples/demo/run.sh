@@ -23,7 +23,7 @@
 #
 # No real credentials needed: every IAC_CARTOGRAPHER_SECRET_* env var
 # below is a stub value just sufficient for the Pydantic schema check.
-# Every variant except `--llm ollama` passes `--no-bedrock`, which skips
+# Every variant except `--llm ollama` passes `--no-llm`, which skips
 # the LLM entirely so no Anthropic / AWS Bedrock call is made. The
 # `--llm ollama` variant talks to a LOCAL server only (no cloud).
 #
@@ -76,7 +76,7 @@ done
 # ─── Map flags → config file + LLM behaviour ─────────────────────────
 # `--llm ollama` wins over `--publisher` for config selection because it
 # needs the ollama-specific llm: block; it always publishes Markdown.
-NO_BEDROCK="--no-bedrock"
+NO_LLM="--no-llm"
 case "$LLM" in
   none)
     case "$PUBLISHER" in
@@ -90,8 +90,8 @@ case "$LLM" in
     esac
     ;;
   ollama)
-    # Real local LLM — do NOT pass --no-bedrock.
-    NO_BEDROCK=""
+    # Real local LLM — do NOT pass --no-llm.
+    NO_LLM=""
     CONFIG="examples/demo/config-ollama.yaml"
     OUTPUT_DIR="./demo-output-ollama"
     OUTPUT_INDEX="index.md"
@@ -161,14 +161,14 @@ echo "   publisher : ${PUBLISHER}"
 if [ "$LLM" = "ollama" ]; then
   echo "   llm       : ollama (real local narratives)"
 else
-  echo "   llm       : none (--no-bedrock placeholder narratives)"
+  echo "   llm       : none (--no-llm placeholder narratives)"
 fi
 echo " Expected runtime: 30-90 seconds depending on network."
 echo "════════════════════════════════════════════════════════════════"
 echo
 
 # shellcheck disable=SC2086
-iac-cartographer --once $NO_BEDROCK --config "$CONFIG" "${PASSTHRU[@]+"${PASSTHRU[@]}"}"
+iac-cartographer --once $NO_LLM --config "$CONFIG" "${PASSTHRU[@]+"${PASSTHRU[@]}"}"
 
 echo
 echo "════════════════════════════════════════════════════════════════"

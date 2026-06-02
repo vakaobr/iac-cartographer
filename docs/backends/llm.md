@@ -261,12 +261,14 @@ that adds bearer-token / mTLS auth, pass the headers via
 
 ## Skipping the LLM entirely
 
-`--no-bedrock` (named historically; it applies to either backend) swaps
-in a placeholder narrative for every repo:
+`--no-llm` swaps in a placeholder narrative for every repo:
 
 ```bash
-iac-cartographer --once --no-bedrock --config /path/to/config.yaml
+iac-cartographer --once --no-llm --config /path/to/config.yaml
 ```
+
+(The pre-1.0 spelling `--no-bedrock` still works for the 1.x line; see
+the [Deprecations table](../reference/configuration.md#deprecations-pre-10--10).)
 
 Useful for:
 
@@ -276,7 +278,7 @@ Useful for:
   still carry every structural fact (providers, modules, resources,
   inputs, outputs) — just with a placeholder where the prose would be.
 - **The bundled demo** (see [Quick start](../quickstart.md)) — runs
-  `--no-bedrock` so no API keys are needed.
+  `--no-llm` so no API keys are needed.
 
 The narrator also short-circuits to a placeholder on a real Bedrock /
 Anthropic failure (rate limit, validation error, prompt-injection

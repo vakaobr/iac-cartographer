@@ -20,7 +20,7 @@ workflow has two pieces:
    pointing somewhere persistent. This produces the snapshot the next
    run will diff against.
 2. **Subsequent runs** — pass `--diff <path-to-baseline>` on the
-   command line. The path is the same `json.output_dir` from the
+   command line. The path is the same `json_output.output_dir` from the
    baseline run.
 
 The publisher being used on the *current* run doesn't matter — the

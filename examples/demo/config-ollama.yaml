@@ -1,7 +1,7 @@
 # Demo config — real local LLM via Ollama variant.
 #
 # Identical clone + extract flow to `config.yaml`, but instead of the
-# `--no-bedrock` placeholder narrative this points at a LOCAL Ollama
+# `--no-llm` placeholder narrative this points at a LOCAL Ollama
 # server (default http://localhost:11434) so adopters with Ollama
 # installed get REAL one-paragraph repo summaries.
 #

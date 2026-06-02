@@ -1491,6 +1491,10 @@ and the first thing to reach for when a scheduled run misbehaves.</p>
 <td><strong>notifications</strong></td>
 <td>At least one channel, or an explicit "silent dispatcher" skip when <code>notifications:</code> is empty (legitimate for CI / air-gapped).</td>
 </tr>
+<tr>
+<td><strong>secrets.&lt;name&gt;</strong></td>
+<td>One row per credential the loader could touch (<code>secrets.confluence</code>, <code>secrets.gitlab</code>, <code>secrets.github</code>, <code>secrets.slack</code>, <code>secrets.bitbucket</code>, <code>secrets.gitea</code>, <code>secrets.anthropic</code>, <code>secrets.openai</code>, <code>secrets.azure_openai</code>, <code>secrets.notion</code>, plus every notification channel kind). Each row is OK with a "required by &lt;subsystem&gt;" detail (the secret will be fetched) or SKIP with "not active" (the matching subsystem isn't configured, so the loader leaves the secret alone). <code>secrets.slack</code> on the legacy <code>notifications: []</code> path is the one optional case — loaded if present, silent dispatcher if absent. <strong>Answers "why is iac-cartographer asking for the X secret?" without any live calls.</strong></td>
+</tr>
 </tbody>
 </table>
 <p>By default <code>--diagnose</code> makes <strong>no live API calls</strong>. It does not:</p>
@@ -1549,11 +1553,20 @@ the model. For true end-to-end confidence, add <code>--probe-llm</code>:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>iac-cartographer<span class="w"> </span>--diagnose<span class="w"> </span>--live<span class="w"> </span>--probe-llm<span class="w"> </span>--config<span class="w"> </span>./config.yaml
 </span></code></pre></div>
 <p>This issues <strong>one</strong> bounded <code>max_tokens=1</code> completion (a trivial "ping")
-against the configured backend and reports the token counts. It costs a
-fraction of a cent of <strong>real spend</strong> — which is why it's opt-in and gated
-behind both <code>--diagnose</code> and <code>--live</code> (passing <code>--probe-llm</code> without
-<code>--live</code> warns and is ignored). Ollama is exempt: it's local and free, so
-it keeps the <code>/api/tags</code> listing as its check even with <code>--probe-llm</code>.</p>
+against the configured backend and reports the token counts <strong>plus an
+estimated USD cost</strong> for the call:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>llm-live: ok — bedrock completed a real 1-token probe (in=12, out=1 tokens; ≈ $0.000051)
+</span></code></pre></div>
+<p>The cost figure uses a small built-in price table covering the Claude
+4-family (Sonnet / Haiku, both direct and Bedrock-EU IDs) and the
+OpenAI GPT-4 line. Models not in the table fall back to a
+<code>≈ negligible (model not in price table)</code> marker — the token counts
+themselves are always reported regardless.</p>
+<p>It costs a fraction of a cent of <strong>real spend</strong> — which is why it's
+opt-in and gated behind both <code>--diagnose</code> and <code>--live</code> (passing
+<code>--probe-llm</code> without <code>--live</code> warns and is ignored). Ollama is exempt:
+it's local and free, so it keeps the <code>/api/tags</code> listing as its check
+even with <code>--probe-llm</code>.</p>
 <p>Use it when you want to be certain a new key / model / region works for
 inference before relying on a scheduled run; skip it for routine
 CI gating where the cost-free construct check is enough.</p>
@@ -1581,14 +1594,14 @@ CI gating where the cost-free construct check is enough.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Gate the scheduled run on a green diagnose in CI:</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --config ./config.yaml</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --once --config ./config.yaml</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Gate the scheduled run on a green diagnose in CI:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --config ./config.yaml</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --once --config ./config.yaml</span>
 </span></code></pre></div>
 <p>Add <code>--live</code> when the CI job has access to the real secrets backend and
 you want to verify credentials + reachability before the run (it still
 never spends LLM tokens):</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --live --config ./config.yaml</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">iac-cartographer --diagnose --live --config ./config.yaml</span>
 </span></code></pre></div>
 <p>The output goes to <strong>stderr</strong>, so it composes cleanly with <code>2&gt;&amp;1 | tee</code>
 and doesn't get confused with normal program output on stdout.</p>

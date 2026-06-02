@@ -79,7 +79,7 @@ area.
 | `pagerduty` | Shipped | PagerDuty Events API v2 — triggers incidents via per-Service routing key. Pair with `levels: [error]` for page-on-error. |
 | `opsgenie` | Shipped | Opsgenie Alerts API — `GenieKey` auth, US + EU region split. Level → priority mapping (info=P5, warn=P3, error=P1). |
 | `discord` | Shipped | Discord Incoming Webhook — community / homelab. Unicode-emoji severity prefixes; optional per-message `username` / `avatar_url` overrides. |
-| `stdout` | Shipped | JSON Lines on stdout / stderr — air-gapped + CI friendly. Same payload schema as the generic webhook channel. No credentials, no HTTP. |
+| `stdout` | Shipped | JSON Lines or human-readable text on stdout / stderr — air-gapped + CI friendly. JSONL shares the generic webhook channel's payload schema; text mode emits `[iac-cartographer][LEVEL] message`. No credentials, no HTTP. |
 
 Adding a new channel is small surface area: subclass
 `NotificationChannel` (one async `notify(level, message)` method),
@@ -387,22 +387,36 @@ stream — no HTTP, no SDK, no credentials. Useful for:
 notifications:
   - kind: stdout
     stream: "stdout"                        # or "stderr"
+    format: "jsonl"                         # or "text"
 ```
 
-The payload schema matches the generic webhook channel, so
-downstream log-parsing tooling can treat both interchangeably:
+Two output formats:
 
-```json
-{"schema": "iac-cartographer.notification.v1",
- "level": "info",
- "message": "iac-cartographer: run starting",
- "ts": "2026-05-26T10:30:00Z",
- "source": "iac-cartographer"}
-```
+- **`format: "jsonl"`** (default) — one structured JSON line per event.
+  The payload schema matches the generic webhook channel, so downstream
+  log-parsing tooling can treat both interchangeably:
+
+  ```json
+  {"schema": "iac-cartographer.notification.v1",
+   "level": "info",
+   "message": "iac-cartographer: run starting",
+   "ts": "2026-05-26T10:30:00Z",
+   "source": "iac-cartographer"}
+  ```
+
+- **`format: "text"`** — one human-readable line per event, shaped
+  `[iac-cartographer][LEVEL] message`. Friendlier for terminal sessions
+  and lightweight cron setups where nobody is going to grep JSON.
+
+  ```text
+  [iac-cartographer][INFO] iac-cartographer: run starting
+  [iac-cartographer][ERROR] iac-cartographer: 2 repos failed
+  ```
 
 Use `stream: "stderr"` when stdout is reserved for machine-parseable
 pipeline output (Markdown publisher dumps, renderer banner-SHA logs,
-etc.).
+etc.). `format` and `stream` are independent — text mode on stderr is
+a valid combination.
 
 ## Slack (concrete reference)
 

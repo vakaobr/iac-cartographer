@@ -226,8 +226,11 @@ def _build_channel(
         )
 
     if kind == "stdout":
-        # No credentials, no I/O setup — just resolve the stream.
-        return StdoutChannel(stream=getattr(entry, "stream", "stdout"))
+        # No credentials, no I/O setup — just resolve the stream + format.
+        return StdoutChannel(
+            stream=getattr(entry, "stream", "stdout"),
+            format=getattr(entry, "format", "jsonl"),
+        )
 
     raise ConfigError(f"unknown notifications[].kind: {kind!r}")
 

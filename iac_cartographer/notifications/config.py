@@ -251,12 +251,13 @@ class DiscordNotificationConfig(_BaseNotificationConfig):
 
 
 class StdoutNotificationConfig(_BaseNotificationConfig):
-    """Stdout / stderr JSON Lines notification channel.
+    """Stdout / stderr notification channel.
 
-    Emits one JSON line per notification to the configured stream.
-    Useful for CI runs, air-gapped deployments, and local dev where
-    chat / pager / SMTP destinations aren't available but a log
-    aggregator picks up stdout.
+    Emits one line per notification to the configured stream — in
+    either JSON Lines (default; same payload schema as the generic
+    webhook channel) or human-readable text. Useful for CI runs,
+    air-gapped deployments, and local dev where chat / pager / SMTP
+    destinations aren't available but a log aggregator picks up stdout.
 
     No credentials, no HTTP, no SDK — `print()` is the only I/O.
     """
@@ -265,6 +266,12 @@ class StdoutNotificationConfig(_BaseNotificationConfig):
     # `"stdout"` (default) or `"stderr"`. Use `stderr` when stdout
     # is reserved for machine-parseable pipeline output.
     stream: Literal["stdout", "stderr"] = "stdout"
+    # `"jsonl"` (default; one structured JSON line per event, machine-
+    # parseable, same schema as the webhook channel) or `"text"` (one
+    # human-readable line per event, shaped `[iac-cartographer][LEVEL]
+    # message`). Default keeps backwards compatibility for existing
+    # log-aggregator pipelines.
+    format: Literal["jsonl", "text"] = "jsonl"
 
 
 # Discriminated union — extend as new channels ship.

@@ -112,3 +112,52 @@ async def test_close_is_noop() -> None:
     """No resource to release; base-class default close() applies."""
     ch = StdoutChannel()
     await ch.close()  # must not raise
+
+
+# ── Human-readable text format (#77) ──────────────────────────────────
+
+
+async def test_text_format_emits_readable_single_line(capsys) -> None:
+    ch = StdoutChannel(format="text")
+    await ch.notify(NotificationLevel.ERROR, "something went wrong")
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    line = captured.out.strip()
+    assert line == "[iac-cartographer][ERROR] something went wrong"
+
+
+async def test_text_format_renders_each_level_in_upper_case(capsys) -> None:
+    ch = StdoutChannel(format="text")
+    await ch.notify(NotificationLevel.INFO, "i")
+    await ch.notify(NotificationLevel.WARN, "w")
+    await ch.notify(NotificationLevel.ERROR, "e")
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert lines == [
+        "[iac-cartographer][INFO] i",
+        "[iac-cartographer][WARN] w",
+        "[iac-cartographer][ERROR] e",
+    ]
+
+
+async def test_default_format_is_jsonl_when_unset(capsys) -> None:
+    """Regression: omitting `format` must preserve the JSONL behaviour
+    that existing log-aggregator pipelines rely on."""
+    ch = StdoutChannel()
+    await ch.notify(NotificationLevel.INFO, "still json")
+
+    line = capsys.readouterr().out.strip()
+    body = json.loads(line)  # raises if not valid JSON
+    assert body["message"] == "still json"
+    assert body["level"] == "info"
+
+
+async def test_text_format_respects_stderr_stream(capsys) -> None:
+    """`format` and `stream` are independent — text mode on stderr works."""
+    ch = StdoutChannel(stream="stderr", format="text")
+    await ch.notify(NotificationLevel.WARN, "on stderr")
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip() == "[iac-cartographer][WARN] on stderr"

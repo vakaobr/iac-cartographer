@@ -1,7 +1,6 @@
-"""Stdout / stderr JSON Lines notification channel.
+"""Stdout / stderr notification channel.
 
-Emits one structured JSON line per notification to a configured
-stream — useful for:
+Emits one notification per line to a configured stream — useful for:
 
   * **CI runs** that don't have access to chat platforms but DO have
     log capture (GitHub Actions, GitLab CI, Jenkins, etc.).
@@ -10,16 +9,27 @@ stream — useful for:
   * **Local dev / smoke tests** where you want to see notifications
     without configuring a real destination.
 
-No I/O cost beyond a `print()` — no HTTP client, no SDK, no
-credentials, no network. The channel uses the same payload schema as
-the generic webhook channel so downstream log-parsing tooling can
-treat both interchangeably:
+Two output formats:
 
-    {"schema": "iac-cartographer.notification.v1",
-     "level": "info" | "warn" | "error",
-     "message": "...",
-     "ts": "2026-05-26T10:30:00Z",
-     "source": "iac-cartographer"}
+  * `format: "jsonl"` (default) — one structured JSON line per event,
+    same payload schema as the generic webhook channel so downstream
+    log-parsing tooling can treat both interchangeably:
+
+        {"schema": "iac-cartographer.notification.v1",
+         "level": "info" | "warn" | "error",
+         "message": "...",
+         "ts": "2026-05-26T10:30:00Z",
+         "source": "iac-cartographer"}
+
+  * `format: "text"` — one human-readable line per event, shaped:
+
+        [iac-cartographer][ERROR] something went wrong
+
+    Same content, just easier to read on a terminal during local runs
+    and lightweight cron setups where nobody is going to grep JSON.
+
+No I/O cost beyond a `print()` — no HTTP client, no SDK, no
+credentials, no network.
 
 `stream` config selects stdout (default) vs stderr. Stderr is the
 right choice when stdout is reserved for machine-parseable pipeline
@@ -50,16 +60,22 @@ _STREAMS: dict[str, TextIO] = {
 
 
 class StdoutChannel(NotificationChannel):
-    """Print JSON Lines notifications to a TextIO stream."""
+    """Print notifications (JSON Lines or human-readable text) to a TextIO stream."""
 
     name = "stdout"
 
-    def __init__(self, *, stream: Literal["stdout", "stderr"] = "stdout") -> None:
+    def __init__(
+        self,
+        *,
+        stream: Literal["stdout", "stderr"] = "stdout",
+        format: Literal["jsonl", "text"] = "jsonl",  # noqa: A002 — matches the YAML `format:` config key
+    ) -> None:
         # We resolve the stream literal to the actual file object at
         # construction so tests can monkeypatch `sys.stdout` /
         # `sys.stderr` and have the channel pick up the patched value
         # — store the literal, look up on each notify().
         self._stream_name = stream
+        self._format = format
 
     def _stream(self) -> TextIO:
         # Late-bind so monkeypatched sys.stdout / sys.stderr (pytest's
@@ -69,8 +85,10 @@ class StdoutChannel(NotificationChannel):
             return sys.stderr
         return sys.stdout
 
-    async def notify(self, level: NotificationLevel, message: str) -> None:
-        line = json.dumps(
+    def _format_line(self, level: NotificationLevel, message: str) -> str:
+        if self._format == "text":
+            return f"[iac-cartographer][{level.value.upper()}] {message}"
+        return json.dumps(
             {
                 "schema": PAYLOAD_SCHEMA,
                 "level": level.value,
@@ -80,6 +98,9 @@ class StdoutChannel(NotificationChannel):
             },
             ensure_ascii=False,
         )
+
+    async def notify(self, level: NotificationLevel, message: str) -> None:
+        line = self._format_line(level, message)
         try:
             # `print` is synchronous — no await needed. Wrapped in the
             # async `notify` coroutine to match the NotificationChannel

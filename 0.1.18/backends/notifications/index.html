@@ -1,0 +1,2352 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Fleet-level documentation for your Terraform / IaC estate.">
+      
+      
+      
+        <link rel="canonical" href="https://iac-cartographer.andersonleite.me/0.1.18/backends/notifications/">
+      
+      
+        <link rel="prev" href="../secrets/">
+      
+      
+        <link rel="next" href="../../operations/runtime/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Notifications - iac-cartographer</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#notifications" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="iac-cartographer" class="md-header__button md-logo" aria-label="iac-cartographer" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            iac-cartographer
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Notifications
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/vakaobr/iac-cartographer" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vakaobr/iac-cartographer
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="iac-cartographer" class="md-nav__button md-logo" aria-label="iac-cartographer" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    iac-cartographer
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/vakaobr/iac-cartographer" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vakaobr/iac-cartographer
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backends
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Backends
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../discovery/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Discovery sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../llm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../publishers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../secrets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Secrets providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#two-configuration-shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two configuration shapes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Two configuration shapes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-legacy-slack-block-single-channel-back-compat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Legacy slack: block (single-channel back-compat)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-modern-notifications-list-multi-channel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Modern notifications: list (multi-channel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-fanout-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How fanout works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generic-webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generic webhook
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slack-compatible-incoming-webhook-slack_webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slack-compatible incoming webhook (slack_webhook)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#microsoft-teams-teams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Microsoft Teams (teams)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#email-smtp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Email (SMTP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-sns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS SNS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pagerduty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PagerDuty
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opsgenie" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opsgenie
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discord" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discord
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stdout-stderr-jsonl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stdout / stderr (JSONL)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slack-concrete-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slack (concrete reference)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-sent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What gets sent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-use-which-routing-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use which routing shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running on a schedule
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/diagnose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pre-flight self-test (--diagnose)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/diff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Between-run diff (--diff)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/lint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lint mode (--lint)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cutting a release
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability (logs + metrics)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/docs-deploy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docs deployment (versioned)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../examples/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/docker-compose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    docker-compose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/kubernetes-helm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (Helm chart)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/kubernetes-manifest/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Kubernetes (raw manifest)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/github-actions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Actions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/cron/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cron / systemd-timer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#two-configuration-shapes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two configuration shapes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Two configuration shapes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-legacy-slack-block-single-channel-back-compat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Legacy slack: block (single-channel back-compat)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-modern-notifications-list-multi-channel" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Modern notifications: list (multi-channel)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-fanout-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How fanout works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channels
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generic-webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generic webhook
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slack-compatible-incoming-webhook-slack_webhook" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slack-compatible incoming webhook (slack_webhook)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#microsoft-teams-teams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Microsoft Teams (teams)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#email-smtp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Email (SMTP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-sns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AWS SNS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pagerduty" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PagerDuty
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#opsgenie" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Opsgenie
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#discord" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Discord
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stdout-stderr-jsonl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stdout / stderr (JSONL)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slack-concrete-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slack (concrete reference)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-gets-sent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What gets sent
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-to-use-which-routing-shape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use which routing shape
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/vakaobr/iac-cartographer/edit/main/docs/backends/notifications.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="notifications">Notifications<a class="headerlink" href="#notifications" title="Permanent link">&para;</a></h1>
+<p>iac-cartographer posts a handful of pipeline events to operator-facing
+channels — run-start, per-repo prompt-injection warnings, end-of-run
+summary, fatal errors. All three severities (<code>info</code> / <code>warn</code> /
+<code>error</code>) fan out through a multi-channel <strong>dispatcher</strong>, with a
+per-channel level filter so you can route info-traffic to a chat
+channel while sending errors to pager/email.</p>
+<h2 id="two-configuration-shapes">Two configuration shapes<a class="headerlink" href="#two-configuration-shapes" title="Permanent link">&para;</a></h2>
+<p>There are two ways to wire notifications, and they coexist:</p>
+<h3 id="1-legacy-slack-block-single-channel-back-compat">1. Legacy <code>slack:</code> block (single-channel back-compat)<a class="headerlink" href="#1-legacy-slack-block-single-channel-back-compat" title="Permanent link">&para;</a></h3>
+<p>Existing deployments that predate the multi-channel rewrite continue to
+work unchanged. The top-level <code>slack:</code> block + <code>iac-cartographer/slack</code>
+secret act as if they were a single entry at all three levels:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">slack</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span>
+</span></code></pre></div>
+<p>When <code>notifications:</code> is unset / empty, this is what runs.</p>
+<h3 id="2-modern-notifications-list-multi-channel">2. Modern <code>notifications:</code> list (multi-channel)<a class="headerlink" href="#2-modern-notifications-list-multi-channel" title="Permanent link">&para;</a></h3>
+<p>The recommended shape for any deployment that needs more than one
+destination, or wants per-level routing. <code>notifications:</code> is a list of
+channel entries; each entry carries its own <code>kind</code>, channel-specific
+config, and a <code>levels:</code> filter:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="c1"># Chat — fire on everything.</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#infra-info&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="c1"># levels defaults to [info, warn, error] when omitted.</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="c1"># Pager-style escalation — only errors, separate channel.</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#infra-oncall&quot;</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<p>When <code>notifications:</code> is non-empty, the legacy <code>slack:</code> block is
+<strong>ignored</strong>. Operators who opt in to the explicit list own the full
+routing — no surprise extra channels.</p>
+<h2 id="how-fanout-works">How fanout works<a class="headerlink" href="#how-fanout-works" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Concurrent.</strong> Each notification is sent to every eligible channel
+  via <code>asyncio.gather(..., return_exceptions=True)</code> — a slow webhook
+  doesn't block a fast one.</li>
+<li><strong>Filtered.</strong> A channel's <code>levels:</code> filter is applied before
+  <code>notify()</code> runs, so a channel only sees the severities it's
+  configured for.</li>
+<li><strong>Failure-isolated.</strong> A raising channel is logged with the channel
+  name (<code>notifier slack: error post raised</code>) and the run continues.
+  One broken destination does NOT sink the pipeline.</li>
+</ul>
+<h2 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h2>
+<p>Ten channels ship today, covering the major real-world destination
+shapes (chat platforms, email, AWS-native, pager escalation, generic
+webhooks, local I/O). Each lives in its own ~80-line file under
+<code>iac_cartographer/notifications/</code>; adding a new one is small surface
+area.</p>
+<table>
+<thead>
+<tr>
+<th><code>kind</code></th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>slack</code></td>
+<td>Shipped</td>
+<td>Bot-token <code>chat.postMessage</code> to a channel. Same shape as the legacy block.</td>
+</tr>
+<tr>
+<td><code>webhook</code></td>
+<td>Shipped</td>
+<td>Generic JSON POST with our own stable schema (<code>{schema, level, message, ts, source}</code>). Catch-all for custom endpoints.</td>
+</tr>
+<tr>
+<td><code>slack_webhook</code></td>
+<td>Shipped</td>
+<td>Slack-compatible incoming webhook. Drop-in for native Slack incoming webhooks, RocketChat, and Mattermost.</td>
+</tr>
+<tr>
+<td><code>teams</code></td>
+<td>Shipped</td>
+<td>Microsoft Teams workflow webhook + Adaptive Card v1.4. Severity → colour mapping (good / warning / attention).</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>Shipped</td>
+<td>SMTP via <code>aiosmtplib</code>. Multipart/alternative with HTML severity-coloured header + plain-text fallback.</td>
+</tr>
+<tr>
+<td><code>sns</code></td>
+<td>Shipped</td>
+<td>AWS SNS topic publish — identity-based (no stored secret). SNS fans downstream to email / SMS / Lambda / SQS / HTTPS / mobile push.</td>
+</tr>
+<tr>
+<td><code>pagerduty</code></td>
+<td>Shipped</td>
+<td>PagerDuty Events API v2 — triggers incidents via per-Service routing key. Pair with <code>levels: [error]</code> for page-on-error.</td>
+</tr>
+<tr>
+<td><code>opsgenie</code></td>
+<td>Shipped</td>
+<td>Opsgenie Alerts API — <code>GenieKey</code> auth, US + EU region split. Level → priority mapping (info=P5, warn=P3, error=P1).</td>
+</tr>
+<tr>
+<td><code>discord</code></td>
+<td>Shipped</td>
+<td>Discord Incoming Webhook — community / homelab. Unicode-emoji severity prefixes; optional per-message <code>username</code> / <code>avatar_url</code> overrides; optional <code>thread_id</code> to post into a specific thread.</td>
+</tr>
+<tr>
+<td><code>stdout</code></td>
+<td>Shipped</td>
+<td>JSON Lines or human-readable text on stdout / stderr — air-gapped + CI friendly. JSONL shares the generic webhook channel's payload schema; text mode emits <code>[iac-cartographer][LEVEL] message</code>. No credentials, no HTTP.</td>
+</tr>
+</tbody>
+</table>
+<p>Adding a new channel is small surface area: subclass
+<code>NotificationChannel</code> (one async <code>notify(level, message)</code> method),
+register a config kind in <code>iac_cartographer.models</code>, and add a branch
+to <code>iac_cartographer.notifications.build_dispatcher</code>.</p>
+<h2 id="generic-webhook">Generic webhook<a class="headerlink" href="#generic-webhook" title="Permanent link">&para;</a></h2>
+<p>The catch-all channel — POST a JSON document with our own stable schema
+to any URL. Useful for internal observability platforms, custom Lambda
+/ Cloud Function forwarders, or any endpoint that doesn't fit a
+dedicated channel.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">webhook</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">extra_headers</span><span class="p">:</span><span class="w">                          </span><span class="c1"># optional</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">Authorization</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Bearer</span><span class="nv"> </span><span class="s">my-token&quot;</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">warn</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                   </span><span class="c1"># optional</span>
+</span></code></pre></div>
+<p>Credentials live in the <code>iac-cartographer/webhook</code> secret as
+<code>{"url": "https://your-endpoint.example.com/notify"}</code>. The URL itself
+is the credential — most webhook providers embed a per-tenant secret
+in the URL, so never check it into version-controlled config.</p>
+<p><strong>Payload schema (stable):</strong></p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer.notification.v1&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;info&quot;</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer: run starting&quot;</span><span class="p">,</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-26T10:30:00Z&quot;</span><span class="p">,</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer&quot;</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>The <code>schema</code> field is a change-detect anchor — a bump to <code>v2</code> would
+mean the payload shape changed and downstream consumers need updating.</p>
+<h2 id="slack-compatible-incoming-webhook-slack_webhook">Slack-compatible incoming webhook (<code>slack_webhook</code>)<a class="headerlink" href="#slack-compatible-incoming-webhook-slack_webhook" title="Permanent link">&para;</a></h2>
+<p>Drop-in destination for three platforms that all accept the
+Slack-shaped <code>{"text": "..."}</code> payload format:</p>
+<ul>
+<li><strong>Slack incoming webhooks</strong> — the URL-based posting path Slack
+  supports alongside the bot-token API. Use this <code>kind</code> when you
+  don't want to run a bot user (no token rotation, no channel
+  invites).</li>
+<li><strong>RocketChat</strong> — accepts Slack-shaped payloads natively at any
+  incoming-webhook URL.</li>
+<li><strong>Mattermost</strong> — same. Common choice for self-hosted /
+  regulated / on-prem deployments.</li>
+</ul>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack_webhook</span>
+</span></code></pre></div>
+<p>Credentials live in the <code>iac-cartographer/slack_webhook</code> secret as
+<code>{"url": "https://hooks.slack.com/services/T000/B000/XYZ"}</code> (or the
+equivalent RocketChat / Mattermost webhook URL).</p>
+<p>Same <code>:white_check_mark:</code> / <code>:warning:</code> / <code>:x:</code> emoji prefixes as the
+bot-token Slack channel — chats look identical regardless of which
+Slack transport is in play.</p>
+<h2 id="microsoft-teams-teams">Microsoft Teams (<code>teams</code>)<a class="headerlink" href="#microsoft-teams-teams" title="Permanent link">&para;</a></h2>
+<p>Posts an Adaptive Card v1.4 to a Teams workflow webhook URL. Works
+with both the modern <strong>Workflow webhooks</strong> (Power Automate — Microsoft
+is migrating everyone here) and the legacy <strong>Office 365 Connector</strong>
+webhooks. Same payload envelope for either.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">teams</span>
+</span></code></pre></div>
+<p>Credentials live in the <code>iac-cartographer/teams</code> secret as
+<code>{"url": "https://prod-XX.westeurope.logic.azure.com:443/workflows/..."}</code>.
+The workflow URL embeds a SAS token, so never check it into
+version-controlled config.</p>
+<p>Severity maps to Adaptive Card colours so messages are visually
+distinguishable in the Teams channel:</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Card colour</th>
+<th>Emoji prefix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>info</code></td>
+<td><code>good</code> (green)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><code>warn</code></td>
+<td><code>warning</code> (amber)</td>
+<td>⚠️</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td><code>attention</code> (red)</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
+<p>Unicode emojis are used in the header text rather than Slack-style
+<code>:emoji:</code> shortcodes — Teams does NOT render the shortcode form.</p>
+<h2 id="email-smtp">Email (SMTP)<a class="headerlink" href="#email-smtp" title="Permanent link">&para;</a></h2>
+<p>Sends operator-facing email — multipart/alternative with an HTML body
+that renders severity as a coloured header and a plain-text fallback
+for terminal mail clients. Tuned for the inbox shape: scannable
+subject (<code>[iac-cartographer][ERROR] kaboom…</code>), full message inside the
+body.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">email</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="nt">smtp_host</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;smtp.sendgrid.net&quot;</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="nt">smtp_port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">587</span><span class="w">                          </span><span class="c1"># default</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="nt">from_address</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;iac-cartographer@example.com&quot;</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">    </span><span class="nt">to_addresses</span><span class="p">:</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;ops@example.com&quot;</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;devops@example.com&quot;</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">    </span><span class="nt">use_tls</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                           </span><span class="c1"># default; only false for in-cluster relays</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">    </span><span class="nt">subject_prefix</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;[iac-cartographer]&quot;</span><span class="w">    </span><span class="c1"># default; override for multi-deployment inboxes</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">warn</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                   </span><span class="c1"># default = all three</span>
+</span></code></pre></div>
+<p><strong>Requires <code>pip install 'iac-cartographer[email]'</code></strong> — pulls in
+<code>aiosmtplib</code> for async SMTP. If the dep is missing the channel logs
+and skips (a misconfigured channel does NOT sink the run).</p>
+<p>Credentials live in the <code>iac-cartographer/email</code> secret as
+<code>{"username": "...", "password": "..."}</code>. Provider quirks:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th><code>username</code></th>
+<th><code>password</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS SES</td>
+<td>SES SMTP-credential username (NOT your IAM access key)</td>
+<td>SES SMTP-credential password</td>
+</tr>
+<tr>
+<td>SendGrid</td>
+<td>the literal string <code>apikey</code></td>
+<td>your SendGrid API key</td>
+</tr>
+<tr>
+<td>Postmark</td>
+<td>your server token</td>
+<td>the same server token</td>
+</tr>
+<tr>
+<td>Mailgun</td>
+<td>your SMTP login</td>
+<td>your SMTP password</td>
+</tr>
+<tr>
+<td>Internal Postfix relay</td>
+<td><code>username</code> configured on the relay</td>
+<td>matching password</td>
+</tr>
+</tbody>
+</table>
+<p>Transport: STARTTLS on port 587 (modern SMTP submission). Port 465
+(legacy implicit TLS) is <strong>not</strong> supported — open an issue if you need
+it.</p>
+<h2 id="aws-sns">AWS SNS<a class="headerlink" href="#aws-sns" title="Permanent link">&para;</a></h2>
+<p>Publishes pipeline events to an SNS topic. SNS handles downstream
+fanout — subscribe email, SMS, Lambda, SQS, HTTPS endpoints, and
+mobile-push channels to the same topic from one place. Particularly
+useful in AWS-first deployments where SNS already wires multiple
+notification flows.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sns</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="nt">topic_arn</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;arn:aws:sns:eu-central-1:123456789012:iac-cartographer-events&quot;</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;eu-central-1&quot;</span><span class="w">                  </span><span class="c1"># optional; defaults to boto3 chain</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                         </span><span class="c1"># e.g. errors-only escalation</span>
+</span></code></pre></div>
+<p><strong>Identity-based — no <code>iac-cartographer/sns</code> secret.</strong> Auth comes from
+the standard AWS credential chain (env vars, instance profile, IRSA /
+workload identity on EKS, IAM role on ECS task). The principal needs
+<code>sns:Publish</code> on the topic ARN. Same zero-secret-rotation experience
+the Bedrock LLM backend has.</p>
+<p>Each message carries two <code>MessageAttributes</code>:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>level:  String  =  &quot;info&quot; | &quot;warn&quot; | &quot;error&quot;
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>source: String  =  &quot;iac-cartographer&quot;
+</span></code></pre></div>
+<p>SNS filter policies can route per-severity downstream — e.g. an email
+subscription that fires only when <code>level=error</code>, plus a Lambda
+subscription that fires on all three for archival. The SNS <code>Subject</code>
+field carries <code>[iac-cartographer][LEVEL] {first 60 chars}</code> (capped at
+the SNS 100-char limit) so inbox-style subscribers stay scannable.</p>
+<p>Transport: <code>boto3</code> (already a base install dependency for AWS Secrets
+Manager / SSM / Bedrock). The SNS client is synchronous, so <code>publish()</code>
+runs in a thread via <code>asyncio.to_thread()</code> to keep the dispatcher's
+concurrent fanout from blocking on the network round-trip.</p>
+<h2 id="pagerduty">PagerDuty<a class="headerlink" href="#pagerduty" title="Permanent link">&para;</a></h2>
+<p>Triggers PagerDuty incidents via the public <strong>Events API v2</strong>
+(<code>events.pagerduty.com/v2/enqueue</code>). Authenticated by a <strong>routing
+key</strong> (per-Service integration key) rather than a user token — one
+channel entry = one PagerDuty Service.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pagerduty</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                         </span><span class="c1"># strongly recommended</span>
+</span></code></pre></div>
+<blockquote>
+<p><strong>Narrow to <code>levels: [error]</code>.</strong> The channel does NOT enforce this —
+if you leave the default (all three), every info-level
+<code>iac-cartographer: run starting</code> will trigger an incident. That's
+probably not what you want.</p>
+</blockquote>
+<p>Credentials live in the <code>iac-cartographer/pagerduty</code> secret as
+<code>{"routing_key": "..."}</code>. Get the routing key from PagerDuty's
+<strong>Service → Integrations → Events API v2 → Integration Key</strong>.</p>
+<p>Severity mapping (level → PagerDuty <code>severity</code> field):</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>PagerDuty severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>info</code></td>
+<td><code>info</code></td>
+</tr>
+<tr>
+<td><code>warn</code></td>
+<td><code>warning</code></td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td><code>error</code></td>
+</tr>
+</tbody>
+</table>
+<p>The channel deliberately maps the highest level to <code>error</code> rather than
+<code>critical</code> — escalation belongs to the operator (via the <code>levels:</code>
+filter or PagerDuty's own escalation policy), not the adapter.</p>
+<p>Today the channel sends <code>event_action: "trigger"</code> only. Acknowledge /
+resolve workflows would need a stable <code>dedup_key</code> per incident; not
+shipped yet, would be a small follow-up.</p>
+<h2 id="opsgenie">Opsgenie<a class="headerlink" href="#opsgenie" title="Permanent link">&para;</a></h2>
+<p>Creates alerts via the public <strong>Opsgenie Alerts API</strong>. Authenticated
+by a team / integration <strong>API key</strong> in an <code>Authorization: GenieKey
+&lt;key&gt;</code> header (the Opsgenie-specific scheme — not <code>Bearer</code>).</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">opsgenie</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">region</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;us&quot;</span><span class="w">                            </span><span class="c1"># or &quot;eu&quot; — match your key</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                         </span><span class="c1"># strongly recommended</span>
+</span></code></pre></div>
+<p>Same routing-policy advice as PagerDuty: narrow to <code>levels: [error]</code>
+for page-on-error behaviour. The default <code>[info, warn, error]</code> will
+generate an alert for every notification.</p>
+<p>Credentials live in the <code>iac-cartographer/opsgenie</code> secret as
+<code>{"api_key": "..."}</code>. Issued from a team integration or API
+integration in the Opsgenie console.</p>
+<p><strong>Region split.</strong> Opsgenie maintains two independent control planes:</p>
+<table>
+<thead>
+<tr>
+<th><code>region</code></th>
+<th>Host</th>
+<th>When to use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>us</code> <em>(default)</em></td>
+<td><code>api.opsgenie.com</code></td>
+<td>Most accounts.</td>
+</tr>
+<tr>
+<td><code>eu</code></td>
+<td><code>api.eu.opsgenie.com</code></td>
+<td>EU-resident accounts only.</td>
+</tr>
+</tbody>
+</table>
+<p>The two planes are <strong>not linked</strong> — a US-issued key is rejected by the
+EU host and vice-versa. If unsure, check the URL you log into
+(<code>app.opsgenie.com</code> = US, <code>app.eu.opsgenie.com</code> = EU).</p>
+<p>Severity mapping (level → Opsgenie <code>priority</code> field):</p>
+<table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Opsgenie priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>info</code></td>
+<td><code>P5</code> <em>(lowest — typically silent queue)</em></td>
+</tr>
+<tr>
+<td><code>warn</code></td>
+<td><code>P3</code></td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td><code>P1</code> <em>(page on-call)</em></td>
+</tr>
+</tbody>
+</table>
+<p>The <code>details.level</code> field on every alert carries our original level
+literal too, so Opsgenie filter rules can route by exact severity if
+priority isn't granular enough.</p>
+<h2 id="discord">Discord<a class="headerlink" href="#discord" title="Permanent link">&para;</a></h2>
+<p>Posts to a Discord channel via an <strong>Incoming Webhook URL</strong>. Designed
+for community / homelab deployments where Slack would be overkill —
+same chat-style notification surface, no bot user to invite, no
+workspace admin to ask. Discord webhooks are per-channel and free.</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">discord</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;iac-cartographer</span><span class="nv"> </span><span class="s">(prod)&quot;</span><span class="w">     </span><span class="c1"># optional override</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">avatar_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://example.com/avatar.png&quot;</span><span class="w">  </span><span class="c1"># optional override</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">thread_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1234567890123456789&quot;</span><span class="w">        </span><span class="c1"># optional — post into a specific thread</span>
+</span></code></pre></div>
+<p>Credentials live in the <code>iac-cartographer/discord</code> secret as
+<code>{"url": "https://discord.com/api/webhooks/..."}</code>. Create the webhook
+via Discord channel settings → <strong>Integrations → Webhooks → New
+Webhook</strong>; the URL embeds the webhook ID + token, so the URL IS the
+credential.</p>
+<p>Severity prefixes are <strong>unicode emojis</strong> (✅ ⚠️ ❌) — Discord
+renders Slack-style <code>:emoji:</code> shortcodes as literal text in most
+webhook content.</p>
+<p><code>content</code> is capped at 2000 chars (Discord webhook hard limit); long
+messages truncate with a <code>…</code> marker so operators see the cut.</p>
+<p><code>username</code> and <code>avatar_url</code> are optional per-message overrides that
+replace the defaults baked into the webhook by whoever created it —
+useful when one Discord server hosts notifications from multiple
+deployments (per-env or per-tenant identity).</p>
+<p><code>thread_id</code> is an optional Discord thread <strong>snowflake</strong> ID. When set,
+messages land inside that specific thread rather than the channel's
+main feed (the webhook URL gains a <code>?thread_id=&lt;id&gt;</code> query parameter
+on each POST). To find a thread's snowflake: right-click the thread in
+Discord (with Developer Mode enabled in user settings) → <strong>Copy
+Thread ID</strong>. Common pattern for routing iac-cartographer events into a
+dedicated "automation" or "infra-changes" thread inside a busier
+channel.</p>
+<h2 id="stdout-stderr-jsonl">Stdout / stderr (JSONL)<a class="headerlink" href="#stdout-stderr-jsonl" title="Permanent link">&para;</a></h2>
+<p>Emits one structured JSON line per notification to a configured
+stream — no HTTP, no SDK, no credentials. Useful for:</p>
+<ul>
+<li><strong>CI runs</strong> with log capture but no chat / pager access (GitHub
+  Actions, GitLab CI, Jenkins).</li>
+<li><strong>Air-gapped deployments</strong> where outbound chat / pager / SMTP isn't
+  permitted but a log aggregator picks up stdout.</li>
+<li><strong>Local dev / smoke tests</strong> — see notifications without wiring up
+  a real destination.</li>
+</ul>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">stream</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;stdout&quot;</span><span class="w">                        </span><span class="c1"># or &quot;stderr&quot;</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;jsonl&quot;</span><span class="w">                         </span><span class="c1"># or &quot;text&quot;</span>
+</span></code></pre></div>
+<p>Two output formats:</p>
+<ul>
+<li><strong><code>format: "jsonl"</code></strong> (default) — one structured JSON line per event.
+  The payload schema matches the generic webhook channel, so downstream
+  log-parsing tooling can treat both interchangeably:</li>
+</ul>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span><span class="nt">&quot;schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer.notification.v1&quot;</span><span class="p">,</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;info&quot;</span><span class="p">,</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer: run starting&quot;</span><span class="p">,</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w"> </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-26T10:30:00Z&quot;</span><span class="p">,</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w"> </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer&quot;</span><span class="p">}</span>
+</span></code></pre></div>
+<ul>
+<li><strong><code>format: "text"</code></strong> — one human-readable line per event, shaped
+  <code>[iac-cartographer][LEVEL] message</code>. Friendlier for terminal sessions
+  and lightweight cron setups where nobody is going to grep JSON.</li>
+</ul>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>[iac-cartographer][INFO] iac-cartographer: run starting
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>[iac-cartographer][ERROR] iac-cartographer: 2 repos failed
+</span></code></pre></div>
+<p>Use <code>stream: "stderr"</code> when stdout is reserved for machine-parseable
+pipeline output (Markdown publisher dumps, renderer banner-SHA logs,
+etc.). <code>format</code> and <code>stream</code> are independent — text mode on stderr is
+a valid combination.</p>
+<h2 id="slack-concrete-reference">Slack (concrete reference)<a class="headerlink" href="#slack-concrete-reference" title="Permanent link">&para;</a></h2>
+<p>The Slack channel posts via <code>chat.postMessage</code> with a bot token. The
+bot must be invited to the destination channel (<code>#name</code> or <code>C0...</code>
+both work).</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span><span class="w">        </span><span class="c1"># falls back to top-level slack.channel when unset</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">info</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">warn</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">error</span><span class="p p-Indicator">]</span>
+</span></code></pre></div>
+<p>Credentials come from the <code>iac-cartographer/slack</code> secret (unchanged
+shape):</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span><span class="nt">&quot;bot_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;xoxb-...&quot;</span><span class="p">}</span>
+</span></code></pre></div>
+<p>Each post is prefixed with a single-character emoji matching its
+severity (<code>:white_check_mark:</code> / <code>:warning:</code> / <code>:x:</code>) — terse so the
+message text gets the screen real estate.</p>
+<h2 id="what-gets-sent">What gets sent<a class="headerlink" href="#what-gets-sent" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Level</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>iac-cartographer: run starting</code></td>
+<td>info</td>
+<td>Pipeline start.</td>
+</tr>
+<tr>
+<td><code>iac-cartographer: run complete — N repos published</code></td>
+<td>info</td>
+<td>Happy-path end.</td>
+</tr>
+<tr>
+<td><code>iac-cartographer: preflight failed — ...</code></td>
+<td>error</td>
+<td>Confluence parent unreachable, etc.</td>
+</tr>
+<tr>
+<td><code>iac-cartographer: discovery failed — ...</code></td>
+<td>error</td>
+<td>Every discovery source failed.</td>
+</tr>
+<tr>
+<td><code>iac-cartographer: no repos to process after filtering</code></td>
+<td>error</td>
+<td>Discovery returned empty after deny-list.</td>
+</tr>
+<tr>
+<td><code>iac-cartographer: publish errors — ...</code></td>
+<td>error</td>
+<td>One or more child pages failed to publish.</td>
+</tr>
+<tr>
+<td><code>:warning: Narrative review needed (AI-H1...)</code></td>
+<td>warn</td>
+<td>Prompt-injection trigger detected in a narrative. Structural facts publish unchanged.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="when-to-use-which-routing-shape">When to use which routing shape<a class="headerlink" href="#when-to-use-which-routing-shape" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>One Slack channel, all severities.</strong> Keep the legacy <code>slack:</code>
+  block. Nothing to migrate.</li>
+<li><strong>Multiple Slack channels (info vs alerts).</strong> Switch to
+  <code>notifications:</code> with two <code>kind: slack</code> entries — different <code>channel</code>
+  and <code>levels</code> per entry.</li>
+<li><strong>Chat + pager.</strong> <code>notifications:</code> with <code>kind: slack</code> at all levels
+  and <code>kind: pagerduty</code> at <code>levels: [error]</code> so only errors page the
+  on-call.</li>
+<li><strong>CI / air-gapped runs that need zero outbound calls.</strong> Leave
+  <code>notifications:</code> empty AND don't load a Slack secret. The dispatcher
+  becomes a no-op — every <code>notifier.info(...)</code> is a silent return.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/vakaobr/iac-cartographer" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/iac-cartographer/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.indexes", "navigation.top", "search.highlight", "search.suggest", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike", "warning": true}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

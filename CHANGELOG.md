@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.17](https://github.com/vakaobr/iac-cartographer/compare/v0.1.16...v0.1.17) (2026-06-02)
+
+
+### Added
+
+* **graph:** Mermaid resource-dependency diagram embedded on every page ([#115](https://github.com/vakaobr/iac-cartographer/issues/115)) ([2aebd26](https://github.com/vakaobr/iac-cartographer/commit/2aebd265c75f8ad0adcce60452fc0167f72a7166))
+
 ## [0.1.16](https://github.com/vakaobr/iac-cartographer/compare/v0.1.15...v0.1.16) (2026-06-02)
 
 

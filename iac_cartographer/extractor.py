@@ -39,9 +39,11 @@ from iac_cartographer.models import (
     OutputRef,
     ProviderRef,
     ResourceRef,
+    StateBackend,
     TerraformSummary,
     VariableRef,
 )
+from iac_cartographer.state_backend import parse_state_backends_in_dir
 
 logger = logging.getLogger("iac_cartographer.extractor")
 
@@ -98,7 +100,13 @@ def run_terraform_docs(repo_path: Path) -> TerraformSummary:
         content = _run_terraform_docs_once(module_dir, repo_path)
         if content is not None:
             rel = module_dir.relative_to(repo_path).as_posix() or "."
-            per_module.append({"path": rel, "content": content})
+            # Parse state-backend blocks alongside terraform-docs output.
+            # terraform-docs intentionally doesn't surface backend config,
+            # so this is the only way to get it onto the page. Failures
+            # here log + drop the bad block (per `parse_state_backends_in_dir`)
+            # so a malformed declaration doesn't sink the rest of the run.
+            state_backends = parse_state_backends_in_dir(module_dir, module_path=rel)
+            per_module.append({"path": rel, "content": content, "state_backends": state_backends})
 
     if not per_module:
         # Every per-dir invocation failed (or returned empty). Don't raise
@@ -360,6 +368,8 @@ def _build_summary(data: dict[str, Any] | list[dict[str, Any]]) -> TerraformSumm
     seen_inputs: set[str] = set()
     seen_outputs: set[str] = set()
     module_paths: list[str] = []
+    state_backends: list[StateBackend] = []
+    seen_backend_keys: set[tuple[str, str, tuple[tuple[str, str], ...]]] = set()
 
     for module in modules_data:
         # Capture the path field per-module so the page renders the actual
@@ -432,6 +442,21 @@ def _build_summary(data: dict[str, Any] | list[dict[str, Any]]) -> TerraformSumm
             ver = req.get("version")
             if name and ver:
                 requirements[name] = ver
+        # State backends — parsed outside terraform-docs (it intentionally
+        # doesn't surface backend config). The per-module dict gets these
+        # attached in `run_terraform_docs()`; aggregate + dedupe here.
+        # Dedupe key: (module_path, type, frozen attrs). Different runs of
+        # the same `.tf` file would otherwise be reported as duplicates if
+        # multiple `terraform { backend ... }` blocks were declared (rare,
+        # but legal — Terraform itself rejects at init, we just surface).
+        for backend in module.get("state_backends", []) if isinstance(module, dict) else []:
+            if not isinstance(backend, StateBackend):
+                continue
+            key4 = (backend.module_path, backend.type, tuple(sorted(backend.attrs.items())))
+            if key4 in seen_backend_keys:
+                continue
+            seen_backend_keys.add(key4)
+            state_backends.append(backend)
 
     counts: dict[str, int] = dict(Counter(r.type for r in resources))
 
@@ -443,6 +468,7 @@ def _build_summary(data: dict[str, Any] | list[dict[str, Any]]) -> TerraformSumm
         inputs=inputs,
         outputs=outputs,
         resource_counts_by_type=counts,
+        state_backends=sorted(state_backends, key=lambda b: (b.module_path, b.type)),
         module_paths=sorted(module_paths),
     )
 

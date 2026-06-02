@@ -175,6 +175,18 @@ def render_child_blocks(
             )
         )
 
+    # ── state backend ─────────────────────────────────────────────────
+    # Compact form for Notion (the publisher's design uses bulleted lists,
+    # not tables, throughout): one bullet per backend with type + safety
+    # signals inline. ADF / Markdown / HTML render this as a full table.
+    if inv.summary.state_backends:
+        blocks.append(_heading_2("State backend"))
+        for b in inv.summary.state_backends[:_MAX_LIST_ITEMS]:
+            from iac_cartographer.renderer import format_signals
+
+            safety = format_signals(b.signals)
+            blocks.append(_bullet(f"{b.module_path} — {b.type} ({safety})"))
+
     # ── providers ─────────────────────────────────────────────────────
     if inv.summary.providers:
         blocks.append(_heading_2("Providers"))

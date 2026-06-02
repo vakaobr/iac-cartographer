@@ -19,7 +19,9 @@ from iac_cartographer.renderer import (
     BANNER_LEAD,
     BANNER_SHA_LABEL,
     OVERVIEW_TITLE,
+    format_signals,
     infer_provider_source,
+    strip_attr_quotes,
 )
 
 if TYPE_CHECKING:
@@ -98,6 +100,22 @@ def render_child_markdown(
         out.append("## Module layout")
         out.append("")
         out.extend(f"- `{p}`" for p in s.module_paths)
+        out.append("")
+
+    if s.state_backends:
+        out.append("## State backend")
+        out.append("")
+        out.append("| Module path | Backend | Key | Region | Safety |")
+        out.append("|---|---|---|---|---|")
+        for b in s.state_backends:
+            key = strip_attr_quotes(b.attrs.get("key", ""))
+            region = strip_attr_quotes(b.attrs.get("region", "")) or "—"
+            out.append(
+                f"| `{b.module_path}` | `{b.type}` | "
+                f"{f'`{key}`' if key else '—'} | "
+                f"{f'`{region}`' if region != '—' else '—'} | "
+                f"{_md_cell(format_signals(b.signals))} |"
+            )
         out.append("")
 
     if s.providers:

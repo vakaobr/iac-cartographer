@@ -438,6 +438,31 @@ def build_child(
         # column would be just the path; a table would be visual noise.
         content.append(_heading(3, "Module layout"))
         content.append(_bullet_list(s.module_paths))
+    if s.state_backends:
+        # "State backend" — where state is stored, plus precomputed
+        # posture signals (encryption / locking / auth method). Sits
+        # right after module layout because both are answers to "where
+        # does this repo's state live?" — module-by-module on disk, then
+        # module-by-module in remote storage. Cell content is plain text
+        # (Confluence ADF doesn't render emojis consistently in tables);
+        # signals use leading prefixes like "[!] " for warnings so the
+        # operationally-interesting rows still stand out at a glance.
+        content.append(_heading(3, "State backend"))
+        content.append(
+            _table(
+                headers=["Module path", "Backend", "Key", "Region", "Safety"],
+                rows=[
+                    [
+                        b.module_path,
+                        b.type,
+                        strip_attr_quotes(b.attrs.get("key", "")),
+                        strip_attr_quotes(b.attrs.get("region", "")) or "—",
+                        format_signals(b.signals),
+                    ]
+                    for b in s.state_backends
+                ],
+            )
+        )
     if s.providers:
         content.append(_heading(3, "Providers"))
         # Empty source/version on a ProviderRef means terraform-docs didn't
@@ -579,6 +604,49 @@ def _build_overview_summary(inventories: list[RepoInventory]) -> dict[str, Any]:
     return _bullet_list(bullets)
 
 
+# ─── State-backend cell helpers ─────────────────────────────────────────
+
+
+# Severity prefix on each signal in the "Safety" column. Plain ASCII so
+# the Markdown / HTML / Confluence renderers all surface them identically
+# (Confluence ADF doesn't render unicode glyphs reliably inside table
+# cells, and the renderer-agnostic prefix sorts well in any monospace
+# log/diff context too).
+_SEVERITY_PREFIX: dict[str, str] = {
+    "ok": "[ok] ",
+    "info": "[info] ",
+    "warn": "[!] ",
+    "critical": "[CRIT] ",
+}
+
+
+def strip_attr_quotes(value: str) -> str:
+    """Display helper — surrounding double quotes are noise on the rendered
+    page (the operator already knows the value is a string)."""
+    if len(value) >= 2 and value.startswith('"') and value.endswith('"'):
+        return value[1:-1]
+    return value
+
+
+def format_signals(signals: list[dict[str, Any]] | Any) -> str:  # type: ignore[explicit-any]
+    """Join a list of `StateBackendSignal` into a single-cell display.
+
+    Format: `"[ok] Encryption: enabled, [!] State locking: not configured"`.
+    Sorted by severity (critical → warn → info → ok) so the most
+    operationally interesting signals lead the cell, but the original
+    in-list order is preserved within each severity bucket so per-backend
+    ordering decisions in `_signals_for_*` remain meaningful.
+    """
+    if not signals:
+        return "—"
+    severity_rank = {"critical": 0, "warn": 1, "info": 2, "ok": 3}
+    ordered = sorted(
+        enumerate(signals),
+        key=lambda pair: (severity_rank.get(pair[1].severity, 99), pair[0]),
+    )
+    return ", ".join(f"{_SEVERITY_PREFIX.get(s.severity, '')}{s.label}: {s.value}" for _, s in ordered)
+
+
 # ─── ADF primitives ─────────────────────────────────────────────────────
 
 
@@ -648,4 +716,7 @@ __all__ = [
     "compute_overview_sha",
     "compute_sha",
     "extract_banner_sha",
+    "format_signals",
+    "infer_provider_source",
+    "strip_attr_quotes",
 ]

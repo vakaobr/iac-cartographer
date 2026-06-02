@@ -105,6 +105,53 @@ class OutputRef(_Strict):
     description: str | None = None
 
 
+class StateBackendSignal(_Strict):
+    """One safety-relevant assertion about a state backend.
+
+    `label` is the short noun phrase shown in the rendered table
+    ("Encryption", "State locking", "KMS key", "Backend"). `value` is
+    the human-readable status ("enabled", "missing", "AWS-managed
+    SSE-S3", "local-disk"). `severity` drives icon + color:
+
+      * `ok`       — configured the recommended way
+      * `info`     — configured a non-default but valid way
+      * `warn`     — a recommended setting is missing
+      * `critical` — actively dangerous (e.g. a local backend in a
+                     production-shaped repo).
+
+    The renderer picks an icon per severity at render time; this model
+    deliberately doesn't bake unicode glyphs into the data layer.
+    """
+
+    label: str
+    value: str
+    severity: Literal["ok", "info", "warn", "critical"] = "info"
+
+
+class StateBackend(_Strict):
+    """One `terraform { backend "TYPE" { ... } }` block, parsed from HCL.
+
+    Backend type identifies the storage mechanism (`s3`, `gcs`,
+    `azurerm`, `remote`, `local`, `consul`, `etcdv3`, `http`,
+    `kubernetes`, `pg`). `attrs` holds the raw key/value pairs from the
+    block (strings only — no type coercion, since the renderer only
+    reads them and Pydantic can't validate provider-specific shapes
+    without growing one model per backend type).
+
+    `signals` is the precomputed posture summary — derived from `attrs`
+    at parse time so the renderer doesn't need to know per-backend
+    safety logic. `module_path` is the repo-relative directory the
+    block was declared in (`"."` for a root-level module), letting the
+    renderer surface one row per backend in repos that declare several
+    (e.g. an op-infrastructure-style `env/dev` + `env/prod` layout).
+    """
+
+    module_path: str
+    type: str
+    attrs: dict[str, str] = Field(default_factory=dict)
+    signals: list[StateBackendSignal] = Field(default_factory=list)
+
+
 class TerraformSummary(_Strict):
     providers: list[ProviderRef] = Field(default_factory=list)
     requirements: dict[str, str] = Field(default_factory=dict)
@@ -113,6 +160,13 @@ class TerraformSummary(_Strict):
     inputs: list[VariableRef] = Field(default_factory=list)
     outputs: list[OutputRef] = Field(default_factory=list)
     resource_counts_by_type: dict[str, int] = Field(default_factory=dict)
+    # One entry per `terraform { backend "..." { ... } }` block found.
+    # Zero entries → the repo doesn't declare a remote backend, or only
+    # declares one in a path we can't parse — the page omits the
+    # section in that case. Multiple entries → one per module_path
+    # (op-infrastructure-style envs), or rarely a duplicate declaration
+    # the operator should clean up.
+    state_backends: list[StateBackend] = Field(default_factory=list)
     # Relative paths (from repo root) of every directory the extractor ran
     # terraform-docs in. Empty for repos with a single root-level module;
     # populated to e.g. `["terraform/env/dev", "terraform/env/staging",

@@ -1807,7 +1807,7 @@ area.</p>
 <tr>
 <td><code>stdout</code></td>
 <td>Shipped</td>
-<td>JSON Lines on stdout / stderr — air-gapped + CI friendly. Same payload schema as the generic webhook channel. No credentials, no HTTP.</td>
+<td>JSON Lines or human-readable text on stdout / stderr — air-gapped + CI friendly. JSONL shares the generic webhook channel's payload schema; text mode emits <code>[iac-cartographer][LEVEL] message</code>. No credentials, no HTTP.</td>
 </tr>
 </tbody>
 </table>
@@ -2148,30 +2148,44 @@ stream — no HTTP, no SDK, no credentials. Useful for:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">notifications</span><span class="p">:</span>
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">stream</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;stdout&quot;</span><span class="w">                        </span><span class="c1"># or &quot;stderr&quot;</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;jsonl&quot;</span><span class="w">                         </span><span class="c1"># or &quot;text&quot;</span>
 </span></code></pre></div>
-<p>The payload schema matches the generic webhook channel, so
-downstream log-parsing tooling can treat both interchangeably:</p>
+<p>Two output formats:</p>
+<ul>
+<li><strong><code>format: "jsonl"</code></strong> (default) — one structured JSON line per event.
+  The payload schema matches the generic webhook channel, so downstream
+  log-parsing tooling can treat both interchangeably:</li>
+</ul>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span><span class="nt">&quot;schema&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer.notification.v1&quot;</span><span class="p">,</span>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w"> </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;info&quot;</span><span class="p">,</span>
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer: run starting&quot;</span><span class="p">,</span>
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w"> </span><span class="nt">&quot;ts&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-05-26T10:30:00Z&quot;</span><span class="p">,</span>
 </span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w"> </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;iac-cartographer&quot;</span><span class="p">}</span>
 </span></code></pre></div>
+<ul>
+<li><strong><code>format: "text"</code></strong> — one human-readable line per event, shaped
+  <code>[iac-cartographer][LEVEL] message</code>. Friendlier for terminal sessions
+  and lightweight cron setups where nobody is going to grep JSON.</li>
+</ul>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>[iac-cartographer][INFO] iac-cartographer: run starting
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>[iac-cartographer][ERROR] iac-cartographer: 2 repos failed
+</span></code></pre></div>
 <p>Use <code>stream: "stderr"</code> when stdout is reserved for machine-parseable
 pipeline output (Markdown publisher dumps, renderer banner-SHA logs,
-etc.).</p>
+etc.). <code>format</code> and <code>stream</code> are independent — text mode on stderr is
+a valid combination.</p>
 <h2 id="slack-concrete-reference">Slack (concrete reference)<a class="headerlink" href="#slack-concrete-reference" title="Permanent link">&para;</a></h2>
 <p>The Slack channel posts via <code>chat.postMessage</code> with a bot token. The
 bot must be invited to the destination channel (<code>#name</code> or <code>C0...</code>
 both work).</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">notifications</span><span class="p">:</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span><span class="w">        </span><span class="c1"># falls back to top-level slack.channel when unset</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">info</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">warn</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">error</span><span class="p p-Indicator">]</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span><span class="w">        </span><span class="c1"># falls back to top-level slack.channel when unset</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">info</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">warn</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">error</span><span class="p p-Indicator">]</span>
 </span></code></pre></div>
 <p>Credentials come from the <code>iac-cartographer/slack</code> secret (unchanged
 shape):</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span><span class="nt">&quot;bot_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;xoxb-...&quot;</span><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="p">{</span><span class="nt">&quot;bot_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;xoxb-...&quot;</span><span class="p">}</span>
 </span></code></pre></div>
 <p>Each post is prefixed with a single-character emoji matching its
 severity (<code>:white_check_mark:</code> / <code>:warning:</code> / <code>:x:</code>) — terse so the

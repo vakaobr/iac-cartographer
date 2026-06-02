@@ -17,6 +17,10 @@ Payload shape:
     whoever created it in the Discord UI. Useful when one Discord
     server hosts notifications from multiple deployments (per-env or
     per-tenant identity).
+  * `thread_id` is an optional Discord thread snowflake. When set,
+    messages land inside that specific thread instead of the
+    channel's main feed (the webhook URL gains a `?thread_id=<id>`
+    query parameter on each POST).
 
 Unicode emojis (✅ ⚠️ ❌) for severity — Discord renders shortcodes
 inconsistently (`:warning:` becomes the text literal in most embeds),
@@ -66,10 +70,19 @@ class DiscordChannel(NotificationChannel):
         *,
         username: str | None = None,
         avatar_url: str | None = None,
+        thread_id: str | None = None,
     ) -> None:
         self._url = creds.url
         self._username = username
         self._avatar_url = avatar_url
+        # When set, append `?thread_id=<id>` to the POST URL so the
+        # message lands inside a specific thread rather than the
+        # channel's main feed. Discord's webhook API treats this as a
+        # query parameter (not a payload field). Routed via httpx
+        # `params={...}` so URL encoding is handled correctly even if
+        # the operator passes a numeric snowflake ID as a string with
+        # whitespace or other quoting accidents.
+        self._thread_id = thread_id
         self._client: httpx.AsyncClient | None = None
 
     def _ensure_client(self) -> httpx.AsyncClient:
@@ -95,7 +108,8 @@ class DiscordChannel(NotificationChannel):
 
         try:
             client = self._ensure_client()
-            resp = await client.post(self._url, json=payload)
+            params = {"thread_id": self._thread_id} if self._thread_id else None
+            resp = await client.post(self._url, json=payload, params=params)
             # Discord returns 204 No Content on success. Anything 4xx
             # is a bad webhook URL / malformed payload / rate limit.
             if resp.status_code >= 400:

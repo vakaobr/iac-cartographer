@@ -248,6 +248,12 @@ class DiscordNotificationConfig(_BaseNotificationConfig):
     # Override the webhook's default avatar image URL. Defaults to
     # None (= use the webhook's own setting).
     avatar_url: str | None = None
+    # Optional Discord thread snowflake ID. When set, the channel
+    # appends `?thread_id=<id>` to the webhook POST so the message
+    # lands inside that specific thread instead of the channel's
+    # main feed. Common pattern for routing iac-cartographer events
+    # into a dedicated "automation" or "infra-changes" thread.
+    thread_id: str | None = None
 
 
 class StdoutNotificationConfig(_BaseNotificationConfig):

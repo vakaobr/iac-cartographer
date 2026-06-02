@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [1.1.0](https://github.com/vakaobr/iac-cartographer/compare/v1.0.0...v1.1.0) (2026-06-02)
+
+
+### Added
+
+* **overlays:** Terraform Cloud / HCP overlay + stale failed-apply alerts ([#98](https://github.com/vakaobr/iac-cartographer/issues/98)) ([#121](https://github.com/vakaobr/iac-cartographer/issues/121)) ([85bb997](https://github.com/vakaobr/iac-cartographer/commit/85bb997ca5892f8f5b6b6392c7a12b916cd002a8))
+
 ## [1.0.0](https://github.com/vakaobr/iac-cartographer/compare/v0.1.18...v1.0.0) (2026-06-02)
 
 

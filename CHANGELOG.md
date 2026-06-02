@@ -10,6 +10,16 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.15](https://github.com/vakaobr/iac-cartographer/compare/v0.1.14...v0.1.15) (2026-06-02)
+
+
+### Added
+
+* **cli:** --repos accepts @path/to/file.txt for newline-delimited lists ([#107](https://github.com/vakaobr/iac-cartographer/issues/107)) ([6c8e585](https://github.com/vakaobr/iac-cartographer/commit/6c8e58506f30f4fda9de740e395eaf2ea35991f5))
+* **cli:** add --output-dir override for markdown/html/json publishers ([#109](https://github.com/vakaobr/iac-cartographer/issues/109)) ([484dced](https://github.com/vakaobr/iac-cartographer/commit/484dced669a80db4a08192cee99ffafc0ff85ffa))
+* **notifications:** Discord channel — optional thread_id support ([#111](https://github.com/vakaobr/iac-cartographer/issues/111)) ([f53ba25](https://github.com/vakaobr/iac-cartographer/commit/f53ba25baa9eecdcb376e955b324b3e47733087e))
+* **notifications:** stdout channel — add human-readable text format ([#110](https://github.com/vakaobr/iac-cartographer/issues/110)) ([3175034](https://github.com/vakaobr/iac-cartographer/commit/3175034ffef8b8d047d9b32f8895b957117245fd))
+
 ## [0.1.14](https://github.com/vakaobr/iac-cartographer/compare/v0.1.13...v0.1.14) (2026-06-02)
 
 

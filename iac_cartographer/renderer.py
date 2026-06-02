@@ -166,6 +166,13 @@ def _inventory_input_payload(
     many Mermaid chunks the page emits, so changing the threshold
     changes the rendered output even with identical resources. Default
     matches `GraphConfig.max_nodes_per_graph`.
+
+    `inv.live_state` is **deliberately omitted**. The live-state overlay
+    surfaces external workspace info (current run / last apply / drift)
+    that changes between iac-cartographer runs without any change to the
+    repo being indexed. Hashing it would invalidate every page on every
+    run; the published page reads as ephemeral status, not "did the
+    repo's structural facts change?".
     """
     return {
         "meta": inv.meta.model_dump(mode="json"),
@@ -508,6 +515,30 @@ def build_child(
                 ],
             )
         )
+    if inv.live_state is not None:
+        # "Live state" — what the external platform (TFC / HCP /
+        # Terrakube) has actually applied, plus drift posture. Sits
+        # after State backend (both answer "where + how is state
+        # stored?"). Excluded from the banner-SHA payload elsewhere
+        # because every field can change without any commit on the
+        # repo we're indexing.
+        content.append(_heading(3, "Live state"))
+        ls = inv.live_state
+        last_apply = (
+            ls.last_successful_apply_at.strftime("%Y-%m-%d %H:%M UTC") if ls.last_successful_apply_at else "never"
+        )
+        rows: list[list[Any]] = [
+            ["Workspace", ls.workspace_name],
+            ["Workspace URL", ls.workspace_url],
+            ["Current run", ls.current_run_status or "—"],
+            ["Last successful apply", last_apply],
+            ["Drift", ls.drift_status.replace("_", " ")],
+        ]
+        if ls.live_resource_count is not None:
+            declared = len(s.resources)
+            divergence = "" if ls.live_resource_count == declared else f" ⚠ declared={declared}"
+            rows.append(["Live resource count", f"{ls.live_resource_count}{divergence}"])
+        content.append(_table(headers=["Field", "Value"], rows=rows))
     if s.providers:
         content.append(_heading(3, "Providers"))
         # Empty source/version on a ProviderRef means terraform-docs didn't

@@ -69,7 +69,6 @@ class EnvSecretsProvider(SecretsProvider):
             raise EnvSecretsError(
                 f"env secrets backend: env var {var!r} must decode to a JSON object, got {type(decoded).__name__}"
             )
-        logger.info("env: fetched secret %s via %s (length=%d)", name, var, len(raw))
         return decoded
 
     def get_parameter(self, name: str) -> str:
@@ -79,7 +78,6 @@ class EnvSecretsProvider(SecretsProvider):
             raise EnvSecretsError(
                 f"env secrets backend: required env var {var!r} is not set (maps from logical name {name!r})"
             )
-        logger.info("env: fetched parameter %s via %s (length=%d)", name, var, len(raw))
         return raw
 
 

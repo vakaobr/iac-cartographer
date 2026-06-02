@@ -603,6 +603,65 @@ def test_check_secrets_required_hybrid_publisher_and_channels() -> None:
     assert rows["discord"].status == Status.SKIP
 
 
+# ── check_live_state (#98) ────────────────────────────────────────────
+
+
+def test_check_live_state_none_backend_skips() -> None:
+    """Default `backend: "none"` is the no-op path — SKIP, not FAIL."""
+    from iac_cartographer.diagnose import check_live_state
+
+    r = check_live_state(_config())
+    assert r.status == Status.SKIP
+    assert "backend=none" in r.detail
+
+
+def test_check_live_state_tfc_without_organization_fails() -> None:
+    from iac_cartographer.diagnose import check_live_state
+
+    r = check_live_state(_config(live_state={"backend": "tfc"}))
+    assert r.status == Status.FAIL
+    assert "organization is unset" in r.detail
+
+
+def test_check_live_state_tfc_ok_reports_staleness_threshold() -> None:
+    from iac_cartographer.diagnose import check_live_state
+
+    r = check_live_state(_config(live_state={"backend": "tfc", "organization": "acme"}))
+    assert r.status == Status.OK
+    assert "tfc" in r.detail and "acme" in r.detail
+    # Default staleness threshold is surfaced.
+    assert "threshold=2" in r.detail
+
+
+def test_check_live_state_tfc_ok_reports_staleness_disabled() -> None:
+    from iac_cartographer.diagnose import check_live_state
+
+    r = check_live_state(
+        _config(
+            live_state={
+                "backend": "tfc",
+                "organization": "acme",
+                "staleness": {"enabled": False},
+            }
+        )
+    )
+    assert r.status == Status.OK
+    assert "staleness disabled" in r.detail
+
+
+def test_check_secrets_required_tfc_active_when_live_state_backend_is_tfc() -> None:
+    """Flipping `live_state.backend=tfc` moves `secrets.tfc` from
+    skip to required."""
+    from iac_cartographer.diagnose import check_secrets_required
+
+    default = _required_by(check_secrets_required(_config()))
+    assert default["tfc"].status == Status.SKIP
+
+    with_tfc = _required_by(check_secrets_required(_config(live_state={"backend": "tfc", "organization": "acme"})))
+    assert with_tfc["tfc"].status == Status.OK
+    assert "live_state.backend=tfc" in with_tfc["tfc"].detail
+
+
 def test_check_secrets_required_llm_backend_swap_changes_credentials() -> None:
     """Flipping `llm.backend` shifts which LLM credential is required —
     bedrock → anthropic should swap `anthropic` from skip to ok and leave

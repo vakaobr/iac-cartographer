@@ -109,6 +109,7 @@ from iac_cartographer.models import (
     SlackCredentials,
     SlackWebhookCredentials,
     TeamsCredentials,
+    TfcCredentials,
     WebhookCredentials,
 )
 from iac_cartographer.narrator import detect_suspicious_phrases, placeholder_narrative, summarize
@@ -117,6 +118,7 @@ from iac_cartographer.notifications import (
     NotificationSecrets,
     build_dispatcher,
 )
+from iac_cartographer.overlays import StaleAlertCollector, build_overlay
 from iac_cartographer.publishers import (
     ConfluencePublisher,
     GitHubWikiPublisher,
@@ -284,6 +286,9 @@ class LoadedSecrets:
     discord: DiscordCredentials | None = None
     # `notion` is only populated when `publisher.kind == "notion"`.
     notion: NotionCredentials | None = None
+    # `tfc` is only populated when `live_state.backend == "tfc"`. Powers
+    # the read-only TFC / HCP / Terraform Enterprise overlay.
+    tfc: TfcCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -324,6 +329,10 @@ DISCORD_SECRET_NAME = "iac-cartographer/discord"  # noqa: S105
 # (visible in the Notion integration UI) — store it via Secrets
 # Manager / env var / Vault like every other credential.
 NOTION_SECRET_NAME = "iac-cartographer/notion"  # noqa: S105
+# Terraform Cloud / HCP / Terraform Enterprise API token. Only loaded
+# when `live_state.backend == "tfc"`. Read-only API token; the overlay
+# only ever issues GETs.
+TFC_SECRET_NAME = "iac-cartographer/tfc"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -372,6 +381,7 @@ def _load_secrets(
     need_opsgenie: bool = False,
     need_discord: bool = False,
     need_notion: bool = False,
+    need_tfc: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -642,6 +652,19 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"notion secret payload failed schema validation: {exc}") from exc
 
+    tfc_creds: TfcCredentials | None = None
+    if need_tfc:
+        try:
+            tfc_raw = provider.get_secret(TFC_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"live_state.backend=tfc but the {TFC_SECRET_NAME} secret is missing (via {provider.name}): {exc}"
+            ) from exc
+        try:
+            tfc_creds = TfcCredentials.model_validate(tfc_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"tfc secret payload failed schema validation: {exc}") from exc
+
     # Every credential was validated at its load site above, so the
     # dataclass construction here can't raise — it's a plain assembly.
     return LoadedSecrets(
@@ -662,6 +685,7 @@ def _load_secrets(
         opsgenie=opsgenie_creds,
         discord=discord_creds,
         notion=notion_creds,
+        tfc=tfc_creds,
     )
 
 
@@ -1187,6 +1211,10 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         need_discord="discord" in notification_kinds,
         # No `need_stdout`: stdout has no credential to load.
         need_notion=config.publisher.kind == "notion",
+        # The live-state overlay is opt-in via `live_state.backend`. The
+        # default `"none"` skips the credential entirely; any other
+        # backend hard-requires the matching token.
+        need_tfc=config.live_state.backend == "tfc",
     )
     notifier: NotificationDispatcher = build_dispatcher(
         config,
@@ -1288,6 +1316,22 @@ async def _run_once_async(args: argparse.Namespace) -> int:
             for r in repos
         ]
         results = await asyncio.gather(*tasks)
+        # Live-state overlay (TFC / HCP / Terrakube) — opt-in via
+        # `live_state.backend`. When configured, build the overlay once
+        # per run; each successful per-repo inventory gets a `LiveStateInfo`
+        # attached (or `None` when no workspace maps to the repo). The
+        # `StaleAlertCollector` accumulates `warn`-level alerts across all
+        # repos; we drain it via `notifier.warn` after the loop so a
+        # broken apply doesn't sit silently in a Confluence page.
+        stale_collector = StaleAlertCollector()
+        try:
+            overlay = build_overlay(config.live_state, secrets.tfc, alert_collector=stale_collector)
+        except CartographerError as exc:
+            # Misconfigured overlay shouldn't sink the whole run — log
+            # loudly and keep going without it. The diagnose path is
+            # where adopters fix the underlying config.
+            logger.error("live_state: %s — proceeding without overlay", exc)
+            overlay = None
         inventories: list[RepoInventory] = []
         failed: dict[str, str] = {}
         suspicious_repos: dict[str, list[str]] = {}
@@ -1313,7 +1357,38 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                     )
                     suspicious_repos[repo.full_name] = hits
                     inv = inv.model_copy(update={"narrative": None})
+            # Layer live-state info (current run, last apply, drift) onto
+            # the inventory when the overlay is configured. `fetch()` is
+            # synchronous (httpx blocking) — fine here, we're sequencing
+            # post-gather work.
+            if overlay is not None:
+                live_state = overlay.fetch(repo.full_name)
+                if live_state is not None:
+                    inv = inv.model_copy(update={"live_state": live_state})
             inventories.append(inv)
+        # Drain stale-apply alerts (one notification per workspace that's
+        # been errored longer than the threshold). Dry-run honours the
+        # same suppression rule as the run-summary notification — no
+        # notify calls when nothing's being published.
+        if not args.dry_run and stale_collector.alerts:
+            for alert in stale_collector.alerts:
+                last_apply = (
+                    alert.last_successful_apply_at.isoformat(timespec="seconds")
+                    if alert.last_successful_apply_at
+                    else "never"
+                )
+                await notifier.warn(
+                    f"iac-cartographer: stale failed apply on workspace `{alert.workspace_name}` — "
+                    f"{alert.days_in_state} day(s) in errored state "
+                    f"(last successful apply: {last_apply}). "
+                    f"Failed run: {alert.failed_run_url}"
+                )
+        if overlay is not None:
+            # The overlay's httpx.Client owns a connection pool — release it
+            # before the orchestrator moves on to publishing.
+            close = getattr(overlay, "close", None)
+            if callable(close):
+                close()
 
         if not inventories:
             # Log every per-repo failure individually so the all-failed path is

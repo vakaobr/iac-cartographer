@@ -450,6 +450,40 @@ def check_llm(config: AppConfig) -> CheckResult:
     )
 
 
+def check_live_state(config: AppConfig) -> CheckResult:
+    """Live-state overlay config is internally consistent.
+
+    Default `backend: "none"` is the no-op path — short-circuit with a
+    SKIP so the report doesn't grow noisier for adopters who don't use
+    the feature. Any other backend hard-requires `organization` to be
+    set; `staleness` knobs are reported even when disabled so an operator
+    can tell at a glance which thresholds are in effect.
+    """
+    ls = config.live_state
+    if ls.backend == "none":
+        return CheckResult(
+            name="live-state",
+            status=Status.SKIP,
+            detail="live_state.backend=none (no overlay configured)",
+        )
+    if not ls.organization:
+        return CheckResult(
+            name="live-state",
+            status=Status.FAIL,
+            detail=f"live_state.backend={ls.backend} but live_state.organization is unset",
+            hint="set live_state.organization to the TFC / HCP / TFE organisation name",
+        )
+    detail = f"{ls.backend} → org={ls.organization} hostname={ls.hostname}"
+    if ls.staleness.enabled:
+        ack = (
+            f", ack-stale={len(ls.staleness.acknowledged_stale)} pattern(s)" if ls.staleness.acknowledged_stale else ""
+        )
+        detail += f"; staleness threshold={ls.staleness.threshold_days} day(s){ack}"
+    else:
+        detail += "; staleness disabled"
+    return CheckResult(name="live-state", status=Status.OK, detail=detail)
+
+
 def check_notifications(config: AppConfig) -> CheckResult:
     """Notification routing is sane (at least one channel, no
     contradictory configuration)."""
@@ -502,6 +536,13 @@ def check_secrets_required(config: AppConfig) -> list[CheckResult]:
     # Publisher credentials.
     out.append(_row("confluence", reason="publisher.kind=confluence" if publisher_kind == "confluence" else None))
     out.append(_row("notion", reason="publisher.kind=notion" if publisher_kind == "notion" else None))
+    # Live-state overlay credential. Loaded only when `live_state.backend != "none"`.
+    out.append(
+        _row(
+            "tfc",
+            reason=f"live_state.backend={config.live_state.backend}" if config.live_state.backend == "tfc" else None,
+        )
+    )
 
     # Discovery + Git-host credentials. `repos_file` can list repos on
     # any host, so a curated file forces both VCS tokens (we can't
@@ -623,6 +664,7 @@ def check_secrets_live(config: AppConfig) -> tuple[CheckResult, LoadedSecrets | 
             need_opsgenie="opsgenie" in notification_kinds,
             need_discord="discord" in notification_kinds,
             need_notion=config.publisher.kind == "notion",
+            need_tfc=config.live_state.backend == "tfc",
         )
     except CartographerError as exc:
         return (
@@ -819,6 +861,85 @@ def check_llm_live(config: AppConfig, secrets: LoadedSecrets, *, probe_llm: bool
     )
 
 
+def check_live_state_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResult:
+    """Probe the configured live-state platform for token + reachability.
+
+    `backend: "none"` short-circuits to SKIP. Other backends hit a cheap
+    auth-validating endpoint:
+
+      * `tfc` — `GET /api/v2/account/details` (the standard TFC token
+        check; no workspace data fetched).
+
+    Any HTTP / network failure becomes a FAIL with an actionable hint;
+    the orchestrator continues without the overlay rather than crashing
+    the run (see the equivalent fallback path in `cli.py::_run_once_async`).
+    """
+    import httpx
+
+    if config.live_state.backend == "none":
+        return CheckResult(
+            name="live-state-live",
+            status=Status.SKIP,
+            detail="live_state.backend=none — no live overlay to probe",
+        )
+    if config.live_state.backend == "tfc":
+        if secrets.tfc is None:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail="live_state.backend=tfc but no TfcCredentials were loaded",
+                hint='populate the iac-cartographer/tfc secret with `{"token": "..."}`',
+            )
+        url = f"https://{config.live_state.hostname.rstrip('/')}/api/v2/account/details"
+        try:
+            resp = httpx.get(
+                url,
+                headers={"Authorization": f"Bearer {secrets.tfc.token}"},
+                timeout=_LIVE_HTTP_TIMEOUT_S,
+            )
+        except httpx.HTTPError as exc:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail=f"tfc account/details probe failed: {type(exc).__name__}: {str(exc)[:140]}",
+                hint=(
+                    "confirm live_state.hostname is reachable and the iac-cartographer/tfc token "
+                    "is valid (e.g. `curl -H 'Authorization: Bearer …' "
+                    f"{url}` should return 200)"
+                ),
+            )
+        if resp.status_code == 401:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail="tfc returned 401 Unauthorized — the API token is invalid or expired",
+                hint="rotate iac-cartographer/tfc; the overlay needs a read-scoped team or user token",
+            )
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail=f"tfc account/details returned HTTP {resp.status_code}",
+                hint="check live_state.hostname (TFE installs need their own hostname, not app.terraform.io)",
+            )
+        try:
+            attrs = (resp.json().get("data") or {}).get("attributes") or {}
+            username = attrs.get("username") or "?"
+        except (ValueError, AttributeError):
+            username = "?"
+        return CheckResult(
+            name="live-state-live",
+            status=Status.OK,
+            detail=f"tfc reachable at {config.live_state.hostname} as {username}",
+        )
+    return CheckResult(
+        name="live-state-live",
+        status=Status.FAIL,
+        detail=f"unknown live_state.backend: {config.live_state.backend!r}",
+        hint="supported backends: `tfc` (or `none` to disable)",
+    )
+
+
 def check_publisher_live(config: AppConfig, secrets: LoadedSecrets) -> CheckResult:
     """Confirm the publisher's write target is reachable with credentials.
 
@@ -969,6 +1090,7 @@ def run_diagnose(config_path: str, *, live: bool = False, probe_llm: bool = Fals
         "llm": _run("llm", lambda: check_llm(config)),
         "publisher": _run("publisher", lambda: check_publisher_target(config)),
         "notifications": _run("notifications", lambda: check_notifications(config)),
+        "live-state": _run("live-state", lambda: check_live_state(config)),
     }
     report.checks.extend(offline.values())
 
@@ -990,7 +1112,7 @@ def run_diagnose(config_path: str, *, live: bool = False, probe_llm: bool = Fals
     if secrets is None:
         # No credentials → nothing else live can run. Surface explicit skips
         # so the operator sees the chain stopped rather than silently absent.
-        for name in ("discovery-live", "llm-live", "publisher-live"):
+        for name in ("discovery-live", "llm-live", "publisher-live", "live-state-live"):
             report.checks.append(
                 CheckResult(name=name, status=Status.SKIP, detail="skipped — secrets-live did not resolve")
             )
@@ -1015,6 +1137,17 @@ def run_diagnose(config_path: str, *, live: bool = False, probe_llm: bool = Fals
     else:
         report.checks.append(
             CheckResult(name="publisher-live", status=Status.SKIP, detail="skipped — offline publisher probe failed")
+        )
+
+    if offline["live-state"].status in (Status.OK, Status.SKIP):
+        report.checks.append(_run("live-state-live", lambda: check_live_state_live(config, secrets)))
+    else:
+        report.checks.append(
+            CheckResult(
+                name="live-state-live",
+                status=Status.SKIP,
+                detail="skipped — offline live-state probe failed",
+            )
         )
 
     return report

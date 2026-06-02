@@ -32,9 +32,7 @@ def get_secret(name: str, region: str = DEFAULT_REGION) -> dict[str, Any]:
     """
     client = boto3.client("secretsmanager", region_name=region)
     response = client.get_secret_value(SecretId=name)
-    secret_string = response["SecretString"]
-    logger.info("aws: fetched secret %s (length=%d)", name, len(secret_string))
-    return json.loads(secret_string)
+    return json.loads(response["SecretString"])
 
 
 def get_ssm_parameter(name: str, region: str = DEFAULT_REGION) -> str:
@@ -47,7 +45,6 @@ def get_ssm_parameter(name: str, region: str = DEFAULT_REGION) -> str:
     client = boto3.client("ssm", region_name=region)
     response = client.get_parameter(Name=name, WithDecryption=True)
     value: str = response["Parameter"]["Value"]
-    logger.info("aws: fetched ssm parameter %s (length=%d)", name, len(value))
     return value
 
 

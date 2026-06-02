@@ -246,6 +246,52 @@ Changing the threshold invalidates banner-SHAs (the rendered chunk
 count is part of the page input), so the next run republishes every
 page. Tune it once and leave it.
 
+## `live_state`
+
+Read-only overlay that layers external workspace info (Terraform Cloud
+/ HCP Terraform / Terraform Enterprise) onto each repo's rendered
+page — current run status, last successful apply, drift, live
+resource count — plus a `warn`-level notification for any workspace
+that's been in `errored` state longer than the staleness threshold.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `backend` | `"none" \| "tfc"` | `"none"` | No-op default; flip to `tfc` to enable the TFC / HCP / TFE overlay. |
+| `organization` | `str` | `""` | TFC / HCP / TFE organisation name. Required when `backend != "none"`. |
+| `hostname` | `str` | `"app.terraform.io"` | API hostname. Covers TFC + HCP Terraform with the default; override for self-hosted Terraform Enterprise (e.g. `tfe.acme.internal`). |
+| `workspace_mapping` | `list[{repo, workspace}]` | `[]` | Explicit per-repo → per-workspace mappings; both fields are `fnmatch`-style patterns, first-match wins. Empty falls back to the default heuristic (workspace name = last `/` segment of `repo.full_name`). |
+| `staleness.enabled` | `bool` | `true` | Toggle stale failed-apply alerts. |
+| `staleness.threshold_days` | `int` | `2` | Days a workspace must sit in `errored` state before an alert fires. |
+| `staleness.acknowledged_stale` | `list[str]` | `[]` | `fnmatch` patterns matched against workspace names to mute alerts (deferred work, decommissioning queue). |
+
+```yaml
+live_state:
+  backend: tfc
+  organization: acme-org
+  workspace_mapping:
+    - repo: "acme-org/prod-*"
+      workspace: "prod-app"
+  staleness:
+    enabled: true
+    threshold_days: 2
+    acknowledged_stale:
+      - "legacy-*"
+```
+
+Requires the `iac-cartographer/tfc` secret as `{"token": "..."}` — a
+read-scoped team or user API token; the overlay only ever issues GETs.
+
+The overlay's data is **excluded from the banner-SHA** by design —
+workspace state changes between iac-cartographer runs without any
+change to the repo being indexed, and we don't want every page
+republished on every run for that reason. The page reads as
+ephemeral status, not "did the repo's structural facts change?".
+
+Stale-apply alerts route through the configured `notifications:`
+channels at `warn` level; an alert fires only when the most-recent
+apply attempt errored, no newer apply is in flight (operator is on
+it), and the workspace isn't matched by `acknowledged_stale`.
+
 ## `slack` (legacy single-channel — deprecated)
 
 | Field | Type | Default |

@@ -28,9 +28,10 @@ Markdown / HTML, bullet lists in Notion):
 3. **Environments** / **Owning team (guess)** / **Notable patterns** — additional LLM-derived sections when available.
 4. **Module layout** — relative paths of every directory containing `*.tf` files (multi-module repos surface their `env/dev` + `env/prod` shape here).
 5. **State backend** *(since 1.0)* — backend type (`s3` / `gcs` / `azurerm` / `remote` / `local` / etc.) plus precomputed posture signals: encryption status, KMS / customer-managed key, state locking (DynamoDB / `use_lockfile` / native), auth method. `local` backends surface a `[CRIT]` signal — see the `iac_cartographer.state_backend` module for the full per-type checklist.
-6. **Providers** / **Modules** / **Resources by type** — structural facts from terraform-docs.
-7. **Resource graph** *(since 1.0)* — a Mermaid `graph TD` diagram with provider nodes (stadium shape) and resource nodes (rectangles), grouped by provider via explicit edges. Chunked into multiple diagrams when the resource count exceeds `graph.max_nodes_per_graph` (default 25). Confluence + GitHub-flavoured Markdown render Mermaid natively; the HTML publisher loads the Mermaid CDN bundle in `<head>` only when a graph is present.
-8. **Inputs** / **Outputs** — terraform-docs-derived variable + output tables.
+6. **Live state** *(since 1.1, optional)* — present only when `live_state.backend != "none"`. Workspace name + URL, current run status, last successful apply timestamp, drift, live resource count (with a `⚠ declared=N` divergence marker when the platform-reported count doesn't match what terraform-docs parsed). Backed by the read-only Terraform Cloud / HCP / TFE overlay (`iac_cartographer.overlays.live_state`). Excluded from the banner-SHA so external state changes don't republish the page on every run.
+7. **Providers** / **Modules** / **Resources by type** — structural facts from terraform-docs.
+8. **Resource graph** *(since 1.0)* — a Mermaid `graph TD` diagram with provider nodes (stadium shape) and resource nodes (rectangles), grouped by provider via explicit edges. Chunked into multiple diagrams when the resource count exceeds `graph.max_nodes_per_graph` (default 25). Confluence + GitHub-flavoured Markdown render Mermaid natively; the HTML publisher loads the Mermaid CDN bundle in `<head>` only when a graph is present.
+9. **Inputs** / **Outputs** — terraform-docs-derived variable + output tables.
 
 The overview page lists every repo with cross-links to its child page,
 plus aggregate stats (top providers, total resource count, etc.).

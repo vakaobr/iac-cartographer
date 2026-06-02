@@ -57,8 +57,9 @@ _OVERVIEW_FILENAME = "index.html"
 class LocalHtmlPublisher(Publisher):
     """Write the inventory as self-contained HTML files under a local directory."""
 
-    def __init__(self, output_dir: Path | str) -> None:
+    def __init__(self, output_dir: Path | str, *, max_nodes_per_graph: int = 25) -> None:
         self._output_dir = Path(output_dir)
+        self._max_nodes_per_graph = max_nodes_per_graph
 
     async def __aenter__(self) -> LocalHtmlPublisher:
         # Create the directory tree eagerly so the first publish_child
@@ -78,7 +79,13 @@ class LocalHtmlPublisher(Publisher):
         return self._write_with_sha_check(
             path,
             sha=sha,
-            content_fn=lambda: render_child_html(inv, sha=sha, updated_at=updated_at, pipeline_url=pipeline_url),
+            content_fn=lambda: render_child_html(
+                inv,
+                sha=sha,
+                updated_at=updated_at,
+                pipeline_url=pipeline_url,
+                max_nodes_per_graph=self._max_nodes_per_graph,
+            ),
         )
 
     async def publish_overview(

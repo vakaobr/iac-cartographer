@@ -136,16 +136,44 @@ def test_render_child_alias_empty_cell_uses_literal_html() -> None:
     assert "class=&quot;muted&quot;" not in html
 
 
-def test_render_child_no_javascript_anywhere() -> None:
-    """No JS in the output — keeps the publisher safe for `file://`,
-    audit PDF export, and locked-down browsers."""
+def test_render_child_no_javascript_when_no_resource_graph() -> None:
+    """No JS in the output when the resource graph is absent — preserves
+    the publisher's `file://`, PDF-export, and locked-down-browser
+    properties for any repo without resources (terraform-doc-only
+    pages, deprecated repos, etc.)."""
+    from iac_cartographer.models import RepoInventory, TerraformSummary
+
+    inv = _inventory()
+    empty = RepoInventory(
+        meta=inv.meta,
+        summary=TerraformSummary(),  # no resources → no Mermaid graph
+        narrative=inv.narrative,
+    )
+    html = render_child_html(
+        empty,
+        sha="abc12345",
+        updated_at=datetime(2026, 5, 22, tzinfo=UTC),
+        pipeline_url=None,
+    )
+    assert "<script" not in html
+    assert "javascript:" not in html
+    assert "onclick=" not in html
+
+
+def test_render_child_only_emits_mermaid_script_when_resource_graph_present() -> None:
+    """When a resource graph IS emitted, the ONLY script in the document
+    is the pinned Mermaid CDN bundle that renders it. No inline event
+    handlers, no `javascript:` URLs, no other script tags — the file
+    is still safe for audit/PDF workflows (just disable JS to skip
+    diagram rendering) and the dependency surface is one URL."""
     html = render_child_html(
         _inventory(),
         sha="abc12345",
         updated_at=datetime(2026, 5, 22, tzinfo=UTC),
         pipeline_url=None,
     )
-    assert "<script" not in html
+    assert html.count("<script") == 2  # CDN tag + DOMContentLoaded initialiser
+    assert "cdn.jsdelivr.net/npm/mermaid" in html
     assert "javascript:" not in html
     assert "onclick=" not in html
 

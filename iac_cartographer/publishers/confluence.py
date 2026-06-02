@@ -46,10 +46,13 @@ class ConfluencePublisher(Publisher):
         client: ConfluenceClient,
         config: ConfluenceConfig,
         parent_page_id: str,
+        *,
+        max_nodes_per_graph: int = 25,
     ) -> None:
         self._client = client
         self._config = config
         self._parent_page_id = parent_page_id
+        self._max_nodes_per_graph = max_nodes_per_graph
         self._session = None
         self._space_id: str | None = None
 
@@ -78,7 +81,13 @@ class ConfluencePublisher(Publisher):
         assert self._session is not None and self._space_id is not None, (
             "ConfluencePublisher must be used as an `async with` context manager"
         )
-        title, adf_body = build_child(inv, sha=sha, updated_at=updated_at, pipeline_url=pipeline_url)
+        title, adf_body = build_child(
+            inv,
+            sha=sha,
+            updated_at=updated_at,
+            pipeline_url=pipeline_url,
+            max_nodes_per_graph=self._max_nodes_per_graph,
+        )
         result = await self._client.upsert(
             self._session,
             space_id=self._space_id,

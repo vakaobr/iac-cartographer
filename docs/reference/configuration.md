@@ -189,6 +189,27 @@ awkwardly with the publisher-format concept and forced an alias hack.
 
 Override per-run with `--output-dir PATH` on the CLI.
 
+## `graph`
+
+Controls the Mermaid resource-dependency diagram embedded on each
+child page. Confluence (via its native Mermaid extension) and
+GitHub-flavoured Markdown both render Mermaid inline; the HTML
+publisher loads the Mermaid CDN bundle in `<head>` so opened-from-disk
+files render too.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `max_nodes_per_graph` | `int` | `25` | Per-diagram resource-node cap. A single Mermaid diagram with hundreds of nodes is unreadable; when the total resource count exceeds the threshold, the renderer splits into chunks of `<= max_nodes_per_graph`, keeping whole providers together within a chunk (a single oversized provider ships as its own chunk rather than splitting). |
+
+```yaml
+graph:
+  max_nodes_per_graph: 25
+```
+
+Changing the threshold invalidates banner-SHAs (the rendered chunk
+count is part of the page input), so the next run republishes every
+page. Tune it once and leave it.
+
 ## `slack` (legacy single-channel — deprecated)
 
 | Field | Type | Default |

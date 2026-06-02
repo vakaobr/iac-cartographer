@@ -105,12 +105,14 @@ class GitHubWikiPublisher(Publisher):
         repo: str,
         commit_author_name: str = DEFAULT_COMMIT_AUTHOR_NAME,
         commit_author_email: str = DEFAULT_COMMIT_AUTHOR_EMAIL,
+        max_nodes_per_graph: int = 25,
     ) -> None:
         self._token = creds.token
         self._owner = owner
         self._repo = repo
         self._commit_author_name = commit_author_name
         self._commit_author_email = commit_author_email
+        self._max_nodes_per_graph = max_nodes_per_graph
         # Set in `__aenter__`; valid for the duration of the run.
         self._workdir: Path | None = None
         # Track whether anything actually changed — when false at
@@ -162,6 +164,7 @@ class GitHubWikiPublisher(Publisher):
                 sha=sha,
                 updated_at=updated_at,
                 pipeline_url=pipeline_url,
+                max_nodes_per_graph=self._max_nodes_per_graph,
             ),
         )
 

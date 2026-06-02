@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import TYPE_CHECKING
 
+from iac_cartographer.graph import build_mermaid
 from iac_cartographer.renderer import (
     BANNER_LEAD,
     BANNER_SHA_LABEL,
@@ -42,6 +43,7 @@ def render_child_markdown(
     sha: str,
     updated_at: datetime,
     pipeline_url: str | None,
+    max_nodes_per_graph: int = 25,
 ) -> str:
     """Return the full Markdown text for one repo's child page."""
     out: list[str] = []
@@ -148,6 +150,20 @@ def render_child_markdown(
             for t, count in sorted(s.resource_counts_by_type.items(), key=lambda kv: (-kv[1], kv[0]))
         )
         out.append("")
+
+    # Mermaid resource-dependency graph(s). GitHub-flavoured Markdown
+    # and GitLab Markdown both render `\`\`\`mermaid` fenced blocks
+    # natively; renderers that don't (raw .md viewers, plain editors)
+    # show the source as a code block — still readable.
+    mermaid_chunks = build_mermaid(inv, max_nodes_per_graph=max_nodes_per_graph)
+    if mermaid_chunks:
+        out.append("## Resource graph")
+        out.append("")
+        for chunk in mermaid_chunks:
+            out.append("```mermaid")
+            out.append(chunk)
+            out.append("```")
+            out.append("")
 
     if s.inputs:
         out.append("## Inputs")

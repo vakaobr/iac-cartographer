@@ -7,13 +7,33 @@ The publisher decides **where** the inventory ends up. Pick with
 |---|---|
 | `confluence` *(default)* | You already have Confluence; you want the inventory cross-linked with the rest of your wiki. |
 | `markdown` | You run a static-site generator (mkdocs / Hugo / Docusaurus / Jekyll) and want to feed the rendered Markdown into its build. Or you commit the output to a docs repo so PRs show diffs. |
-| `html` | You want **self-contained HTML files** with no build step — open in a browser, zip-and-email to a stakeholder, upload to S3 + CloudFront / GitHub Pages, print to PDF for an audit. Embedded CSS, no JS, no external fonts. |
+| `html` | You want **self-contained HTML files** with no build step — open in a browser, zip-and-email to a stakeholder, upload to S3 + CloudFront / GitHub Pages, print to PDF for an audit. Embedded CSS, no JS unless a resource graph is present (Mermaid CDN). |
 | `json` | You want a **machine-readable feed** for Backstage catalog imports, internal CMDBs, dashboards, or custom drift-detection tooling. `index.json` carries one row per repo + aggregates; per-repo files carry the full inventory. |
+| `notion` | You already have Notion; you want the inventory as sub-pages under a parent you control. Compact bullet-list style (no tables). |
+| `github_wiki` | You want the inventory committed to a repo's wiki — searchable via GitHub's search, accessible to anyone with repo read. |
 
-All four use the same banner-SHA idempotency contract: on the next run
-we compare the embedded SHA against the freshly-computed value and skip
-the write when they match. Repos that change get rewritten; repos that
-don't, don't.
+All publishers use the same banner-SHA idempotency contract: on the next
+run we compare the embedded SHA against the freshly-computed value and
+skip the write when they match. Repos that change get rewritten; repos
+that don't, don't.
+
+## What appears on a rendered child page
+
+The per-repo deep-dive page is the same shape across every publisher
+(allowing for format-specific rendering — tables in Confluence /
+Markdown / HTML, bullet lists in Notion):
+
+1. **Banner-SHA callout** — idempotency anchor + "auto-generated, do not edit" warning + the timestamp of the run.
+2. **Purpose** — one-paragraph LLM narrative explaining what the repo provisions (placeholder when `--no-llm` was passed).
+3. **Environments** / **Owning team (guess)** / **Notable patterns** — additional LLM-derived sections when available.
+4. **Module layout** — relative paths of every directory containing `*.tf` files (multi-module repos surface their `env/dev` + `env/prod` shape here).
+5. **State backend** *(since 1.0)* — backend type (`s3` / `gcs` / `azurerm` / `remote` / `local` / etc.) plus precomputed posture signals: encryption status, KMS / customer-managed key, state locking (DynamoDB / `use_lockfile` / native), auth method. `local` backends surface a `[CRIT]` signal — see the `iac_cartographer.state_backend` module for the full per-type checklist.
+6. **Providers** / **Modules** / **Resources by type** — structural facts from terraform-docs.
+7. **Resource graph** *(since 1.0)* — a Mermaid `graph TD` diagram with provider nodes (stadium shape) and resource nodes (rectangles), grouped by provider via explicit edges. Chunked into multiple diagrams when the resource count exceeds `graph.max_nodes_per_graph` (default 25). Confluence + GitHub-flavoured Markdown render Mermaid natively; the HTML publisher loads the Mermaid CDN bundle in `<head>` only when a graph is present.
+8. **Inputs** / **Outputs** — terraform-docs-derived variable + output tables.
+
+The overview page lists every repo with cross-links to its child page,
+plus aggregate stats (top providers, total resource count, etc.).
 
 ## Confluence
 

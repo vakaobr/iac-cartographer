@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.14](https://github.com/vakaobr/iac-cartographer/compare/v0.1.13...v0.1.14) (2026-06-02)
+
+
+### Documentation
+
+* **readme:** roadmap — broader IaC support (state backend, Mermaid, Terragrunt, Ansible, TFC/Terrakube overlays) ([#93](https://github.com/vakaobr/iac-cartographer/issues/93)) ([8c84ba1](https://github.com/vakaobr/iac-cartographer/commit/8c84ba12754aaa7f7cebdef79ec96a01a537800e))
+
 ## [0.1.13](https://github.com/vakaobr/iac-cartographer/compare/v0.1.12...v0.1.13) (2026-05-29)
 
 

@@ -225,7 +225,7 @@ def _finding_sort_key(f: LintFinding) -> tuple[int, str, str]:
     severity, by rule_id then message — keeps the output deterministic
     across runs."""
     severity_rank = {Severity.ERROR: 0, Severity.WARN: 1, Severity.INFO: 2}[f.severity]
-    return (severity_rank, f.rule_id, f.message)
+    return severity_rank, f.rule_id, f.message
 
 
 # ─── exit code policy ─────────────────────────────────────────────────

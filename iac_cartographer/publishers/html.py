@@ -9,7 +9,7 @@ Use cases:
     a hosted inventory site.
   * **Audit / compliance evidence** — open in a browser, print to PDF.
     A `@media print` block in the embedded CSS tightens the layout for
-    print and drops the banner background.
+    print(and drops the banner background.)
   * **Air-gapped** — no external CSS, no fonts, no JS. Works opened from
     a USB stick.
 

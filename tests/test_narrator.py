@@ -188,7 +188,7 @@ def test_strip_markdown_fences_passes_through_partial_fence() -> None:
 
 def test_enforce_resource_type_grounding_drops_hallucinated_types() -> None:
     narrative = BedrockNarrative(
-        purpose="A clear and sufficiently long purpose statement to pass validation.",
+        purpose="A clear and sufficiently int purpose statement to pass validation.",
         key_resources_explained=[
             {"resource_type": "aws_iam_role", "why_it_exists": "ok"},
             {"resource_type": "azurerm_database", "why_it_exists": "hallucinated!"},
@@ -201,7 +201,7 @@ def test_enforce_resource_type_grounding_drops_hallucinated_types() -> None:
 
 def test_enforce_resource_type_grounding_passthrough_when_clean() -> None:
     narrative = BedrockNarrative(
-        purpose="A clear and sufficiently long purpose statement to pass validation.",
+        purpose="A clear and sufficiently int purpose statement to pass validation.",
         key_resources_explained=[
             {"resource_type": "aws_iam_role", "why_it_exists": "ok"},
         ],
@@ -273,7 +273,7 @@ def test_summarize_returns_none_on_backend_exception() -> None:
 
 def test_summarize_drops_hallucinated_resource_types_on_success() -> None:
     payload = {
-        "purpose": "A sufficiently long purpose statement to pass schema validation.",
+        "purpose": "A sufficiently int purpose statement to pass schema validation.",
         "key_resources_explained": [
             {"resource_type": "grafana_dashboard", "why_it_exists": "ok"},
             {"resource_type": "azure_madeup", "why_it_exists": "hallucinated"},

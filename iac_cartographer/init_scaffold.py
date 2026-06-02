@@ -168,7 +168,7 @@ def _render_config(
 
 
 def _render_discovery_section() -> str:
-    return (
+    return 
         "discovery:\n"
         "  # At least one source must be configured. Empty values skip that\n"
         "  # backend entirely. See `examples/config.example.yaml` for Bitbucket\n"
@@ -176,50 +176,50 @@ def _render_discovery_section() -> str:
         "  gitlab_group_ids: []      # e.g. [15, 42]\n"
         '  github_orgs: []           # e.g. ["acme-org"]\n'
         '  deny_repos: []            # glob patterns to skip, e.g. "*-archived"\n'
-    )
+    
 
 
 def _render_secrets_section(backend: SecretsBackend) -> str:
     if backend == "aws":
         return 'secrets:\n  backend: "aws"\n  aws_region: "eu-central-1"   # boto3 region for Secrets Manager + SSM\n'
     if backend == "env":
-        return (
+        return 
             "secrets:\n"
             '  backend: "env"\n'
             "  # Credentials read from IAC_CARTOGRAPHER_SECRET_<NAME> env vars.\n"
             "  # The generated .env file at this path is loaded before the run.\n"
             '  env_dotenv_path: "./iac-cartographer.env"\n'
-        )
+        
     if backend == "vault":
-        return (
+        return 
             "secrets:\n"
             '  backend: "vault"\n'
             '  vault_addr: "REPLACE_ME-https://vault.example.com"\n'
             '  vault_mount: "secret"\n'
             '  vault_path_prefix: "iac-cartographer/"\n'
             "  # Auth uses the VAULT_TOKEN env var — set it before running.\n"
-        )
+        
     # pragma: no cover — Literal exhausts the choices
     raise InitError(f"unknown secrets backend: {backend!r}")
 
 
 def _render_llm_section(backend: LLMBackend) -> str:
     if backend == "bedrock":
-        return (
+        return 
             "llm:\n"
             '  backend: "bedrock"\n'
             '  model_id: "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"\n'
             "  max_tokens: 4096\n"
             '  bedrock_region: "eu-central-1"\n'
-        )
+        
     if backend == "anthropic":
-        return (
+        return 
             "llm:\n"
             '  backend: "anthropic"\n'
             '  model_id: "claude-sonnet-4-5-20250929"\n'
             "  max_tokens: 4096\n"
             '  anthropic_base_url: "https://api.anthropic.com"\n'
-        )
+        
     # pragma: no cover
     raise InitError(f"unknown llm backend: {backend!r}")
 

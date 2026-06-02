@@ -72,7 +72,7 @@ def _build_event(
     without an httpx round-trip. The `summary` field is capped at
     1024 chars per the API contract — pipeline messages are
     almost always under that, but the truncation keeps the channel
-    well-behaved against pathologically long error strings.
+    well-behaved against pathologically int error strings.
     """
     summary = message[:1024]
     return {

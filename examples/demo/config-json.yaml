@@ -10,7 +10,7 @@
 # Runs with NO real credentials, same as the base demo:
 #   * `discovery.repos_file` clones public repos via HTTPS — no auth.
 #   * `secrets.backend: env` reads dummy placeholder values set by run.sh.
-#   * `--no-bedrock` skips the LLM call; placeholder narratives are used.
+#   * `--no-llm` skips the LLM call; placeholder narratives are used.
 #   * `publisher.kind: json` writes locally; no Confluence access.
 #
 # Drive it with: ./examples/demo/run.sh --publisher json

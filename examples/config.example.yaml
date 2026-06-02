@@ -4,7 +4,7 @@
 # `DEFAULT_CONFIG_SOURCE` in cli.py (default: `/iac-cartographer/config`).
 # For local development, point `--config` at this file directly:
 #
-#   iac-cartographer --once --dry-run --no-bedrock --config examples/config.example.yaml
+#   iac-cartographer --once --dry-run --no-llm --config examples/config.example.yaml
 #
 # Every field has a safe default in `iac_cartographer/models.py`; this file
 # documents the real-world override pattern. Strict mode rejects unknown keys.
@@ -188,7 +188,7 @@ publisher:
   #                  Embedded CSS, no JS, no external dependencies. Use
   #                  for stakeholder snapshots (email the index.html),
   #                  S3 / GitHub Pages hosting, or audit-PDF print.
-  #   "json"       → Machine-readable JSON files under `json.output_dir`.
+  #   "json"       → Machine-readable JSON files under `json_output.output_dir`.
   #                  Designed as a feed for Backstage catalog imports,
   #                  internal CMDBs, dashboards, and custom tooling that
   #                  consumes the inventory programmatically.

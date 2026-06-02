@@ -13,7 +13,7 @@ iac-cartographer actually emits before pointing it at your fleet.
    - [`terraform-aws-modules/terraform-aws-s3-bucket`](https://github.com/terraform-aws-modules/terraform-aws-s3-bucket)
 2. Shallow-clones each over HTTPS (no auth needed for public repos).
 3. Runs `terraform-docs` on every `.tf` directory.
-4. Inserts a placeholder narrative for each repo (`--no-bedrock` skips
+4. Inserts a placeholder narrative for each repo (`--no-llm` skips
    the LLM call, so no Anthropic / Bedrock token is needed).
 5. Writes rendered Markdown to `./demo-output/`.
 
@@ -33,9 +33,9 @@ That's it. The script:
 
 - Sets stub values for the `IAC_CARTOGRAPHER_SECRET_*` env vars so the
   Pydantic credential models validate (the credentials are never sent
-  anywhere — `--no-bedrock` skips the LLM, the markdown publisher
+  anywhere — `--no-llm` skips the LLM, the markdown publisher
   writes locally, Confluence is not the active publisher).
-- Runs `iac-cartographer --once --no-bedrock --config examples/demo/config.yaml`.
+- Runs `iac-cartographer --once --no-llm --config examples/demo/config.yaml`.
 - Expected runtime: **30–90 seconds** depending on network speed.
 
 Once the run completes:
@@ -102,7 +102,7 @@ cat demo-output-json/repos/*.json
 
 ### Real local LLM via Ollama
 
-The base demo passes `--no-bedrock`, so the "Purpose" section is a
+The base demo passes `--no-llm`, so the "Purpose" section is a
 placeholder. If you have [Ollama](https://ollama.com) installed, this
 variant generates **real** one-paragraph narratives from a model running
 on your own machine — no API key, no outbound traffic:
@@ -125,7 +125,7 @@ regardless of the LLM.
 ### Hosted Anthropic LLM (needs an API key)
 
 Not zero-credential, but if you have an Anthropic API key: set
-`llm.backend: anthropic` in a config, run without `--no-bedrock`, and
+`llm.backend: anthropic` in a config, run without `--no-llm`, and
 provide the key:
 
 ```bash
@@ -144,6 +144,6 @@ works too.
 - The `last_commit_sha` and `last_commit_at` values in `repos.yaml` are
   static placeholders. A real deployment uses the VCS-host or
   Bitbucket discovery sources, which fetch the actual HEAD info.
-- Output quality with `--no-bedrock` is reduced: the "Purpose"
+- Output quality with `--no-llm` is reduced: the "Purpose"
   section shows a placeholder string. Production runs against your
   fleet will use a real LLM and produce one-paragraph repo summaries.

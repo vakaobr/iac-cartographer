@@ -1560,10 +1560,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--model",
         default=None,
         help=(
-            "Bedrock model ID / inference-profile to use for narration. "
-            "Defaults to whatever `bedrock.model_id` says in the config "
-            "(typically a Sonnet variant for production runs). Use a Haiku "
-            "inference-profile ID for cheap validation runs."
+            "Override the model ID for narration for this invocation only. "
+            "Applies to whichever LLM backend `llm.backend` selects (not "
+            "Bedrock-specific despite the historical naming). Defaults to "
+            "whatever `llm.model_id` says in the config — typically a "
+            "Sonnet variant for production runs; pass a Haiku ID for cheap "
+            "validation runs."
         ),
     )
     parser.add_argument(
@@ -1573,7 +1575,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Compute a between-run change summary against the prior JSON-publisher output. "
             "PREV_OUTPUT is the directory the previous run wrote its JSON output to "
-            "(`json.output_dir` from that run's config — typically `./iac-inventory-json/`). "
+            "(`json_output.output_dir` from that run's config — typically `./iac-inventory-json/`). "
             "The diff is printed to stdout as Markdown and attached to the end-of-run notification. "
             "First-run shape: pass a path that doesn't yet exist and every repo shows as `added`. "
             "Independent of `publisher.kind` — this run's publisher can be anything."

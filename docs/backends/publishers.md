@@ -25,8 +25,10 @@ confluence:
   site: "acme.atlassian.net"
   space_key: "DOCS"
   parent_page_id: "123456789"
-  # or, for AWS deployments that store the ID in SSM:
-  # parent_page_id_ssm_path: "/iac-cartographer/confluence-parent-id"
+  # or, for backend-stored references (AWS SSM path / Vault path / env var):
+  # parent_page_id_ref: "/iac-cartographer/confluence-parent-id"
+  # (pre-1.0 spelling `parent_page_id_ssm_path` still works for the 1.x line —
+  #  deprecated; removed in 2.0)
 ```
 
 Requires the `iac-cartographer/confluence` secret:

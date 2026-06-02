@@ -7,6 +7,25 @@ this page tracks it.
 For a working example with every field commented, see
 [`examples/config.example.yaml`](https://github.com/vakaobr/iac-cartographer/blob/main/examples/config.example.yaml).
 
+## 1.0 API stability
+
+**Every YAML key and CLI flag documented on this page is part of the
+1.0 stable surface unless explicitly listed in the [Deprecations](#deprecations-pre-10--10)
+table below.** That means:
+
+- Renaming any of them post-1.0 requires a deliberate major version
+  bump (2.0), with an alias kept for at least the full 1.x line.
+- Adding new YAML keys / CLI flags / `notifications[].kind` values
+  is additive and lands in any minor (1.x) release.
+- Validation is strict (Pydantic `extra="forbid"`): an unknown key in
+  config fails loud rather than silently ignored — so you can't
+  accidentally rely on a key the schema doesn't actually expose.
+
+The pre-1.0 aliases below still work through every 1.x release; they
+are **removed in 2.0**. Migrate at any time during the 1.x window —
+all aliases emit a `DeprecationWarning` so you can grep your logs for
+them.
+
 ## Top-level shape
 
 ```yaml
@@ -34,12 +53,29 @@ These pre-1.0 names still work but emit a `DeprecationWarning` and will
 be **removed in 2.0**. Rename them now; each old form is accepted via an
 alias so the migration is non-breaking.
 
-| Deprecated | Replace with | Where |
-|---|---|---|
-| `json:` (YAML key) | `json_output:` | top-level config section |
-| `confluence.parent_page_id_ssm_path` | `confluence.parent_page_id_ref` | `confluence` section |
-| legacy `slack:` block + empty `notifications:` | a `notifications:` list with a `kind: slack` entry | notifications |
-| `--no-bedrock` (CLI flag) | `--no-llm` | command line |
+| Deprecated form | Replace with | Where | Deprecated since | Removed in |
+|---|---|---|---|---|
+| `json:` (YAML key) | `json_output:` | top-level config section | pre-1.0 | 2.0 |
+| `confluence.parent_page_id_ssm_path` | `confluence.parent_page_id_ref` | `confluence` section | pre-1.0 | 2.0 |
+| legacy `slack:` block with empty `notifications:` | a `notifications:` list with a `kind: slack` entry | notification dispatch | pre-1.0 | 2.0 |
+| `--no-bedrock` (CLI flag) | `--no-llm` | command line | pre-1.0 | 2.0 |
+
+### CLI ↔ config naming intentionally kept distinct
+
+A note on `--model` and `llm.model_id`: the CLI flag is short
+(matches the conventional `--model` shorthand other tools use); the
+YAML key is the field shape the schema documents
+(`llm.model_id: str`). They name the same value but live in different
+surfaces — neither is "wrong" or "deprecated". `--model` overrides
+`llm.model_id` for the current invocation only and applies to whichever
+backend is active, not just Bedrock.
+
+The pre-1.0 `bedrock.model_id` YAML key was renamed to `llm.model_id`
+when the codebase grew beyond Bedrock — the `bedrock:` block name had
+already been renamed to `llm:` pre-1.0, so anyone migrating from an
+ancient config touches both renames in the same pass. No alias for
+the section name; `extra="forbid"` rejects a stray `bedrock:` block
+with a clear error.
 
 ## `discovery`
 
@@ -245,8 +281,8 @@ and channel-specific config; every entry carries an optional
 | `sns` | none — uses the AWS credential chain | `topic_arn`, `region: str \| None` |
 | `pagerduty` | `iac-cartographer/pagerduty` `{routing_key}` | none |
 | `opsgenie` | `iac-cartographer/opsgenie` `{api_key}` | `region: "us" \| "eu"` *(default `"us"`)* |
-| `discord` | `iac-cartographer/discord` URL | `username: str \| None`, `avatar_url: str \| None` |
-| `stdout` | none | `stream: "stdout" \| "stderr"` *(default `"stdout"`)* |
+| `discord` | `iac-cartographer/discord` URL | `username: str \| None`, `avatar_url: str \| None`, `thread_id: str \| None` *(post into a specific thread)* |
+| `stdout` | none | `stream: "stdout" \| "stderr"` *(default `"stdout"`)*, `format: "jsonl" \| "text"` *(default `"jsonl"`)* |
 
 Example with three channels:
 

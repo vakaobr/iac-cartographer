@@ -5,7 +5,7 @@
 #   * `discovery.repos_file` source clones public repos via HTTPS — no auth.
 #   * `secrets.backend: env` reads from env vars; the run.sh script sets
 #     dummy placeholder values so the schema validation passes.
-#   * `--no-bedrock` skips the LLM call entirely; placeholder narratives
+#   * `--no-llm` skips the LLM call entirely; placeholder narratives
 #     are inserted so the rendered Markdown looks complete.
 #   * `publisher.kind: markdown` writes locally; no Confluence access.
 #   * Slack send at the end will fail with the dummy token; the failure
@@ -26,7 +26,7 @@ secrets:
 llm:
   # Bedrock backend doesn't load an extra secret env var (vs anthropic
   # which would require IAC_CARTOGRAPHER_SECRET_ANTHROPIC). Combined
-  # with `--no-bedrock` on the CLI, the LLM is never actually invoked.
+  # with `--no-llm` on the CLI, the LLM is never actually invoked.
   backend: bedrock
   model_id: eu.anthropic.claude-sonnet-4-5-20250929-v1:0
   bedrock_region: eu-central-1

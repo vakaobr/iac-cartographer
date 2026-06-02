@@ -79,21 +79,33 @@ jobs:
 
       - name: Freeze deps (excluding the project itself)
         # pip-audit looks up EVERY installed distribution on PyPI. Since
-        # iac-cartographer isn't on PyPI until first publish (and even
-        # then, dev builds running this workflow are ahead of the published
-        # version), we'd hit `Dependency not found on PyPI` on every run.
-        # Workaround: freeze the resolved dep tree and feed pip-audit a
-        # requirements file with our own package filtered out. The grep
-        # handles both `iac-cartographer==` and `iac_cartographer==` since
-        # pip's normalisation rules around hyphens-vs-underscores have
-        # shifted between releases.
+        # the project under test is always ahead of the published PyPI
+        # version (release-please PRs in particular bump pyproject.toml
+        # to a tag that doesn't exist yet), we'd hit `Dependency not
+        # found on PyPI` on every release PR. Filter our own package
+        # out of the audit list.
+        #
+        # `pip freeze --exclude PKG` (pip >= 22) matches by canonical
+        # PEP 503 name, so it filters every line shape pip can emit:
+        #   * `iac-cartographer==<ver>`              — published wheel
+        #   * `iac-cartographer @ file:///...`       — non-editable install
+        #     from the local source dir (what CI does via `pip install .`)
+        #   * `-e file:///...#egg=iac_cartographer`  — editable install
+        # The previous `grep -v '^iac[-_]cartographer=='` only matched
+        # the `==` form, so the `@ file://...` form leaked through and
+        # broke release-please PRs (see #108).
         run: |
-          pip freeze --exclude-editable \
-            | grep -v -E '^iac[-_]cartographer==' \
-            > /tmp/audit-deps.txt
+          pip freeze --exclude-editable --exclude iac-cartographer > /tmp/audit-deps.txt
           echo "::group::Frozen dep tree ($(wc -l < /tmp/audit-deps.txt) packages)"
           cat /tmp/audit-deps.txt
           echo "::endgroup::"
+          # Belt-and-braces: if a future pip release ever changes the
+          # canonical-name match semantics, fail loudly here instead of
+          # silently passing a corrupt audit list to pip-audit downstream.
+          if grep -i -E '^iac[-_]cartographer' /tmp/audit-deps.txt; then
+            echo "::error::iac-cartographer leaked into the audit list — the --exclude filter didn't catch it"
+            exit 1
+          fi
 
       - name: Run pip-audit
         # `--strict` makes warnings (yanked versions, etc.) hard-fail.

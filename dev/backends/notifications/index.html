@@ -1802,7 +1802,7 @@ area.</p>
 <tr>
 <td><code>discord</code></td>
 <td>Shipped</td>
-<td>Discord Incoming Webhook — community / homelab. Unicode-emoji severity prefixes; optional per-message <code>username</code> / <code>avatar_url</code> overrides.</td>
+<td>Discord Incoming Webhook — community / homelab. Unicode-emoji severity prefixes; optional per-message <code>username</code> / <code>avatar_url</code> overrides; optional <code>thread_id</code> to post into a specific thread.</td>
 </tr>
 <tr>
 <td><code>stdout</code></td>
@@ -2119,6 +2119,7 @@ workspace admin to ask. Discord webhooks are per-channel and free.</p>
 </span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">discord</span>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;iac-cartographer</span><span class="nv"> </span><span class="s">(prod)&quot;</span><span class="w">     </span><span class="c1"># optional override</span>
 </span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">avatar_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;https://example.com/avatar.png&quot;</span><span class="w">  </span><span class="c1"># optional override</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">thread_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;1234567890123456789&quot;</span><span class="w">        </span><span class="c1"># optional — post into a specific thread</span>
 </span></code></pre></div>
 <p>Credentials live in the <code>iac-cartographer/discord</code> secret as
 <code>{"url": "https://discord.com/api/webhooks/..."}</code>. Create the webhook
@@ -2129,11 +2130,19 @@ credential.</p>
 renders Slack-style <code>:emoji:</code> shortcodes as literal text in most
 webhook content.</p>
 <p><code>content</code> is capped at 2000 chars (Discord webhook hard limit); long
-messages truncate with a <code>…</code> marker so operators see the cut.
-<code>username</code> and <code>avatar_url</code> are optional per-message overrides that
+messages truncate with a <code>…</code> marker so operators see the cut.</p>
+<p><code>username</code> and <code>avatar_url</code> are optional per-message overrides that
 replace the defaults baked into the webhook by whoever created it —
 useful when one Discord server hosts notifications from multiple
 deployments (per-env or per-tenant identity).</p>
+<p><code>thread_id</code> is an optional Discord thread <strong>snowflake</strong> ID. When set,
+messages land inside that specific thread rather than the channel's
+main feed (the webhook URL gains a <code>?thread_id=&lt;id&gt;</code> query parameter
+on each POST). To find a thread's snowflake: right-click the thread in
+Discord (with Developer Mode enabled in user settings) → <strong>Copy
+Thread ID</strong>. Common pattern for routing iac-cartographer events into a
+dedicated "automation" or "infra-changes" thread inside a busier
+channel.</p>
 <h2 id="stdout-stderr-jsonl">Stdout / stderr (JSONL)<a class="headerlink" href="#stdout-stderr-jsonl" title="Permanent link">&para;</a></h2>
 <p>Emits one structured JSON line per notification to a configured
 stream — no HTTP, no SDK, no credentials. Useful for:</p>

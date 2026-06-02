@@ -519,6 +519,25 @@ Issues and PRs welcome. The codebase is intentionally small and well-tested
 (see the coverage badge above); pick a roadmap item or open an issue describing the
 shape of the change before sending a PR for anything non-trivial.
 
+### Looking for collaborators
+
+Several of the roadmap items above need code from people who actually use the relevant tool day-to-day. The maintainer's home turf is Terraform / OpenTofu — the closer an item gets to "different paradigm", the more it benefits from a contributor with a live environment to test against.
+
+Concrete examples where help is especially welcome:
+
+* **Terragrunt** ([#96](https://github.com/vakaobr/iac-cartographer/issues/96)) — the maintainer has no Terragrunt in their own infrastructure, so even a clean implementation can't be validated end-to-end without a contributor's live monorepo.
+* **Ansible** ([#97](https://github.com/vakaobr/iac-cartographer/issues/97)) — different page shape, Vault key surfacing has real safety constraints; someone running Ansible in production today would catch design holes the maintainer wouldn't.
+* **Terrakube** ([#99](https://github.com/vakaobr/iac-cartographer/issues/99)) — happy to design the abstraction and ship the TFC side; the Terrakube implementation really wants someone who's already running it.
+* **Pulumi** (deliberately not on the active roadmap) — open if you'd own the parser long-term.
+
+What "collaboration" means here:
+
+* Open a discussion on the issue before writing code — design feedback is cheaper than rewrites.
+* Send a small first PR (test fixture, doc clarification, scaffold) before the big one — it builds review trust.
+* If you're using the tool against your own infrastructure, "I tried X on a real repo, it produced Y" is genuinely valuable signal even without a code change.
+
+Pinging [`good first issue`](https://github.com/vakaobr/iac-cartographer/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) is the cleanest way in — those entries are scoped to one self-contained change.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

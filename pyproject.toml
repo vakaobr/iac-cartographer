@@ -1,6 +1,6 @@
 [project]
 name = "iac-cartographer"
-version = "0.1.14"
+version = "0.1.15"
 description = "Fleet-level documentation for your Terraform / IaC estate. Discovers repos (GitLab/GitHub/Bitbucket/Gitea/file), extracts structural facts via terraform-docs, narrates each repo with a pluggable LLM (Bedrock/Anthropic/Vertex/Azure OpenAI/OpenAI/Ollama), and publishes to Confluence, Notion, GitHub Wiki, Markdown, HTML, or JSON. Pluggable notifications (Slack, Teams, email, SNS, PagerDuty, Opsgenie, Discord, webhook, stdout)."
 readme = "README.md"
 license = { text = "MIT" }

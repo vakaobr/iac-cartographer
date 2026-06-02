@@ -33,7 +33,7 @@ def get_secret(name: str, region: str = DEFAULT_REGION) -> dict[str, Any]:
     client = boto3.client("secretsmanager", region_name=region)
     response = client.get_secret_value(SecretId=name)
     secret_string = response["SecretString"]
-    logger.info("aws: fetched secret %s (length=%d)", name, len(secret_string))
+    logger.info("aws: fetched secret %s", name)
     return json.loads(secret_string)
 
 

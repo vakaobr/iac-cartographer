@@ -248,23 +248,32 @@ page. Tune it once and leave it.
 
 ## `live_state`
 
-Read-only overlay that layers external workspace info (Terraform Cloud
-/ HCP Terraform / Terraform Enterprise) onto each repo's rendered
-page — current run status, last successful apply, drift, live
+Read-only overlay that layers external workspace info onto each repo's
+rendered page — current run status, last successful apply, drift, live
 resource count — plus a `warn`-level notification for any workspace
-that's been in `errored` state longer than the staleness threshold.
+that's been in a failed-apply state longer than the staleness
+threshold.
+
+Two backends ship today:
+
+* `tfc` — Terraform Cloud / HCP Terraform / Terraform Enterprise.
+* `terrakube` — self-hosted [Terrakube](../backends/terrakube.md).
+
+Both backends use the same config block; only `backend`, `hostname`,
+and the required credential differ.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `backend` | `"none" \| "tfc"` | `"none"` | No-op default; flip to `tfc` to enable the TFC / HCP / TFE overlay. |
-| `organization` | `str` | `""` | TFC / HCP / TFE organisation name. Required when `backend != "none"`. |
-| `hostname` | `str` | `"app.terraform.io"` | API hostname. Covers TFC + HCP Terraform with the default; override for self-hosted Terraform Enterprise (e.g. `tfe.acme.internal`). |
+| `backend` | `"none" \| "tfc" \| "terrakube"` | `"none"` | No-op default; flip to `tfc` or `terrakube` to enable the overlay. |
+| `organization` | `str` | `""` | Organisation name on the chosen platform. Required when `backend != "none"`. Terrakube resolves the name to its internal UUID at startup. |
+| `hostname` | `str` | `"app.terraform.io"` | API hostname. The default covers TFC + HCP Terraform; override for TFE (e.g. `tfe.acme.internal`) **or** Terrakube (e.g. `terrakube.acme.internal`). The overlay constructs `https://<hostname>/api/v2/...` for TFC and `https://<hostname>/api/v1/...` for Terrakube. |
 | `workspace_mapping` | `list[{repo, workspace}]` | `[]` | Explicit per-repo → per-workspace mappings; both fields are `fnmatch`-style patterns, first-match wins. Empty falls back to the default heuristic (workspace name = last `/` segment of `repo.full_name`). |
 | `staleness.enabled` | `bool` | `true` | Toggle stale failed-apply alerts. |
-| `staleness.threshold_days` | `int` | `2` | Days a workspace must sit in `errored` state before an alert fires. |
+| `staleness.threshold_days` | `int` | `2` | Days a workspace must sit in a failed-apply state before an alert fires. (TFC: `errored`; Terrakube: `failed`.) |
 | `staleness.acknowledged_stale` | `list[str]` | `[]` | `fnmatch` patterns matched against workspace names to mute alerts (deferred work, decommissioning queue). |
 
 ```yaml
+# TFC / HCP / TFE
 live_state:
   backend: tfc
   organization: acme-org
@@ -276,10 +285,25 @@ live_state:
     threshold_days: 2
     acknowledged_stale:
       - "legacy-*"
+
+# Terrakube
+live_state:
+  backend: terrakube
+  organization: acme-org
+  hostname: terrakube.acme.internal
+  workspace_mapping:
+    - repo: "acme-org/prod-*"
+      workspace: "prod-app"
 ```
 
-Requires the `iac-cartographer/tfc` secret as `{"token": "..."}` — a
-read-scoped team or user API token; the overlay only ever issues GETs.
+The required credential depends on `backend`:
+
+* `tfc` → `iac-cartographer/tfc` as `{"token": "..."}` — read-scoped
+  team or user API token.
+* `terrakube` → `iac-cartographer/terrakube` as `{"token": "..."}` — a
+  Terrakube PAT with read access to the organisation.
+
+Both overlays only ever issue GETs.
 
 The overlay's data is **excluded from the banner-SHA** by design —
 workspace state changes between iac-cartographer runs without any
@@ -289,8 +313,21 @@ ephemeral status, not "did the repo's structural facts change?".
 
 Stale-apply alerts route through the configured `notifications:`
 channels at `warn` level; an alert fires only when the most-recent
-apply attempt errored, no newer apply is in flight (operator is on
-it), and the workspace isn't matched by `acknowledged_stale`.
+apply attempt failed, no newer apply is in flight (operator is on it),
+and the workspace isn't matched by `acknowledged_stale`.
+
+### Backend-specific notes
+
+* **Terrakube has no workspace-level drift attribute** — the "Drift"
+  cell on the rendered page always shows "not configured" for
+  Terrakube workspaces. If a future Terrakube release surfaces drift,
+  the overlay picks it up with no config change.
+* **Terrakube has no `/workspaces/{id}/resources` total-count
+  endpoint** — `Live resource count` is omitted for Terrakube
+  workspaces.
+* See [Terrakube overlay](../backends/terrakube.md) for the full
+  Terrakube setup walkthrough, job-status mappings, and version
+  compatibility notes.
 
 ## `slack` (legacy single-channel — deprecated)
 

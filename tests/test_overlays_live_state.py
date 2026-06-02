@@ -263,17 +263,20 @@ def test_stale_alert_suppressed_when_newer_successful_apply_exists() -> None:
 
 def test_build_overlay_none_backend_returns_none() -> None:
     """The default no-op path — no credential needed, no API calls made."""
-    assert build_overlay(LiveStateConfig(backend="none"), creds=None) is None
+    assert build_overlay(LiveStateConfig(backend="none")) is None
 
 
 def test_build_overlay_tfc_without_org_raises() -> None:
     with pytest.raises(CartographerError, match="organization is empty"):
-        build_overlay(LiveStateConfig(backend="tfc", organization=""), creds=TfcCredentials(token="t"))
+        build_overlay(
+            LiveStateConfig(backend="tfc", organization=""),
+            tfc_creds=TfcCredentials(token="t"),
+        )
 
 
 def test_build_overlay_tfc_without_creds_raises() -> None:
     with pytest.raises(CartographerError, match="TfcCredentials"):
-        build_overlay(LiveStateConfig(backend="tfc", organization="acme"), creds=None)
+        build_overlay(LiveStateConfig(backend="tfc", organization="acme"))
 
 
 def test_build_overlay_tfc_returns_tfc_overlay() -> None:
@@ -283,7 +286,7 @@ def test_build_overlay_tfc_returns_tfc_overlay() -> None:
             organization="acme",
             staleness=StalenessConfig(enabled=False),
         ),
-        creds=TfcCredentials(token="t"),
+        tfc_creds=TfcCredentials(token="t"),
     )
     assert isinstance(overlay, TFCOverlay)
     overlay.close()
@@ -295,14 +298,14 @@ def test_build_overlay_passes_alert_collector_when_staleness_enabled() -> None:
     collector = StaleAlertCollector()
     on = build_overlay(
         LiveStateConfig(backend="tfc", organization="acme", staleness=StalenessConfig(enabled=True)),
-        creds=TfcCredentials(token="t"),
+        tfc_creds=TfcCredentials(token="t"),
         alert_collector=collector,
     )
     assert on is not None and on._alert_collector is collector  # type: ignore[union-attr]
     on.close()
     off = build_overlay(
         LiveStateConfig(backend="tfc", organization="acme", staleness=StalenessConfig(enabled=False)),
-        creds=TfcCredentials(token="t"),
+        tfc_creds=TfcCredentials(token="t"),
         alert_collector=collector,
     )
     assert off is not None and off._alert_collector is None  # type: ignore[union-attr]

@@ -662,6 +662,67 @@ def test_check_secrets_required_tfc_active_when_live_state_backend_is_tfc() -> N
     assert "live_state.backend=tfc" in with_tfc["tfc"].detail
 
 
+# ── check_live_state (terrakube, #99) ─────────────────────────────────
+
+
+def test_check_live_state_terrakube_without_organization_fails() -> None:
+    from iac_cartographer.diagnose import check_live_state
+
+    r = check_live_state(_config(live_state={"backend": "terrakube", "hostname": "terrakube.example.com"}))
+    assert r.status == Status.FAIL
+    assert "organization is unset" in r.detail
+
+
+def test_check_live_state_terrakube_default_hostname_fails() -> None:
+    """`hostname` must be customised for Terrakube — the TFC default
+    points at app.terraform.io which is the wrong service entirely."""
+    from iac_cartographer.diagnose import check_live_state
+
+    r = check_live_state(_config(live_state={"backend": "terrakube", "organization": "acme"}))
+    assert r.status == Status.FAIL
+    assert "hostname" in r.detail
+
+
+def test_check_live_state_terrakube_ok_reports_hostname() -> None:
+    from iac_cartographer.diagnose import check_live_state
+
+    r = check_live_state(
+        _config(
+            live_state={
+                "backend": "terrakube",
+                "organization": "acme",
+                "hostname": "terrakube.example.com",
+            }
+        )
+    )
+    assert r.status == Status.OK
+    assert "terrakube" in r.detail and "acme" in r.detail
+    assert "terrakube.example.com" in r.detail
+
+
+def test_check_secrets_required_terrakube_active_when_live_state_backend_is_terrakube() -> None:
+    from iac_cartographer.diagnose import check_secrets_required
+
+    default = _required_by(check_secrets_required(_config()))
+    assert default["terrakube"].status == Status.SKIP
+
+    with_tk = _required_by(
+        check_secrets_required(
+            _config(
+                live_state={
+                    "backend": "terrakube",
+                    "organization": "acme",
+                    "hostname": "terrakube.example.com",
+                }
+            )
+        )
+    )
+    assert with_tk["terrakube"].status == Status.OK
+    assert "live_state.backend=terrakube" in with_tk["terrakube"].detail
+    # And the other live-state credential stays skipped.
+    assert with_tk["tfc"].status == Status.SKIP
+
+
 def test_check_secrets_required_llm_backend_swap_changes_credentials() -> None:
     """Flipping `llm.backend` shifts which LLM credential is required —
     bedrock → anthropic should swap `anthropic` from skip to ok and leave

@@ -402,16 +402,21 @@ class LiveStateConfig(_Strict):
     (Terraform Cloud / HCP Terraform) or a future backend like
     `terrakube`."""
 
-    # Backend selector. `"none"` is the no-op default; `"tfc"` is the
-    # first implementation (covers app.terraform.io, HCP Terraform, and
-    # self-hosted Terraform Enterprise via the `hostname` override).
-    backend: Literal["none", "tfc"] = "none"
-    # TFC / HCP / TFE organisation name. Required when `backend != "none"`.
+    # Backend selector. `"none"` is the no-op default; `"tfc"` covers
+    # Terraform Cloud / HCP Terraform / self-hosted Terraform Enterprise;
+    # `"terrakube"` covers self-hosted Terrakube (#99).
+    backend: Literal["none", "tfc", "terrakube"] = "none"
+    # Organisation name on the live-state platform. Required when
+    # `backend != "none"`. For TFC this is the org slug as it appears in
+    # `app.terraform.io/app/<org>/...`; for Terrakube this is the
+    # organisation's display name (the overlay resolves it to a UUID
+    # internally via the `/organization` endpoint at startup).
     organization: str = ""
     # API hostname. `app.terraform.io` covers TFC + HCP Terraform;
     # override for self-hosted Terraform Enterprise (e.g.
-    # `tfe.acme.internal`). The overlay constructs
-    # `https://<hostname>/api/v2/...` from this.
+    # `tfe.acme.internal`) or Terrakube (e.g. `terrakube.acme.internal`).
+    # The overlay constructs `https://<hostname>/api/v2/...` for TFC and
+    # `https://<hostname>/api/v1/...` for Terrakube.
     hostname: str = "app.terraform.io"
     # Explicit per-repo → per-workspace mappings. Empty list = use the
     # default heuristic (workspace name = last segment of `repo.full_name`).
@@ -521,6 +526,16 @@ class TfcCredentials(_Strict):
     token: str
 
 
+class TerrakubeCredentials(_Strict):
+    """Terrakube Personal Access Token.
+
+    A PAT with read access to the configured organisation's workspaces.
+    The overlay only ever issues GET requests; no write scopes are
+    required."""
+
+    token: str
+
+
 # Public surface of this module: the shared domain models + `AppConfig`,
 # plus every config/credential symbol re-exported from the subsystem
 # packages above (so star-imports and `from ...models import X` resolve).
@@ -581,6 +596,7 @@ __all__ = [
     "TeamsCredentials",
     "TeamsNotificationConfig",
     "TerraformSummary",
+    "TerrakubeCredentials",
     "TfcCredentials",
     "VariableRef",
     "WebhookCredentials",

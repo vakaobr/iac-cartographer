@@ -109,6 +109,7 @@ from iac_cartographer.models import (
     SlackCredentials,
     SlackWebhookCredentials,
     TeamsCredentials,
+    TerrakubeCredentials,
     TfcCredentials,
     WebhookCredentials,
 )
@@ -289,6 +290,9 @@ class LoadedSecrets:
     # `tfc` is only populated when `live_state.backend == "tfc"`. Powers
     # the read-only TFC / HCP / Terraform Enterprise overlay.
     tfc: TfcCredentials | None = None
+    # `terrakube` is only populated when `live_state.backend == "terrakube"`.
+    # Powers the read-only Terrakube overlay (#99).
+    terrakube: TerrakubeCredentials | None = None
 
 
 # Default Secrets Manager paths. Conventional, not magical — override
@@ -333,6 +337,9 @@ NOTION_SECRET_NAME = "iac-cartographer/notion"  # noqa: S105
 # when `live_state.backend == "tfc"`. Read-only API token; the overlay
 # only ever issues GETs.
 TFC_SECRET_NAME = "iac-cartographer/tfc"  # noqa: S105
+# Terrakube PAT. Only loaded when `live_state.backend == "terrakube"`.
+# Read-only API token; the overlay only ever issues GETs.
+TERRAKUBE_SECRET_NAME = "iac-cartographer/terrakube"  # noqa: S105
 
 
 def _load_config(config_source: str) -> AppConfig:
@@ -382,6 +389,7 @@ def _load_secrets(
     need_discord: bool = False,
     need_notion: bool = False,
     need_tfc: bool = False,
+    need_terrakube: bool = False,
 ) -> LoadedSecrets:
     """Fetch credential bundles via `provider` and validate each one.
 
@@ -665,6 +673,20 @@ def _load_secrets(
         except Exception as exc:
             raise MissingSecretError(f"tfc secret payload failed schema validation: {exc}") from exc
 
+    terrakube_creds: TerrakubeCredentials | None = None
+    if need_terrakube:
+        try:
+            terrakube_raw = provider.get_secret(TERRAKUBE_SECRET_NAME)
+        except Exception as exc:
+            raise MissingSecretError(
+                f"live_state.backend=terrakube but the {TERRAKUBE_SECRET_NAME} secret is missing "
+                f"(via {provider.name}): {exc}"
+            ) from exc
+        try:
+            terrakube_creds = TerrakubeCredentials.model_validate(terrakube_raw)
+        except Exception as exc:
+            raise MissingSecretError(f"terrakube secret payload failed schema validation: {exc}") from exc
+
     # Every credential was validated at its load site above, so the
     # dataclass construction here can't raise — it's a plain assembly.
     return LoadedSecrets(
@@ -686,6 +708,7 @@ def _load_secrets(
         discord=discord_creds,
         notion=notion_creds,
         tfc=tfc_creds,
+        terrakube=terrakube_creds,
     )
 
 
@@ -1215,6 +1238,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # default `"none"` skips the credential entirely; any other
         # backend hard-requires the matching token.
         need_tfc=config.live_state.backend == "tfc",
+        need_terrakube=config.live_state.backend == "terrakube",
     )
     notifier: NotificationDispatcher = build_dispatcher(
         config,
@@ -1325,7 +1349,12 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         # broken apply doesn't sit silently in a Confluence page.
         stale_collector = StaleAlertCollector()
         try:
-            overlay = build_overlay(config.live_state, secrets.tfc, alert_collector=stale_collector)
+            overlay = build_overlay(
+                config.live_state,
+                tfc_creds=secrets.tfc,
+                terrakube_creds=secrets.terrakube,
+                alert_collector=stale_collector,
+            )
         except CartographerError as exc:
             # Misconfigured overlay shouldn't sink the whole run — log
             # loudly and keep going without it. The diagnose path is

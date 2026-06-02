@@ -30,6 +30,7 @@ the logical name to a backend-specific lookup path.
 | `iac-cartographer/gitea` | `discovery.gitea_orgs` non-empty | `{"token": "..."}` |
 | `iac-cartographer/notion` | `publisher.kind == "notion"` | `{"token": "secret_..."}` |
 | `iac-cartographer/tfc` | `live_state.backend == "tfc"` | `{"token": "..."}` — TFC / HCP / TFE read-scoped team or user API token |
+| `iac-cartographer/terrakube` | `live_state.backend == "terrakube"` | `{"token": "..."}` — Terrakube PAT with read access to the configured organisation |
 | `iac-cartographer/<channel>` | `notifications[].kind == "<channel>"` for channels: `webhook` / `slack_webhook` / `teams` / `email` / `pagerduty` / `opsgenie` / `discord` | per-channel; see [`docs/backends/notifications.md`](notifications.md) |
 
 Every secret is loaded **lazily** — only when the active config actually

@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [0.1.18](https://github.com/vakaobr/iac-cartographer/compare/v0.1.17...v0.1.18) (2026-06-02)
+
+
+### Added
+
+* **diagnose:** per-secret required/not-active report + LLM probe cost line ([#117](https://github.com/vakaobr/iac-cartographer/issues/117)) ([8f2fef6](https://github.com/vakaobr/iac-cartographer/commit/8f2fef657b09c8f967284dbade939933f2f8dd7a))
+
 ## [0.1.17](https://github.com/vakaobr/iac-cartographer/compare/v0.1.16...v0.1.17) (2026-06-02)
 
 

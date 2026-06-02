@@ -13,7 +13,10 @@ Flags:
                       repeated local iteration). `--no-bedrock` is the
                       deprecated pre-1.0 alias.
   * `--repos a,b,c` — restrict the run to a comma-separated list of repo
-                      `full_name`s (used for partial reruns).
+                      `full_name`s. Use `@path/to/file.txt` to read the
+                      list from a newline-delimited file (`#` comments
+                      and blank lines are ignored) when the list is too
+                      large to comfortably paste on the command line.
   * `--config`      — config source (`ssm://…` URI or filesystem path).
   * `--verbose`     — DEBUG-level logging.
 
@@ -1014,10 +1017,39 @@ async def _process_repo(
             cleanup(path)
 
 
+def _parse_repos_arg(repos_arg: str) -> set[str]:
+    """Turn the raw `--repos` value into a set of allowed `full_name`s.
+
+    Two forms:
+      * `acme/a,acme/b`    — comma-separated inline list (today's behaviour).
+      * `@path/to/file`    — newline-delimited file; blanks and `#` comments
+                             are ignored; whitespace is trimmed per line.
+
+    Both forms produce a normalised set. A missing or unreadable file raises
+    `CartographerError` so the caller surfaces a clean operator message
+    rather than a bare `FileNotFoundError`.
+    """
+    if repos_arg.startswith("@"):
+        path = Path(repos_arg[1:])
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError as exc:
+            raise CartographerError(f"--repos: file not found: {path}") from exc
+        except OSError as exc:
+            raise CartographerError(f"--repos: could not read {path}: {exc}") from exc
+        names: set[str] = set()
+        for raw in text.splitlines():
+            line = raw.split("#", 1)[0].strip()
+            if line:
+                names.add(line)
+        return names
+    return {name.strip() for name in repos_arg.split(",") if name.strip()}
+
+
 def _filter_repos(repos: list[RepoMetadata], repos_arg: str | None) -> list[RepoMetadata]:
     if not repos_arg:
         return repos
-    allowed = {name.strip() for name in repos_arg.split(",") if name.strip()}
+    allowed = _parse_repos_arg(repos_arg)
     return [r for r in repos if r.full_name in allowed]
 
 
@@ -1473,7 +1505,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--repos",
         default=None,
-        help="Comma-separated list of repo full_names to restrict the run to.",
+        help=(
+            "Restrict the run to a list of repo full_names. Either a "
+            "comma-separated list (`acme/a,acme/b`) or `@path/to/file.txt` "
+            "to read a newline-delimited list (`#` comments and blank lines "
+            "are ignored)."
+        ),
     )
     parser.add_argument(
         "--model",

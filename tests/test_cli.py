@@ -18,11 +18,12 @@ from iac_cartographer.cli import (
     JSONFormatter,
     _load_config,
     _load_secrets,
+    _parse_repos_arg,
     _RedactSecretsFilter,
     _setup_logging,
     main,
 )
-from iac_cartographer.constants import ConfigError, MissingSecretError
+from iac_cartographer.constants import CartographerError, ConfigError, MissingSecretError
 from iac_cartographer.secrets import AwsSecretsProvider
 
 
@@ -245,6 +246,49 @@ def test_logger_output_is_one_json_line_per_record() -> None:
             json.loads(ln)
     finally:
         root.removeHandler(handler)
+
+
+# ─── --repos argument parsing (#75) ────────────────────────────────────
+
+
+def test_parse_repos_arg_inline_comma_list() -> None:
+    assert _parse_repos_arg("acme/a,acme/b") == {"acme/a", "acme/b"}
+
+
+def test_parse_repos_arg_inline_trims_whitespace_and_skips_blanks() -> None:
+    assert _parse_repos_arg("  acme/a , ,acme/b  ,") == {"acme/a", "acme/b"}
+
+
+def test_parse_repos_arg_from_file(tmp_path: Path) -> None:
+    f = tmp_path / "repos.txt"
+    f.write_text("acme/a\nacme/b\nacme/c\n")
+    assert _parse_repos_arg(f"@{f}") == {"acme/a", "acme/b", "acme/c"}
+
+
+def test_parse_repos_arg_from_file_ignores_comments_and_blank_lines(tmp_path: Path) -> None:
+    f = tmp_path / "repos.txt"
+    f.write_text(
+        "# curated re-run after the 2026-06-02 rotation\n"
+        "\n"
+        "acme/a   # has the broken backend\n"
+        "  acme/b\n"
+        "\n"
+        "# acme/c — excluded; waiting on a separate PR\n"
+        "acme/d\n"
+    )
+    assert _parse_repos_arg(f"@{f}") == {"acme/a", "acme/b", "acme/d"}
+
+
+def test_parse_repos_arg_from_missing_file_raises_clean_error(tmp_path: Path) -> None:
+    missing = tmp_path / "does-not-exist.txt"
+    with pytest.raises(CartographerError, match="--repos: file not found"):
+        _parse_repos_arg(f"@{missing}")
+
+
+def test_parse_repos_arg_inline_and_file_produce_equivalent_sets(tmp_path: Path) -> None:
+    f = tmp_path / "repos.txt"
+    f.write_text("acme/a\nacme/b\n")
+    assert _parse_repos_arg("acme/a,acme/b") == _parse_repos_arg(f"@{f}")
 
 
 # ─── Phase 2: _load_config + _load_secrets ────────────────────────────────

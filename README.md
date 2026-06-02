@@ -492,11 +492,51 @@ Open follow-ups, roughly ordered by user-impact / effort ratio. Issues welcome o
 * **`--diagnose --live` cost-aware LLM probe.** The live LLM check currently stops at client construction (cost-safe but shallow) for the non-Ollama backends. An opt-in `--diagnose --live --probe-llm` that runs a 1-token completion would give true end-to-end confidence at a few cents — gated behind an explicit flag so it never surprises anyone with spend.
 * **1.0 API freeze.** Before tagging `v1.0`, do a deliberate pass over the YAML config schema + CLI surface to lock names that are still "1.0-track but pre-1.0".
 
+### Broader IaC support — living up to the name
+
+Right now the tool is named **iac-cartographer** but only really understands Terraform / OpenTofu. The items below trace the path from "Terraform inventory done well" to "actually IaC-shaped". They're ordered by ROI inside each block; items in the same block can be tackled in parallel.
+
+**Quick wins, no new language to parse:**
+
+* **State backend reporting.** Parse `terraform { backend "..." { ... } }` per repo and surface, on the rendered page: backend type (`s3` / `gcs` / `azurerm` / `remote` / `local`), encryption flag, locking config, key path, region. Turns the inventory into a posture tool, not just a catalogue — flagging an S3 backend without encryption, or a DynamoDB-locking gap, is a real security signal infra teams act on. Fits inside the existing extractor; no new dependency.
+* **Mermaid resource-dependency graph.** Generate a Mermaid diagram from the existing `ResourceRef` list + provider dependencies and embed it in the rendered page. Confluence (with the official Mermaid macro) and GitHub markdown both render Mermaid natively, so no headless renderer is needed. Chunk above ~25 nodes — full DAGs for a 200-resource module are unreadable. PNG / SVG output is deliberately out of scope until someone needs it (the dependency cost of headless renderers isn't worth the marginal value over inline Mermaid).
+* **Terragrunt.** Discovery walks `terragrunt.hcl` files, then reuses the existing Terraform pipeline (one `terragrunt render-json` call per stack, fall back to HCL parsing if the binary is absent). Lowest-effort multi-tool win; validates the "multi-IaC" claim that the name implies without inventing a new page template.
+
+**Different paradigms, different page templates:**
+
+* **Ansible.** Different shape from Terraform — no resource graph; instead: hosts / groups targeted, role + task summary, packages / services managed, secrets touched. The interesting question is **Ansible Vault**: surface the **key names** present in each vault file (via `ansible-vault view` against a decrypt key mounted as a CI secret) without ever logging or rendering values. Different page template entirely. Worth doing once one person actively asks for it.
+* **Terraform Cloud / HCP overlay.** Read workspace runs / state / drift via the TFC API and layer "last applied at", "drift detected", "current run status" on top of the static inventory. Powerful for orgs already on TFC; needs the TFC token in scope. Same API-overlay shape as the Terrakube item below — the two should share an `LiveStateOverlay` abstraction so adding a third backend later costs days, not weeks.
+* **Terrakube support.** Open-source, self-hostable TF / OpenTofu state-and-runs backend — increasingly relevant since the HashiCorp acquisition by IBM, as teams look for non-TFC alternatives they can run themselves. Same `LiveStateOverlay` surface as the TFC item: workspaces, last applied, drift, current run. Building Terrakube and TFC together also gives the project a clear story for the "state backend posture" use case beyond what static HCL parsing alone can tell you.
+
+**Considered, not currently planned:**
+
+* **Pulumi.** Multi-language (TS / Python / Go / .NET); proper static analysis requires executing user code via `pulumi preview --json`. Large effort, security headaches, and a much narrower user base than the items above. Open to it if someone shows up with a concrete use case + a willingness to maintain the parser.
+* **Puppet / Chef / Salt.** Declining adoption (mostly legacy fleets). Low ROI vs. effort. Open to PRs but unlikely to be a maintainer priority.
+
 ## Contributing
 
 Issues and PRs welcome. The codebase is intentionally small and well-tested
 (see the coverage badge above); pick a roadmap item or open an issue describing the
 shape of the change before sending a PR for anything non-trivial.
+
+### Looking for collaborators
+
+Several of the roadmap items above need code from people who actually use the relevant tool day-to-day. The maintainer's home turf is Terraform / OpenTofu — the closer an item gets to "different paradigm", the more it benefits from a contributor with a live environment to test against.
+
+Concrete examples where help is especially welcome:
+
+* **Terragrunt** ([#96](https://github.com/vakaobr/iac-cartographer/issues/96)) — the maintainer has no Terragrunt in their own infrastructure, so even a clean implementation can't be validated end-to-end without a contributor's live monorepo.
+* **Ansible** ([#97](https://github.com/vakaobr/iac-cartographer/issues/97)) — different page shape, Vault key surfacing has real safety constraints; someone running Ansible in production today would catch design holes the maintainer wouldn't.
+* **Terrakube** ([#99](https://github.com/vakaobr/iac-cartographer/issues/99)) — happy to design the abstraction and ship the TFC side; the Terrakube implementation really wants someone who's already running it.
+* **Pulumi** (deliberately not on the active roadmap) — open if you'd own the parser long-term.
+
+What "collaboration" means here:
+
+* Open a discussion on the issue before writing code — design feedback is cheaper than rewrites.
+* Send a small first PR (test fixture, doc clarification, scaffold) before the big one — it builds review trust.
+* If you're using the tool against your own infrastructure, "I tried X on a real repo, it produced Y" is genuinely valuable signal even without a code change.
+
+Pinging [`good first issue`](https://github.com/vakaobr/iac-cartographer/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) is the cleanest way in — those entries are scoped to one self-contained change.
 
 ## License
 

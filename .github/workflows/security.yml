@@ -44,7 +44,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           # The action prompts the user to set GITLEAKS_LICENSE for orgs;
           # personal accounts don't need it. Leave the var unset to keep

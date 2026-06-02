@@ -169,6 +169,60 @@ def test_compute_overview_sha_changes_on_repo_added() -> None:
     assert compute_overview_sha(a, **_SHA_KWARGS) != compute_overview_sha(b, **_SHA_KWARGS)
 
 
+# ─── State backend (#94) ──────────────────────────────────────────────
+
+
+def _inventory_with_backend(*, encrypt: bool = True, type: str = "s3") -> RepoInventory:  # noqa: A002 — argument name mirrors HCL keyword
+    from iac_cartographer.models import StateBackend, StateBackendSignal
+
+    inv = _inventory()
+    signals = (
+        [StateBackendSignal(label="Encryption", value="enabled", severity="ok")]
+        if encrypt
+        else [StateBackendSignal(label="Encryption", value="not declared", severity="warn")]
+    )
+    backend = StateBackend(
+        module_path=".",
+        type=type,
+        attrs={"bucket": '"x"', "key": '"prod/main.tfstate"', "region": '"eu-central-1"'},
+        signals=signals,
+    )
+    return RepoInventory(
+        meta=inv.meta,
+        summary=inv.summary.model_copy(update={"state_backends": [backend]}),
+        narrative=inv.narrative,
+    )
+
+
+def test_child_page_renders_state_backend_section_when_present() -> None:
+    inv = _inventory_with_backend()
+    _, doc = build_child(inv, sha="abcdef12", updated_at=datetime(2026, 6, 2, tzinfo=UTC))
+    headings = [b for b in doc["content"] if b.get("type") == "heading"]
+    heading_texts = [h["content"][0]["text"] for h in headings]
+    assert "State backend" in heading_texts
+
+
+def test_child_page_omits_state_backend_section_when_empty() -> None:
+    inv = _inventory()  # default _inventory has no state_backends
+    _, doc = build_child(inv, sha="abcdef12", updated_at=datetime(2026, 6, 2, tzinfo=UTC))
+    headings = [b for b in doc["content"] if b.get("type") == "heading"]
+    assert "State backend" not in [h["content"][0]["text"] for h in headings]
+
+
+def test_compute_inventory_sha_changes_when_state_backend_changes() -> None:
+    """A backend swap (or any change inside the StateBackend payload) MUST
+    invalidate the banner-SHA — the page needs to republish."""
+    encrypted = _inventory_with_backend(encrypt=True)
+    unencrypted = _inventory_with_backend(encrypt=False)
+    assert compute_inventory_sha(encrypted, **_SHA_KWARGS) != compute_inventory_sha(unencrypted, **_SHA_KWARGS)
+
+
+def test_compute_inventory_sha_changes_when_backend_type_changes() -> None:
+    s3 = _inventory_with_backend(type="s3")
+    local_b = _inventory_with_backend(type="local")
+    assert compute_inventory_sha(s3, **_SHA_KWARGS) != compute_inventory_sha(local_b, **_SHA_KWARGS)
+
+
 # ─── build_banner + extract_banner_sha ──────────────────────────────────
 
 

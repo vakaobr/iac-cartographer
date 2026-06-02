@@ -29,7 +29,9 @@ from iac_cartographer.renderer import (
     BANNER_LEAD,
     BANNER_SHA_LABEL,
     OVERVIEW_TITLE,
+    format_signals,
     infer_provider_source,
+    strip_attr_quotes,
 )
 
 if TYPE_CHECKING:
@@ -176,6 +178,25 @@ def render_child_html(
         body_parts.append('<ul class="bullet">')
         body_parts.extend(f"<li><code>{escape(p)}</code></li>" for p in s.module_paths)
         body_parts.append("</ul>")
+
+    if s.state_backends:
+        body_parts.append("<h2>State backend</h2>")
+        body_parts.append("<table>")
+        body_parts.append(
+            "<thead><tr><th>Module path</th><th>Backend</th><th>Key</th><th>Region</th><th>Safety</th></tr></thead>"
+        )
+        body_parts.append("<tbody>")
+        for b in s.state_backends:
+            key = strip_attr_quotes(b.attrs.get("key", ""))
+            region = strip_attr_quotes(b.attrs.get("region", "")) or "—"
+            body_parts.append(
+                f"<tr><td><code>{escape(b.module_path)}</code></td>"
+                f"<td><code>{escape(b.type)}</code></td>"
+                f"<td>{f'<code>{escape(key)}</code>' if key else '—'}</td>"
+                f"<td>{f'<code>{escape(region)}</code>' if region != '—' else '—'}</td>"
+                f"<td>{escape(format_signals(b.signals))}</td></tr>"
+            )
+        body_parts.append("</tbody></table>")
 
     if s.providers:
         body_parts.append("<h2>Providers</h2>")

@@ -20,11 +20,16 @@ the logical name to a backend-specific lookup path.
 | Logical name | When required | JSON shape |
 |---|---|---|
 | `iac-cartographer/confluence` | `publisher.kind == "confluence"` | `{"email": "bot@example.com", "api_token": "ATATT..."}` |
-| `iac-cartographer/gitlab` | always *(constructor-loaded)* | `{"token": "glpat-..."}` |
-| `iac-cartographer/github` | always *(constructor-loaded)* | `{"token": "ghp_..."}` |
-| `iac-cartographer/slack` | always *(constructor-loaded)* | `{"bot_token": "xoxb-..."}` |
+| `iac-cartographer/gitlab` | `discovery.gitlab_group_ids` non-empty *or* `discovery.repos_file` present | `{"token": "glpat-..."}` |
+| `iac-cartographer/github` | `discovery.github_orgs` non-empty *or* `publisher.kind == "github_wiki"` *or* `discovery.repos_file` present | `{"token": "ghp_..."}` |
+| `iac-cartographer/slack` | `notifications[].kind == "slack"` (hard) *or* legacy `notifications: []` (optional — silent if absent) | `{"bot_token": "xoxb-..."}` |
 | `iac-cartographer/anthropic` | `llm.backend == "anthropic"` | `{"api_key": "sk-ant-..."}` |
+| `iac-cartographer/openai` | `llm.backend == "openai"` | `{"api_key": "sk-..."}` |
+| `iac-cartographer/azure_openai` | `llm.backend == "azure_openai"` without `use_aad` | `{"api_key": "..."}` |
 | `iac-cartographer/bitbucket` | `discovery.bitbucket_workspaces` non-empty | `{"access_token": "bbat-..."}` *or* `{"username": "...", "app_password": "..."}` |
+| `iac-cartographer/gitea` | `discovery.gitea_orgs` non-empty | `{"token": "..."}` |
+| `iac-cartographer/notion` | `publisher.kind == "notion"` | `{"token": "secret_..."}` |
+| `iac-cartographer/<channel>` | `notifications[].kind == "<channel>"` for channels: `webhook` / `slack_webhook` / `teams` / `email` / `pagerduty` / `opsgenie` / `discord` | per-channel; see [`docs/backends/notifications.md`](notifications.md) |
 
 Every secret is loaded **lazily** — only when the active config actually
 uses it. A Markdown-publisher + GitHub-only-discovery + no-Slack
@@ -44,7 +49,9 @@ Confluence or Slack secret it doesn't use. The triggers:
 
 A missing *required* secret fails loudly at startup (before any work
 runs); run `iac-cartographer --diagnose` to see exactly which secrets
-your config needs.
+your config needs. The report emits one row per logical secret
+(`secrets.confluence`, `secrets.gitlab`, etc.) marked `ok — required
+by <subsystem>` or `skip — not active`, with no API calls required.
 
 ## AWS
 

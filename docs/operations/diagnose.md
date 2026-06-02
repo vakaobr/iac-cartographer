@@ -38,6 +38,7 @@ All checks passed. Ready to run --once.
 | **llm** | The chosen backend's required fields are populated — `vertex` needs `vertex_project_id`; `azure_openai` needs both `azure_openai_endpoint` and `azure_openai_deployment`. |
 | **publisher** | The write target is reachable: Confluence/Notion/GitHub-Wiki required fields are non-placeholder; Markdown/HTML/JSON output directories are writable. |
 | **notifications** | At least one channel, or an explicit "silent dispatcher" skip when `notifications:` is empty (legitimate for CI / air-gapped). |
+| **secrets.&lt;name&gt;** | One row per credential the loader could touch (`secrets.confluence`, `secrets.gitlab`, `secrets.github`, `secrets.slack`, `secrets.bitbucket`, `secrets.gitea`, `secrets.anthropic`, `secrets.openai`, `secrets.azure_openai`, `secrets.notion`, plus every notification channel kind). Each row is OK with a "required by &lt;subsystem&gt;" detail (the secret will be fetched) or SKIP with "not active" (the matching subsystem isn't configured, so the loader leaves the secret alone). `secrets.slack` on the legacy `notifications: []` path is the one optional case — loaded if present, silent dispatcher if absent. **Answers "why is iac-cartographer asking for the X secret?" without any live calls.** |
 
 By default `--diagnose` makes **no live API calls**. It does not:
 
@@ -87,11 +88,24 @@ iac-cartographer --diagnose --live --probe-llm --config ./config.yaml
 ```
 
 This issues **one** bounded `max_tokens=1` completion (a trivial "ping")
-against the configured backend and reports the token counts. It costs a
-fraction of a cent of **real spend** — which is why it's opt-in and gated
-behind both `--diagnose` and `--live` (passing `--probe-llm` without
-`--live` warns and is ignored). Ollama is exempt: it's local and free, so
-it keeps the `/api/tags` listing as its check even with `--probe-llm`.
+against the configured backend and reports the token counts **plus an
+estimated USD cost** for the call:
+
+```
+llm-live: ok — bedrock completed a real 1-token probe (in=12, out=1 tokens; ≈ $0.000051)
+```
+
+The cost figure uses a small built-in price table covering the Claude
+4-family (Sonnet / Haiku, both direct and Bedrock-EU IDs) and the
+OpenAI GPT-4 line. Models not in the table fall back to a
+`≈ negligible (model not in price table)` marker — the token counts
+themselves are always reported regardless.
+
+It costs a fraction of a cent of **real spend** — which is why it's
+opt-in and gated behind both `--diagnose` and `--live` (passing
+`--probe-llm` without `--live` warns and is ignored). Ollama is exempt:
+it's local and free, so it keeps the `/api/tags` listing as its check
+even with `--probe-llm`.
 
 Use it when you want to be certain a new key / model / region works for
 inference before relying on a scheduled run; skip it for routine

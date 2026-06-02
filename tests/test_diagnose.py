@@ -489,6 +489,139 @@ def test_secrets_live_bad_provider_config_is_fail() -> None:
     assert "vault" in result.detail
 
 
+# ── secrets-required (offline per-secret status — #100) ───────────────
+
+
+def _required_by(rows: list[CheckResult]) -> dict[str, CheckResult]:
+    """Re-key the list of `secrets.<name>` rows by short name for assertions."""
+    return {r.name.removeprefix("secrets."): r for r in rows}
+
+
+def test_check_secrets_required_markdown_only_github_only() -> None:
+    """A Markdown publisher + a single GitHub discovery source ⇒ exactly
+    one credential required (`github`). Every other secret is `not active`."""
+    from iac_cartographer.diagnose import check_secrets_required
+
+    cfg = _config(discovery={"github_orgs": ["acme"]}, publisher={"kind": "markdown"})
+    rows = _required_by(check_secrets_required(cfg))
+
+    assert rows["github"].status == Status.OK
+    assert "discovery.github_orgs" in rows["github"].detail
+
+    for name in (
+        "confluence",
+        "notion",
+        "gitlab",
+        "bitbucket",
+        "gitea",
+        "anthropic",
+        "openai",
+        "azure_openai",
+        "webhook",
+        "teams",
+        "email",
+        "pagerduty",
+        "opsgenie",
+        "discord",
+    ):
+        assert rows[name].status == Status.SKIP, f"{name} should be inactive but isn't"
+        assert rows[name].detail == "not active"
+
+
+def test_check_secrets_required_json_only_with_curated_repos_file() -> None:
+    """A JSON publisher + `repos_file` (no other discovery sources) forces
+    BOTH gitlab + github credentials — the file can list repos on either
+    host and the clone path splices a per-host token. Everything else is
+    inactive."""
+    from iac_cartographer.diagnose import check_secrets_required
+
+    cfg = _config(
+        discovery={"repos_file": "./repos.yaml"},
+        publisher={"kind": "json"},
+        json_output={"output_dir": "/tmp/json"},
+    )
+    rows = _required_by(check_secrets_required(cfg))
+
+    assert rows["gitlab"].status == Status.OK
+    assert "discovery.repos_file" in rows["gitlab"].detail
+    assert rows["github"].status == Status.OK
+    assert "discovery.repos_file" in rows["github"].detail
+    assert rows["confluence"].status == Status.SKIP
+
+
+def test_check_secrets_required_full_confluence_deployment() -> None:
+    """The classic Confluence + GitLab + GitHub + Slack deployment marks
+    each subsystem's credential as `required`."""
+    from iac_cartographer.diagnose import check_secrets_required
+
+    cfg = _config(
+        discovery={"gitlab_group_ids": [15], "github_orgs": ["acme"]},
+        publisher={"kind": "confluence"},
+        notifications=[{"kind": "slack"}],
+    )
+    rows = _required_by(check_secrets_required(cfg))
+
+    assert rows["confluence"].status == Status.OK
+    assert rows["gitlab"].status == Status.OK
+    assert rows["github"].status == Status.OK
+    assert rows["slack"].status == Status.OK
+    assert "notifications[].kind=slack" in rows["slack"].detail
+
+
+def test_check_secrets_required_slack_optional_on_legacy_path() -> None:
+    """Empty `notifications: []` is the legacy single-Slack path: the
+    Slack secret is OPTIONAL — loaded if present, silent if absent."""
+    from iac_cartographer.diagnose import check_secrets_required
+
+    cfg = _config(discovery={"github_orgs": ["acme"]}, publisher={"kind": "markdown"})
+    rows = _required_by(check_secrets_required(cfg))
+    assert rows["slack"].status == Status.OK
+    assert "optional" in rows["slack"].detail.lower()
+
+
+def test_check_secrets_required_hybrid_publisher_and_channels() -> None:
+    """Hybrid deployment: github_wiki publisher (which reuses the github
+    credential) + multiple notification channels — exactly the credentials
+    those subsystems trigger are required, nothing more."""
+    from iac_cartographer.diagnose import check_secrets_required
+
+    cfg = _config(
+        discovery={"github_orgs": ["acme"]},
+        publisher={"kind": "github_wiki"},
+        github_wiki={"owner": "acme", "repo": "infra-docs.wiki"},
+        notifications=[{"kind": "teams"}, {"kind": "pagerduty"}],
+    )
+    rows = _required_by(check_secrets_required(cfg))
+
+    assert rows["github"].status == Status.OK
+    # github_wiki should appear in the trigger string alongside the org list.
+    assert "publisher.kind=github_wiki" in rows["github"].detail
+    assert rows["teams"].status == Status.OK
+    assert rows["pagerduty"].status == Status.OK
+    # And channels NOT configured are still inactive.
+    assert rows["slack"].status == Status.SKIP
+    assert rows["discord"].status == Status.SKIP
+
+
+def test_check_secrets_required_llm_backend_swap_changes_credentials() -> None:
+    """Flipping `llm.backend` shifts which LLM credential is required —
+    bedrock → anthropic should swap `anthropic` from skip to ok and leave
+    `openai` / `azure_openai` inactive."""
+    from iac_cartographer.diagnose import check_secrets_required
+
+    bedrock = _required_by(check_secrets_required(_config(llm={"backend": "bedrock"})))
+    assert bedrock["anthropic"].status == Status.SKIP
+    assert bedrock["openai"].status == Status.SKIP
+    assert bedrock["azure_openai"].status == Status.SKIP
+
+    anthropic = _required_by(
+        check_secrets_required(_config(llm={"backend": "anthropic", "model_id": "claude-sonnet-4-6"}))
+    )
+    assert anthropic["anthropic"].status == Status.OK
+    assert "llm.backend=anthropic" in anthropic["anthropic"].detail
+    assert anthropic["openai"].status == Status.SKIP
+
+
 # Shared helper that builds a real LoadedSecrets for the downstream probes.
 # Requests all four core credentials so the discovery / publisher live
 # probes have the tokens they exercise (lazy loading skips them otherwise).
@@ -617,6 +750,32 @@ def test_llm_live_probe_llm_failure_is_fail(monkeypatch: pytest.MonkeyPatch) -> 
     assert r.status == Status.FAIL
     assert "1-token probe failed" in r.detail
     assert r.hint and "invoke permission" in r.hint
+
+
+def test_llm_live_probe_llm_reports_cost_for_known_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Known model_id (matches the price-table prefix) → cost line with
+    an actual `$0.xxxxxx` figure, computed from the reported token counts."""
+    secrets = _build_secrets(monkeypatch)
+    fake = _FakeBackend()
+    monkeypatch.setattr("iac_cartographer.cli._build_llm_backend", lambda *a, **k: fake)
+    cfg = _config(llm={"backend": "bedrock", "model_id": "eu.anthropic.claude-sonnet-4-6"})
+    r = check_llm_live(cfg, secrets, probe_llm=True)
+    assert r.status == Status.OK
+    # Should contain a `$` cost figure, not the fallback wording.
+    assert "≈ $0." in r.detail, f"expected a $ cost figure in detail; got: {r.detail!r}"
+    assert "negligible (model not in price table)" not in r.detail
+
+
+def test_llm_live_probe_llm_reports_negligible_for_unknown_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unknown model_id → no estimate, but the operator still sees a
+    cost-band marker so they're not left guessing."""
+    secrets = _build_secrets(monkeypatch)
+    fake = _FakeBackend()
+    monkeypatch.setattr("iac_cartographer.cli._build_llm_backend", lambda *a, **k: fake)
+    cfg = _config(llm={"backend": "bedrock", "model_id": "completely-unknown-model-id"})
+    r = check_llm_live(cfg, secrets, probe_llm=True)
+    assert r.status == Status.OK
+    assert "≈ negligible (model not in price table)" in r.detail
 
 
 def test_llm_live_probe_llm_ollama_still_uses_tags(monkeypatch: pytest.MonkeyPatch) -> None:

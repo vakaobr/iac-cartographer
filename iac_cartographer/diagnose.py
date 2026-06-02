@@ -45,6 +45,47 @@ logger = logging.getLogger(__name__)
 # dead one.
 _LIVE_HTTP_TIMEOUT_S = 5.0
 
+# Per-million-token pricing for the `--probe-llm` cost line. List prices in
+# USD as of 2026-06; we don't track regional / negotiated / cached rates
+# (the probe is one call, not a budget). Entries are matched against
+# `config.llm.model_id` via `startswith` so versioned model IDs
+# (`claude-sonnet-4-6@20260415`, `eu.anthropic.claude-sonnet-4-6-...`)
+# resolve to the family price. Unknown models fall back to "≈ negligible"
+# rather than guess — operators see token counts either way.
+_LLM_PRICE_PER_MTOKEN_USD: dict[str, tuple[float, float]] = {
+    # Anthropic Claude
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "eu.anthropic.claude-sonnet-4-6": (3.00, 15.00),
+    "claude-sonnet-4-5": (3.00, 15.00),
+    "eu.anthropic.claude-sonnet-4-5": (3.00, 15.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+    "eu.anthropic.claude-haiku-4-5": (1.00, 5.00),
+    # OpenAI
+    "gpt-4o": (2.50, 10.00),
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4.1": (2.00, 8.00),
+}
+
+
+def _estimate_probe_cost_usd(model_id: str, input_tokens: int, output_tokens: int) -> str:
+    """Return a `≈ $0.000023` string for the cost line, or an empty
+    string when the model isn't in the lookup table. Inputs and outputs
+    are priced separately because Anthropic's output rate is ~5x input.
+    """
+    in_rate: float | None = None
+    out_rate: float | None = None
+    for prefix, (in_p, out_p) in _LLM_PRICE_PER_MTOKEN_USD.items():
+        if model_id.startswith(prefix):
+            in_rate, out_rate = in_p, out_p
+            break
+    if in_rate is None or out_rate is None:
+        return ""
+    usd = (input_tokens * in_rate + output_tokens * out_rate) / 1_000_000
+    # 1-token probes round to fractions of a cent; show 6 decimals so the
+    # operator sees the actual figure (`$0.000033`) rather than `$0.00`.
+    return f"≈ ${usd:.6f}"
+
+
 # Pinned to match the Dockerfile + ci.yml. A different `terraform-docs`
 # version isn't fatal (the JSON output schema is stable across 0.20.x and
 # 0.24.x in our usage), but it's the kind of skew that produces
@@ -427,6 +468,98 @@ def check_notifications(config: AppConfig) -> CheckResult:
     )
 
 
+def check_secrets_required(config: AppConfig) -> list[CheckResult]:
+    """Offline scan of which credentials the active config will actually
+    pull at startup. One result per subsystem-credential pair, labelled
+    `secrets.<name>`:
+
+      * `Status.OK`   — required by the active config; will be loaded.
+                         Detail names the subsystem ("required by
+                         publisher.kind=confluence").
+      * `Status.SKIP` — not loaded by this run (the matching subsystem
+                         isn't active). Detail says "not active".
+      * `Status.OK`   — `secrets.slack` in legacy `notifications: []`
+                         mode is OPTIONAL — loaded if present, silent
+                         dispatcher if absent. Detail says
+                         "optional (legacy slack path)".
+
+    This is the answer to "why is iac-cartographer asking for X?": the
+    operator can read the report and see exactly which subsystem
+    triggers each credential, without any live API calls. Complements
+    the live `secrets-live` check, which actually fetches.
+    """
+    notification_kinds = {getattr(entry, "kind", None) for entry in config.notifications}
+    publisher_kind = config.publisher.kind
+    using_repos_file = bool(config.discovery.repos_file)
+
+    def _row(name: str, *, reason: str | None) -> CheckResult:
+        if reason is None:
+            return CheckResult(name=f"secrets.{name}", status=Status.SKIP, detail="not active")
+        return CheckResult(name=f"secrets.{name}", status=Status.OK, detail=f"required by {reason}")
+
+    out: list[CheckResult] = []
+
+    # Publisher credentials.
+    out.append(_row("confluence", reason="publisher.kind=confluence" if publisher_kind == "confluence" else None))
+    out.append(_row("notion", reason="publisher.kind=notion" if publisher_kind == "notion" else None))
+
+    # Discovery + Git-host credentials. `repos_file` can list repos on
+    # any host, so a curated file forces both VCS tokens (we can't
+    # know the hosts without reading the file).
+    gitlab_reason = (
+        "discovery.gitlab_group_ids"
+        if config.discovery.gitlab_group_ids
+        else ("discovery.repos_file" if using_repos_file else None)
+    )
+    out.append(_row("gitlab", reason=gitlab_reason))
+
+    github_triggers: list[str] = []
+    if config.discovery.github_orgs:
+        github_triggers.append("discovery.github_orgs")
+    if publisher_kind == "github_wiki":
+        github_triggers.append("publisher.kind=github_wiki")
+    if using_repos_file:
+        github_triggers.append("discovery.repos_file")
+    out.append(_row("github", reason=" + ".join(github_triggers) or None))
+
+    out.append(
+        _row("bitbucket", reason="discovery.bitbucket_workspaces" if config.discovery.bitbucket_workspaces else None)
+    )
+    out.append(_row("gitea", reason="discovery.gitea_orgs" if config.discovery.gitea_orgs else None))
+
+    # LLM credentials.
+    llm_backend = config.llm.backend
+    out.append(_row("anthropic", reason="llm.backend=anthropic" if llm_backend == "anthropic" else None))
+    out.append(_row("openai", reason="llm.backend=openai" if llm_backend == "openai" else None))
+    azure_reason = (
+        "llm.backend=azure_openai (without use_aad)"
+        if llm_backend == "azure_openai" and not config.llm.azure_openai_use_aad
+        else None
+    )
+    out.append(_row("azure_openai", reason=azure_reason))
+
+    # Notification channels. Slack has a third state (legacy optional).
+    if "slack" in notification_kinds:
+        out.append(_row("slack", reason="notifications[].kind=slack"))
+    elif not config.notifications:
+        out.append(
+            CheckResult(
+                name="secrets.slack",
+                status=Status.OK,
+                detail="optional (legacy `notifications: []` path — loaded if present, silent if absent)",
+            )
+        )
+    else:
+        out.append(_row("slack", reason=None))
+
+    out.extend(
+        _row(kind, reason=f"notifications[].kind={kind}" if kind in notification_kinds else None)
+        for kind in ("webhook", "slack_webhook", "teams", "email", "pagerduty", "opsgenie", "discord")
+    )
+
+    return out
+
+
 # ── Live probes (only with --live) ───────────────────────────────────
 #
 # Every live probe actually touches the configured backend. They run only
@@ -673,12 +806,15 @@ def check_llm_live(config: AppConfig, secrets: LoadedSecrets, *, probe_llm: bool
             detail=f"{backend} 1-token probe failed: {str(exc)[:160]}",
             hint="check the credential's invoke permission, the model_id, and the endpoint/region",
         )
+    cost = _estimate_probe_cost_usd(config.llm.model_id, response.input_tokens, response.output_tokens)
+    cost_segment = f" {cost}" if cost else " ≈ negligible (model not in price table)"
     return CheckResult(
         name="llm-live",
         status=Status.OK,
         detail=(
             f"{backend} completed a real 1-token probe "
-            f"(in={response.input_tokens}, out={response.output_tokens} tokens)"
+            f"(in={response.input_tokens}, out={response.output_tokens} tokens;"
+            f"{cost_segment})"
         ),
     )
 
@@ -835,6 +971,13 @@ def run_diagnose(config_path: str, *, live: bool = False, probe_llm: bool = Fals
         "notifications": _run("notifications", lambda: check_notifications(config)),
     }
     report.checks.extend(offline.values())
+
+    # 7b. Offline secret inventory. One row per credential the loader
+    # could touch, marking each as required-by-something or not-active.
+    # Cheap to compute (pure config inspection — zero API calls) and
+    # the highest-signal explanation of "why is iac-cartographer asking
+    # for the X secret?" — the answer reads off the report directly.
+    report.checks.extend(check_secrets_required(config))
 
     if not live:
         return report

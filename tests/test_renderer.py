@@ -232,6 +232,36 @@ def test_compute_inventory_sha_changes_when_max_nodes_per_graph_changes() -> Non
     assert sha_default != sha_overridden
 
 
+def test_compute_inventory_sha_ignores_live_state_drift() -> None:
+    """`inv.live_state` is external — it changes every run as TFC moves
+    forward — and is deliberately excluded from the banner-SHA payload
+    (see the docstring of `_inventory_input_payload`). Pin the contract:
+    swapping the live_state field MUST NOT change the SHA."""
+    from iac_cartographer.models import LiveStateInfo
+
+    inv_no_live = _inventory()
+    live_a = LiveStateInfo(
+        workspace_name="prod",
+        workspace_url="https://app.terraform.io/app/acme/workspaces/prod",
+        current_run_status="applied",
+        last_successful_apply_at=datetime(2026, 6, 2, 10, 0, tzinfo=UTC),
+    )
+    live_b = LiveStateInfo(
+        workspace_name="prod",
+        workspace_url="https://app.terraform.io/app/acme/workspaces/prod",
+        current_run_status="errored",
+        last_successful_apply_at=datetime(2026, 6, 1, 9, 0, tzinfo=UTC),
+        drift_status="drift_detected",
+        live_resource_count=42,
+    )
+    inv_a = inv_no_live.model_copy(update={"live_state": live_a})
+    inv_b = inv_no_live.model_copy(update={"live_state": live_b})
+    sha_none = compute_inventory_sha(inv_no_live, **_SHA_KWARGS)
+    sha_a = compute_inventory_sha(inv_a, **_SHA_KWARGS)
+    sha_b = compute_inventory_sha(inv_b, **_SHA_KWARGS)
+    assert sha_none == sha_a == sha_b
+
+
 def test_child_page_emits_mermaid_block_when_resources_present() -> None:
     """Smoke check that the ADF child page actually contains a `codeBlock`
     with `language: "mermaid"` when the inventory has resources."""

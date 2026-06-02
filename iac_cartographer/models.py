@@ -221,6 +221,53 @@ class BedrockNarrative(_Strict):
         return v
 
 
+# ─── Live state overlay (TFC / Terrakube / future) ─────────────────────────
+
+
+class LiveStateInfo(_Strict):
+    """One workspace's live state as observed at run time.
+
+    External — every field can change without any code change in the repo
+    being indexed. Excluded from the banner-SHA payload (`_inventory_input_payload`
+    in `renderer.py`) for that reason: hashing it would invalidate the page
+    on every run regardless of whether structural facts changed.
+    """
+
+    workspace_name: str
+    workspace_url: str
+    # Current-run shape. Optional because a workspace can exist with no
+    # runs (newly created, paused, etc.).
+    current_run_status: str | None = None
+    current_run_id: str | None = None
+    current_run_url: str | None = None
+    last_successful_apply_at: datetime | None = None
+    # `"drift_detected"` / `"no_drift"` / `"not_configured"` — TFC's
+    # drift-detection feature is opt-in per workspace; surface
+    # `not_configured` rather than guessing when assessment data is
+    # absent.
+    drift_status: Literal["drift_detected", "no_drift", "not_configured"] = "not_configured"
+    # Live resource count from the platform's API. Compared against
+    # `summary.resources` length on the rendered page; a divergence
+    # usually means the operator applied something outside Terraform.
+    live_resource_count: int | None = None
+
+
+class StaleApplyAlert(_Strict):
+    """One stale failed-apply finding emitted as a `warn`-level notification.
+
+    Collected during the live-state overlay's per-repo `fetch()` call —
+    no separate poll loop — and dispatched at the end of the run via the
+    existing notifications channel set.
+    """
+
+    workspace_name: str
+    workspace_url: str
+    failed_run_id: str
+    failed_run_url: str
+    days_in_state: float
+    last_successful_apply_at: datetime | None = None
+
+
 # ─── Composite ─────────────────────────────────────────────────────────────
 
 
@@ -230,6 +277,11 @@ class RepoInventory(_Strict):
     # None if Bedrock failed for this repo; the page still renders structural
     # facts in that case (per ADR-005 §Consequences).
     narrative: BedrockNarrative | None = None
+    # Optional live-state overlay (TFC / Terrakube / future). Populated
+    # by the orchestrator after extraction when `live_state.backend != "none"`.
+    # `None` when no overlay is configured or no workspace maps to this
+    # repo. NOT hashed into the banner-SHA — external state.
+    live_state: LiveStateInfo | None = None
 
 
 # ─── Run outcome (aggregate; emitted to logs + CloudWatch + Slack) ─────────
@@ -309,6 +361,63 @@ from iac_cartographer.publishers.config import (  # noqa: E402
 from iac_cartographer.secrets.config import SecretsConfig  # noqa: E402
 
 # ─── Config (assembled from each subsystem's section) ──────────────────────
+
+
+class WorkspaceMappingRule(_Strict):
+    """Map a repo `full_name` to a workspace name on the live-state platform.
+
+    Both fields support `fnmatch`-style glob patterns. When a repo matches
+    multiple rules the first match wins (rules are checked in list order).
+    Empty `workspace_mapping` falls back to the default heuristic — the
+    workspace name is the last segment of `repo.full_name` (e.g.
+    `acme-org/main-cluster` → `main-cluster`)."""
+
+    repo: str
+    workspace: str
+
+
+class StalenessConfig(_Strict):
+    """Stale failed-apply alert thresholds — sub-feature of the live-state overlay."""
+
+    # Default `true` so adopters who configure the overlay get the most
+    # operationally interesting signal it produces without thinking about it.
+    enabled: bool = True
+    # Days a workspace can sit in `errored` state before we alert. 2 days
+    # covers a long weekend; lower values get noisy, higher values risk
+    # missing legitimately broken applies. Tune per team noise tolerance.
+    threshold_days: int = 2
+    # `fnmatch`-style patterns of workspace names to never alert on
+    # (deliberately deferred work, decommissioning queue, etc.). Matched
+    # against the workspace name, not the repo name — the same workspace
+    # ought to be alertable or muted regardless of which repo points at it.
+    acknowledged_stale: list[str] = Field(default_factory=list)
+
+
+class LiveStateConfig(_Strict):
+    """Live-state overlay configuration — layers workspace info from TFC
+    (or a sibling backend) on top of the static inventory.
+
+    Default is `backend: "none"`: no overlay, no extra credentials needed,
+    no API calls. Adopters opt in by flipping `backend` to `tfc`
+    (Terraform Cloud / HCP Terraform) or a future backend like
+    `terrakube`."""
+
+    # Backend selector. `"none"` is the no-op default; `"tfc"` is the
+    # first implementation (covers app.terraform.io, HCP Terraform, and
+    # self-hosted Terraform Enterprise via the `hostname` override).
+    backend: Literal["none", "tfc"] = "none"
+    # TFC / HCP / TFE organisation name. Required when `backend != "none"`.
+    organization: str = ""
+    # API hostname. `app.terraform.io` covers TFC + HCP Terraform;
+    # override for self-hosted Terraform Enterprise (e.g.
+    # `tfe.acme.internal`). The overlay constructs
+    # `https://<hostname>/api/v2/...` from this.
+    hostname: str = "app.terraform.io"
+    # Explicit per-repo → per-workspace mappings. Empty list = use the
+    # default heuristic (workspace name = last segment of `repo.full_name`).
+    workspace_mapping: list[WorkspaceMappingRule] = Field(default_factory=list)
+    # Stale failed-apply alert sub-feature config.
+    staleness: StalenessConfig = Field(default_factory=lambda: StalenessConfig())
 
 
 class GraphConfig(_Strict):
@@ -393,6 +502,23 @@ class AppConfig(_Strict):
     # additional knobs (whether to render `depends_on` edges, etc.) can
     # extend this block in follow-up issues without touching `AppConfig`.
     graph: GraphConfig = Field(default_factory=lambda: GraphConfig())
+    # `live_state:` layers external workspace info (TFC / HCP / Terrakube)
+    # on top of the static inventory. Default backend is `"none"` — no
+    # API calls, no credential, no behaviour change for existing
+    # deployments. Adopters opt in by flipping `live_state.backend` to
+    # `"tfc"` and providing the matching credential.
+    live_state: LiveStateConfig = Field(default_factory=lambda: LiveStateConfig())
+
+
+class TfcCredentials(_Strict):
+    """Terraform Cloud / HCP / Terraform Enterprise API token.
+
+    A team or user API token with read access to the configured
+    organisation's workspaces. The overlay only ever issues GET
+    requests; no `manage` / `write` scopes are required.
+    """
+
+    token: str
 
 
 # Public surface of this module: the shared domain models + `AppConfig`,
@@ -420,6 +546,8 @@ __all__ = [
     "HtmlConfig",
     "JsonConfig",
     "LLMConfig",
+    "LiveStateConfig",
+    "LiveStateInfo",
     "MarkdownConfig",
     "ModuleRef",
     "NotificationConfig",
@@ -445,11 +573,17 @@ __all__ = [
     "SlackWebhookCredentials",
     "SlackWebhookNotificationConfig",
     "SnsNotificationConfig",
+    "StaleApplyAlert",
+    "StalenessConfig",
+    "StateBackend",
+    "StateBackendSignal",
     "StdoutNotificationConfig",
     "TeamsCredentials",
     "TeamsNotificationConfig",
     "TerraformSummary",
+    "TfcCredentials",
     "VariableRef",
     "WebhookCredentials",
     "WebhookNotificationConfig",
+    "WorkspaceMappingRule",
 ]

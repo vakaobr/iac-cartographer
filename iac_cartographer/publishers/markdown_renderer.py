@@ -120,6 +120,26 @@ def render_child_markdown(
             )
         out.append("")
 
+    if inv.live_state is not None:
+        ls = inv.live_state
+        out.append("## Live state")
+        out.append("")
+        last_apply = (
+            ls.last_successful_apply_at.strftime("%Y-%m-%d %H:%M UTC") if ls.last_successful_apply_at else "never"
+        )
+        out.append("| Field | Value |")
+        out.append("|---|---|")
+        out.append(f"| Workspace | `{ls.workspace_name}` |")
+        out.append(f"| Workspace URL | [{ls.workspace_url}]({ls.workspace_url}) |")
+        out.append(f"| Current run | {f'`{ls.current_run_status}`' if ls.current_run_status else '—'} |")
+        out.append(f"| Last successful apply | {last_apply} |")
+        out.append(f"| Drift | {ls.drift_status.replace('_', ' ')} |")
+        if ls.live_resource_count is not None:
+            declared = len(s.resources)
+            divergence = "" if ls.live_resource_count == declared else f" ⚠ declared={declared}"
+            out.append(f"| Live resource count | {ls.live_resource_count}{divergence} |")
+        out.append("")
+
     if s.providers:
         out.append("## Providers")
         out.append("")

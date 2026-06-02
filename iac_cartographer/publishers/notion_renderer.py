@@ -187,6 +187,21 @@ def render_child_blocks(
             safety = format_signals(b.signals)
             blocks.append(_bullet(f"{b.module_path} — {b.type} ({safety})"))
 
+    # ── live state ────────────────────────────────────────────────────
+    # Compact bullets — Notion's design (bulleted lists, not tables)
+    # carries over. ADF / Markdown / HTML render the full keyed table.
+    if inv.live_state is not None:
+        ls = inv.live_state
+        blocks.append(_heading_2("Live state"))
+        blocks.append(_bullet(f"Workspace: {ls.workspace_name}"))
+        if ls.current_run_status:
+            blocks.append(_bullet(f"Current run: {ls.current_run_status}"))
+        if ls.last_successful_apply_at:
+            blocks.append(
+                _bullet(f"Last successful apply: {ls.last_successful_apply_at.strftime('%Y-%m-%d %H:%M UTC')}")
+            )
+        blocks.append(_bullet(f"Drift: {ls.drift_status.replace('_', ' ')}"))
+
     # ── providers ─────────────────────────────────────────────────────
     if inv.summary.providers:
         blocks.append(_heading_2("Providers"))

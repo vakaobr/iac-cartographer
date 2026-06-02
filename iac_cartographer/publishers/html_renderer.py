@@ -208,6 +208,32 @@ def render_child_html(
             )
         body_parts.append("</tbody></table>")
 
+    if inv.live_state is not None:
+        ls = inv.live_state
+        body_parts.append("<h2>Live state</h2>")
+        body_parts.append("<table>")
+        body_parts.append("<thead><tr><th>Field</th><th>Value</th></tr></thead>")
+        body_parts.append("<tbody>")
+        last_apply = (
+            ls.last_successful_apply_at.strftime("%Y-%m-%d %H:%M UTC") if ls.last_successful_apply_at else "never"
+        )
+        body_parts.append(f"<tr><td>Workspace</td><td><code>{escape(ls.workspace_name)}</code></td></tr>")
+        body_parts.append(
+            f'<tr><td>Workspace URL</td><td><a href="{escape(ls.workspace_url, quote=True)}">'
+            f"{escape(ls.workspace_url)}</a></td></tr>"
+        )
+        current = f"<code>{escape(ls.current_run_status)}</code>" if ls.current_run_status else "—"
+        body_parts.append(f"<tr><td>Current run</td><td>{current}</td></tr>")
+        body_parts.append(f"<tr><td>Last successful apply</td><td>{escape(last_apply)}</td></tr>")
+        body_parts.append(f"<tr><td>Drift</td><td>{escape(ls.drift_status.replace('_', ' '))}</td></tr>")
+        if ls.live_resource_count is not None:
+            declared = len(s.resources)
+            divergence = "" if ls.live_resource_count == declared else f" ⚠ declared={declared}"
+            body_parts.append(
+                f"<tr><td>Live resource count</td><td>{ls.live_resource_count}{escape(divergence)}</td></tr>"
+            )
+        body_parts.append("</tbody></table>")
+
     if s.providers:
         body_parts.append("<h2>Providers</h2>")
         body_parts.append("<table>")

@@ -248,6 +248,98 @@ def test_logger_output_is_one_json_line_per_record() -> None:
         root.removeHandler(handler)
 
 
+# ─── --output-dir CLI override (#76) ───────────────────────────────────
+
+
+def _empty_secrets():  # type: ignore[no-untyped-def]
+    """Bare LoadedSecrets — none of the local publishers read any of these."""
+    from iac_cartographer.cli import LoadedSecrets
+
+    return LoadedSecrets(confluence=None, gitlab=None, github=None, slack=None)
+
+
+def test_build_publisher_markdown_uses_config_when_no_override(tmp_path: Path) -> None:
+    from iac_cartographer.cli import _build_publisher
+    from iac_cartographer.models import AppConfig, MarkdownConfig, PublisherConfig
+    from iac_cartographer.publishers.markdown import LocalMarkdownPublisher
+
+    config = AppConfig(
+        publisher=PublisherConfig(kind="markdown"),
+        markdown=MarkdownConfig(output_dir=str(tmp_path / "from-config")),
+    )
+    publisher = _build_publisher(config, _empty_secrets(), parent_id=None, output_dir_override=None)
+    assert isinstance(publisher, LocalMarkdownPublisher)
+    assert publisher._output_dir == tmp_path / "from-config"
+
+
+def test_build_publisher_markdown_override_wins_over_config(tmp_path: Path) -> None:
+    from iac_cartographer.cli import _build_publisher
+    from iac_cartographer.models import AppConfig, MarkdownConfig, PublisherConfig
+    from iac_cartographer.publishers.markdown import LocalMarkdownPublisher
+
+    config = AppConfig(
+        publisher=PublisherConfig(kind="markdown"),
+        markdown=MarkdownConfig(output_dir=str(tmp_path / "from-config")),
+    )
+    override = str(tmp_path / "from-cli")
+    publisher = _build_publisher(config, _empty_secrets(), parent_id=None, output_dir_override=override)
+    assert isinstance(publisher, LocalMarkdownPublisher)
+    assert publisher._output_dir == tmp_path / "from-cli"
+
+
+def test_build_publisher_html_override_wins_over_config(tmp_path: Path) -> None:
+    from iac_cartographer.cli import _build_publisher
+    from iac_cartographer.models import AppConfig, HtmlConfig, PublisherConfig
+    from iac_cartographer.publishers.html import LocalHtmlPublisher
+
+    config = AppConfig(
+        publisher=PublisherConfig(kind="html"),
+        html=HtmlConfig(output_dir=str(tmp_path / "from-config")),
+    )
+    override = str(tmp_path / "from-cli")
+    publisher = _build_publisher(config, _empty_secrets(), parent_id=None, output_dir_override=override)
+    assert isinstance(publisher, LocalHtmlPublisher)
+    assert publisher._output_dir == tmp_path / "from-cli"
+
+
+def test_build_publisher_json_override_wins_over_config(tmp_path: Path) -> None:
+    from iac_cartographer.cli import _build_publisher
+    from iac_cartographer.models import AppConfig, JsonConfig, PublisherConfig
+    from iac_cartographer.publishers.json_publisher import LocalJsonPublisher
+
+    config = AppConfig(
+        publisher=PublisherConfig(kind="json"),
+        json_output=JsonConfig(output_dir=str(tmp_path / "from-config")),
+    )
+    override = str(tmp_path / "from-cli")
+    publisher = _build_publisher(config, _empty_secrets(), parent_id=None, output_dir_override=override)
+    assert isinstance(publisher, LocalJsonPublisher)
+    assert publisher._output_dir == tmp_path / "from-cli"
+
+
+def test_build_publisher_remote_logs_warning_and_ignores_override(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`--output-dir` against a Confluence-configured run shouldn't crash —
+    it logs a warning and proceeds with the configured publisher. Use the
+    notion publisher (no parent_id preflight needed in the path we're
+    testing — we just need to know the override-with-remote branch logs
+    the warning before any kind-specific failure)."""
+    from iac_cartographer.cli import _build_publisher
+    from iac_cartographer.constants import ConfigError
+    from iac_cartographer.models import AppConfig, NotionConfig, PublisherConfig
+
+    config = AppConfig(
+        publisher=PublisherConfig(kind="notion"),
+        notion=NotionConfig(parent_page_id="abc"),
+    )
+    with caplog.at_level("WARNING"), pytest.raises(ConfigError):
+        # ConfigError is raised because we deliberately didn't load a Notion
+        # secret — but the warning must fire *before* that error.
+        _build_publisher(config, _empty_secrets(), parent_id=None, output_dir_override=str(tmp_path / "ignored"))
+    assert any("--output-dir is ignored" in r.message for r in caplog.records)
+
+
 # ─── --repos argument parsing (#75) ────────────────────────────────────
 
 

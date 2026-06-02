@@ -282,6 +282,14 @@ iac-cartographer --once
 # Restrict to a subset of repos
 iac-cartographer --once --repos acme-org/main-cluster,acme-org/auth-service
 
+# Or from a file — newline-delimited, `#` comments and blank lines ignored.
+iac-cartographer --once --repos @repos.txt
+
+# Override the local publisher output directory for a one-off run without
+# editing the config (markdown / html / json only — ignored for confluence
+# / notion / github_wiki).
+iac-cartographer --once --output-dir ./out
+
 # Use a cheaper model for validation
 iac-cartographer --once --model eu.anthropic.claude-haiku-4-5-20251001-v1:0
 

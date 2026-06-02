@@ -17,6 +17,10 @@ Flags:
                       list from a newline-delimited file (`#` comments
                       and blank lines are ignored) when the list is too
                       large to comfortably paste on the command line.
+  * `--output-dir`  — override the output directory for the local
+                      markdown / html / json publishers (no-op for
+                      remote publishers). Convenient for ad-hoc runs
+                      without editing the config file.
   * `--config`      — config source (`ssm://…` URI or filesystem path).
   * `--verbose`     — DEBUG-level logging.
 
@@ -759,6 +763,7 @@ def _build_publisher(
     secrets: LoadedSecrets,
     *,
     parent_id: str | None,
+    output_dir_override: str | None = None,
 ) -> Publisher:
     """Instantiate the right `Publisher` for `publisher.kind`.
 
@@ -766,11 +771,25 @@ def _build_publisher(
     orchestrator's preflight check. Only the Confluence publisher uses
     it; the Markdown publisher ignores it.
 
+    `output_dir_override` is the `--output-dir` CLI flag value; it
+    redirects the `markdown` / `html` / `json` publishers' output
+    directory regardless of what the config file says. The flag is a no-op
+    for the remote publishers (`confluence` / `notion` / `github_wiki`),
+    so it's logged-and-ignored there rather than rejected — that way a
+    `--once --output-dir ./out --dry-run` exploratory invocation against
+    a Confluence-configured deployment doesn't fail for a flag that
+    wouldn't have done anything anyway.
+
     Adding a new publisher means: extend the `Literal` in
     `PublisherConfig.kind`, implement the subclass in `publishers/`, and
     add a new elif here. Centralised so config + credentials wiring
     lives in one spot."""
     kind = config.publisher.kind
+    if output_dir_override is not None and kind not in {"markdown", "html", "json"}:
+        logger.warning(
+            "--output-dir is ignored for publisher.kind=%s (only markdown/html/json honour it)",
+            kind,
+        )
     if kind == "confluence":
         if parent_id is None:
             # Should never happen — preflight raises ConfigError before
@@ -785,11 +804,11 @@ def _build_publisher(
         client = ConfluenceClient(config.confluence.site, secrets.confluence)
         return ConfluencePublisher(client, config.confluence, parent_id)
     if kind == "markdown":
-        return LocalMarkdownPublisher(output_dir=config.markdown.output_dir)
+        return LocalMarkdownPublisher(output_dir=output_dir_override or config.markdown.output_dir)
     if kind == "html":
-        return LocalHtmlPublisher(output_dir=config.html.output_dir)
+        return LocalHtmlPublisher(output_dir=output_dir_override or config.html.output_dir)
     if kind == "json":
-        return LocalJsonPublisher(output_dir=config.json_output.output_dir)
+        return LocalJsonPublisher(output_dir=output_dir_override or config.json_output.output_dir)
     if kind == "notion":
         if secrets.notion is None:
             raise ConfigError(
@@ -1323,7 +1342,12 @@ async def _run_once_async(args: argparse.Namespace) -> int:
         if args.dry_run:
             logger.info("dry-run: would have published %d pages — skipping publisher + Slack", len(inventories) + 1)
         else:
-            publisher = _build_publisher(config, secrets, parent_id=parent_id)
+            publisher = _build_publisher(
+                config,
+                secrets,
+                parent_id=parent_id,
+                output_dir_override=getattr(args, "output_dir", None),
+            )
             async with publisher:
                 # Publish children first so the overview can link to them.
                 child_page_ids: dict[str, str] = {}
@@ -1510,6 +1534,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "comma-separated list (`acme/a,acme/b`) or `@path/to/file.txt` "
             "to read a newline-delimited list (`#` comments and blank lines "
             "are ignored)."
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help=(
+            "Override the output directory for the markdown / html / json "
+            "publishers. Useful for one-off local runs without editing the "
+            "config file. No effect on the confluence / notion / github_wiki "
+            "publishers (logged-and-ignored)."
         ),
     )
     parser.add_argument(

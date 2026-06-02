@@ -2180,6 +2180,8 @@ to bootstrap <code>&lt;owner&gt;/&lt;repo&gt;.wiki.git</code>.</p>
 </tr>
 </tbody>
 </table>
+<p><code>output_dir</code> can be overridden per-run via the <code>--output-dir PATH</code> CLI
+flag — useful for ad-hoc local runs without editing the config file.</p>
 <h2 id="html"><code>html</code><a class="headerlink" href="#html" title="Permanent link">&para;</a></h2>
 <p>Only honoured when <code>publisher.kind == "html"</code>.</p>
 <table>
@@ -2198,6 +2200,7 @@ to bootstrap <code>&lt;owner&gt;/&lt;repo&gt;.wiki.git</code>.</p>
 </tr>
 </tbody>
 </table>
+<p>Override per-run with <code>--output-dir PATH</code> on the CLI.</p>
 <h2 id="json_output"><code>json_output</code><a class="headerlink" href="#json_output" title="Permanent link">&para;</a></h2>
 <p>Only honoured when <code>publisher.kind == "json"</code>. The canonical YAML key is
 <code>json_output:</code> (also the Python attribute on <code>AppConfig</code>). The pre-1.0
@@ -2220,6 +2223,7 @@ awkwardly with the publisher-format concept and forced an alias hack.</p>
 </tr>
 </tbody>
 </table>
+<p>Override per-run with <code>--output-dir PATH</code> on the CLI.</p>
 <h2 id="slack-legacy-single-channel-deprecated"><code>slack</code> (legacy single-channel — deprecated)<a class="headerlink" href="#slack-legacy-single-channel-deprecated" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

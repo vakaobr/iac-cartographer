@@ -93,6 +93,63 @@ async def test_username_and_avatar_omitted_when_unset() -> None:
     assert "avatar_url" not in body
 
 
+# ── thread_id (#78) ───────────────────────────────────────────────────
+
+
+@respx.mock
+async def test_thread_id_appears_as_query_param_when_set() -> None:
+    """`thread_id` routes the message into a specific Discord thread —
+    Discord's webhook API accepts it as a query parameter on the POST."""
+    route = respx.post(URL).mock(return_value=httpx.Response(204))
+    ch = _channel(thread_id="1234567890123456789")
+    try:
+        await ch.notify(NotificationLevel.INFO, "into the thread")
+    finally:
+        await ch.close()
+
+    assert route.calls.call_count == 1
+    sent_url = route.calls[0].request.url
+    # respx exposes the parsed query string via `.params`.
+    assert sent_url.params.get("thread_id") == "1234567890123456789"
+    # Payload itself is unchanged — `thread_id` is a query param, NOT a body field.
+    body = json.loads(route.calls[0].request.read())
+    assert "thread_id" not in body
+    assert "into the thread" in body["content"]
+
+
+@respx.mock
+async def test_thread_id_absent_when_unset() -> None:
+    """Default behaviour (no `thread_id` configured) posts to the
+    channel's main feed — no query parameter on the URL."""
+    route = respx.post(URL).mock(return_value=httpx.Response(204))
+    ch = _channel()
+    try:
+        await ch.notify(NotificationLevel.INFO, "main feed")
+    finally:
+        await ch.close()
+
+    sent_url = route.calls[0].request.url
+    assert sent_url.params.get("thread_id") is None
+    # Belt-and-braces: the raw URL string has no `?thread_id=` segment either.
+    assert "thread_id" not in str(sent_url)
+
+
+@respx.mock
+async def test_thread_id_combines_with_username_override() -> None:
+    """`thread_id` (query param) and `username` (body field) are
+    orthogonal — both should appear when both are configured."""
+    route = respx.post(URL).mock(return_value=httpx.Response(204))
+    ch = _channel(thread_id="999", username="iac-cartographer (prod)")
+    try:
+        await ch.notify(NotificationLevel.WARN, "hi")
+    finally:
+        await ch.close()
+
+    sent = route.calls[0].request
+    assert sent.url.params.get("thread_id") == "999"
+    assert json.loads(sent.read())["username"] == "iac-cartographer (prod)"
+
+
 @respx.mock
 async def test_content_truncates_at_2000_chars_with_marker() -> None:
     """Discord rejects content > 2000 chars with a 400. We truncate

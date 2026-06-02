@@ -223,6 +223,7 @@ def _build_channel(
             secrets.discord,
             username=getattr(entry, "username", None),
             avatar_url=getattr(entry, "avatar_url", None),
+            thread_id=getattr(entry, "thread_id", None),
         )
 
     if kind == "stdout":

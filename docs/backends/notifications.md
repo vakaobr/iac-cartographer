@@ -78,7 +78,7 @@ area.
 | `sns` | Shipped | AWS SNS topic publish — identity-based (no stored secret). SNS fans downstream to email / SMS / Lambda / SQS / HTTPS / mobile push. |
 | `pagerduty` | Shipped | PagerDuty Events API v2 — triggers incidents via per-Service routing key. Pair with `levels: [error]` for page-on-error. |
 | `opsgenie` | Shipped | Opsgenie Alerts API — `GenieKey` auth, US + EU region split. Level → priority mapping (info=P5, warn=P3, error=P1). |
-| `discord` | Shipped | Discord Incoming Webhook — community / homelab. Unicode-emoji severity prefixes; optional per-message `username` / `avatar_url` overrides. |
+| `discord` | Shipped | Discord Incoming Webhook — community / homelab. Unicode-emoji severity prefixes; optional per-message `username` / `avatar_url` overrides; optional `thread_id` to post into a specific thread. |
 | `stdout` | Shipped | JSON Lines or human-readable text on stdout / stderr — air-gapped + CI friendly. JSONL shares the generic webhook channel's payload schema; text mode emits `[iac-cartographer][LEVEL] message`. No credentials, no HTTP. |
 
 Adding a new channel is small surface area: subclass
@@ -352,6 +352,7 @@ notifications:
   - kind: discord
     username: "iac-cartographer (prod)"     # optional override
     avatar_url: "https://example.com/avatar.png"  # optional override
+    thread_id: "1234567890123456789"        # optional — post into a specific thread
 ```
 
 Credentials live in the `iac-cartographer/discord` secret as
@@ -366,10 +367,20 @@ webhook content.
 
 `content` is capped at 2000 chars (Discord webhook hard limit); long
 messages truncate with a `…` marker so operators see the cut.
+
 `username` and `avatar_url` are optional per-message overrides that
 replace the defaults baked into the webhook by whoever created it —
 useful when one Discord server hosts notifications from multiple
 deployments (per-env or per-tenant identity).
+
+`thread_id` is an optional Discord thread **snowflake** ID. When set,
+messages land inside that specific thread rather than the channel's
+main feed (the webhook URL gains a `?thread_id=<id>` query parameter
+on each POST). To find a thread's snowflake: right-click the thread in
+Discord (with Developer Mode enabled in user settings) → **Copy
+Thread ID**. Common pattern for routing iac-cartographer events into a
+dedicated "automation" or "infra-changes" thread inside a busier
+channel.
 
 ## Stdout / stderr (JSONL)
 

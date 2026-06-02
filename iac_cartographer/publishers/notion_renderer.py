@@ -50,7 +50,7 @@ _SHA_PREFIX = "iac-cartographer SHA: "
 _SHA_RE = re.compile(rf"{re.escape(_SHA_PREFIX)}([0-9a-f]+)")
 
 # Per-page content caps — Notion limits each block's rich-text content
-# to 2000 chars; we truncate aggressively against pathologically long
+# to 2000 chars; we truncate aggressively against pathologically int
 # narrative outputs to stay well-behaved.
 _MAX_BLOCK_CHARS = 1900
 _MAX_LIST_ITEMS = 25

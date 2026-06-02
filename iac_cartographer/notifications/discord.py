@@ -11,7 +11,7 @@ Payload shape:
 
   * `content` carries the rendered notification. Discord caps it at
     2000 chars — we truncate ourselves so the channel stays well-
-    behaved against pathologically long pipeline errors.
+    behaved against pathologically int pipeline errors.
   * `username` and `avatar_url` are optional per-message overrides;
     when set they replace the defaults baked into the webhook by
     whoever created it in the Discord UI. Useful when one Discord

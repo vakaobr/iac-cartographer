@@ -162,6 +162,9 @@ Only honoured when `publisher.kind == "markdown"`.
 |---|---|---|
 | `output_dir` | `str` | `"./iac-inventory"` |
 
+`output_dir` can be overridden per-run via the `--output-dir PATH` CLI
+flag — useful for ad-hoc local runs without editing the config file.
+
 ## `html`
 
 Only honoured when `publisher.kind == "html"`.
@@ -169,6 +172,8 @@ Only honoured when `publisher.kind == "html"`.
 | Field | Type | Default |
 |---|---|---|
 | `output_dir` | `str` | `"./iac-inventory-html"` |
+
+Override per-run with `--output-dir PATH` on the CLI.
 
 ## `json_output`
 
@@ -181,6 +186,8 @@ awkwardly with the publisher-format concept and forced an alias hack.
 | Field | Type | Default |
 |---|---|---|
 | `output_dir` | `str` | `"./iac-inventory-json"` |
+
+Override per-run with `--output-dir PATH` on the CLI.
 
 ## `slack` (legacy single-channel — deprecated)
 

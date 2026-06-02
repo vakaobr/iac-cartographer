@@ -25,6 +25,8 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from iac_cartographer.graph import build_mermaid
+
 if TYPE_CHECKING:
     from iac_cartographer.models import RepoInventory
 
@@ -142,7 +144,13 @@ def compute_sha(payload: object) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:8]
 
 
-def _inventory_input_payload(inv: RepoInventory, *, model_id: str, system_prompt_version: str) -> dict[str, object]:
+def _inventory_input_payload(
+    inv: RepoInventory,
+    *,
+    model_id: str,
+    system_prompt_version: str,
+    max_nodes_per_graph: int = 25,
+) -> dict[str, object]:
     """Change-detection payload for one repo's child page.
 
     Strictly the *inputs* that should trigger a republish — never the LLM
@@ -153,25 +161,55 @@ def _inventory_input_payload(inv: RepoInventory, *, model_id: str, system_prompt
     wording for byte-identical prompts). The model id and prompt version
     are part of the payload so a backend/model swap or a manual prompt
     version bump still force-republishes the world.
+
+    `max_nodes_per_graph` belongs in the payload too: it controls how
+    many Mermaid chunks the page emits, so changing the threshold
+    changes the rendered output even with identical resources. Default
+    matches `GraphConfig.max_nodes_per_graph`.
     """
     return {
         "meta": inv.meta.model_dump(mode="json"),
         "summary": inv.summary.model_dump(mode="json"),
         "model_id": model_id,
         "system_prompt_version": system_prompt_version,
+        "max_nodes_per_graph": max_nodes_per_graph,
     }
 
 
-def compute_inventory_sha(inv: RepoInventory, *, model_id: str, system_prompt_version: str) -> str:
+def compute_inventory_sha(
+    inv: RepoInventory,
+    *,
+    model_id: str,
+    system_prompt_version: str,
+    max_nodes_per_graph: int = 25,
+) -> str:
     """Banner-SHA for a child page. See `_inventory_input_payload`."""
-    return compute_sha(_inventory_input_payload(inv, model_id=model_id, system_prompt_version=system_prompt_version))
+    return compute_sha(
+        _inventory_input_payload(
+            inv,
+            model_id=model_id,
+            system_prompt_version=system_prompt_version,
+            max_nodes_per_graph=max_nodes_per_graph,
+        )
+    )
 
 
-def compute_overview_sha(inventories: list[RepoInventory], *, model_id: str, system_prompt_version: str) -> str:
+def compute_overview_sha(
+    inventories: list[RepoInventory],
+    *,
+    model_id: str,
+    system_prompt_version: str,
+    max_nodes_per_graph: int = 25,
+) -> str:
     """Banner-SHA for the overview page. Hashes the list of per-repo input
     payloads — same exclusion rules as `compute_inventory_sha`."""
     payloads = [
-        _inventory_input_payload(inv, model_id=model_id, system_prompt_version=system_prompt_version)
+        _inventory_input_payload(
+            inv,
+            model_id=model_id,
+            system_prompt_version=system_prompt_version,
+            max_nodes_per_graph=max_nodes_per_graph,
+        )
         for inv in inventories
     ]
     return compute_sha(payloads)
@@ -370,8 +408,15 @@ def build_child(
     sha: str,
     updated_at: datetime,
     pipeline_url: str | None = None,
+    max_nodes_per_graph: int = 25,
 ) -> tuple[str, dict[str, Any]]:
-    """Build one child page for a single `RepoInventory`."""
+    """Build one child page for a single `RepoInventory`.
+
+    `max_nodes_per_graph` controls the chunking threshold for the
+    embedded Mermaid resource-dependency diagram (see `graph.py`). The
+    default matches the `GraphConfig.max_nodes_per_graph` default; the
+    publisher passes the user-configured value when it differs.
+    """
     banner = build_banner(sha, updated_at, pipeline_url)
     content: list[dict[str, Any]] = [
         banner,
@@ -503,6 +548,17 @@ def build_child(
                 ],
             )
         )
+    # Mermaid resource-dependency diagram — provider-grouped, one
+    # `codeBlock` per chunk. Confluence's native Mermaid extension
+    # renders ADF `codeBlock` with `language: "mermaid"` directly; if
+    # an operator's Confluence instance doesn't have the Mermaid app
+    # enabled, the block falls back to a plain code listing (still
+    # useful — they can paste into mermaid.live). Builds an empty list
+    # for repos with zero resources; the loop body is skipped.
+    mermaid_chunks = build_mermaid(inv, max_nodes_per_graph=max_nodes_per_graph)
+    if mermaid_chunks:
+        content.append(_heading(3, "Resource graph"))
+        content.extend(_code_block(chunk, language="mermaid") for chunk in mermaid_chunks)
     if s.inputs:
         content.append(_heading(3, "Inputs"))
         content.append(
@@ -695,6 +751,20 @@ def _table(headers: list[str], rows: list[list[Any]]) -> dict[str, Any]:
         for row in rows
     ]
     return {"type": "table", "content": [header_row, *body_rows]}
+
+
+def _code_block(text: str, *, language: str) -> dict[str, Any]:
+    """ADF `codeBlock` node with a language attr.
+
+    Confluence's Mermaid extension picks up `language: "mermaid"` and
+    renders the diagram inline. Instances without the extension fall
+    back to a plain monospace code listing — still useful, the operator
+    can paste into mermaid.live."""
+    return {
+        "type": "codeBlock",
+        "attrs": {"language": language},
+        "content": [{"type": "text", "text": text}],
+    }
 
 
 def _cell_run(value: Any) -> dict[str, Any]:

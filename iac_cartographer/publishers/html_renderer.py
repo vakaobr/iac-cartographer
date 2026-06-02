@@ -5,17 +5,25 @@ child-link map for the overview), produce a string of HTML. No
 filesystem access here — `LocalHtmlPublisher` owns the file I/O.
 
 Design goals:
-  * **Self-contained files.** All CSS is embedded in a `<style>` block;
-    no external fonts, no JS, no `<link>` tags. The file works opened
-    directly from disk (file://), uploaded to S3 + CloudFront, mailed
-    as an attachment, or printed to PDF.
+  * **Self-contained CSS.** All styling is embedded in a `<style>` block;
+    no external fonts, no `<link>` tags. The file opens directly from
+    disk (file://), uploads to S3 + CloudFront unchanged, mails as an
+    attachment, or prints to PDF.
+  * **No JS unless required.** Pages with no resource graph contain
+    zero scripts (preserved guarantee for inventories of repos without
+    Terraform resources). Pages that DO include a Mermaid resource
+    graph load the Mermaid CDN bundle in `<head>` — that's the only
+    network dependency we accept, and it's gated on `include_mermaid_js`
+    in `_wrap_document`. Operators who can't reach the CDN see the
+    diagram source as a plain `<pre>` block; the rest of the page
+    still renders fully.
   * **Banner-SHA idempotency** matches the Markdown / Confluence
     publishers — a hidden `<meta name="iac-cartographer-sha" ...>` tag
     at the top of every file is what `extract_banner_sha` reads on
     the next run.
   * **Print-friendly.** Audit teams print these. A `@media print` block
     drops the banner background and tightens spacing.
-  * **No external dependencies** — Python's `html.escape` for escaping;
+  * **No Python dependencies** — Python's `html.escape` for escaping;
     everything else is f-strings.
 """
 
@@ -25,6 +33,7 @@ from collections import Counter
 from html import escape
 from typing import TYPE_CHECKING
 
+from iac_cartographer.graph import build_mermaid
 from iac_cartographer.renderer import (
     BANNER_LEAD,
     BANNER_SHA_LABEL,
@@ -127,6 +136,7 @@ def render_child_html(
     sha: str,
     updated_at: datetime,
     pipeline_url: str | None,
+    max_nodes_per_graph: int = 25,
 ) -> str:
     """Return the full HTML text for one repo's child page."""
     meta = inv.meta
@@ -236,6 +246,16 @@ def render_child_html(
         )
         body_parts.append("</tbody></table>")
 
+    # Mermaid resource-dependency graph(s). Each chunk goes into its
+    # own `<pre class="mermaid">` block; the Mermaid CDN script in
+    # `<head>` (toggled by `include_mermaid_js`) walks the DOM at load
+    # and rewrites each block into an inline SVG. No render-time work
+    # in Python — the operator's browser does the diagramming.
+    mermaid_chunks = build_mermaid(inv, max_nodes_per_graph=max_nodes_per_graph)
+    if mermaid_chunks:
+        body_parts.append("<h2>Resource graph</h2>")
+        body_parts.extend(f'<pre class="mermaid">{escape(chunk)}</pre>' for chunk in mermaid_chunks)
+
     if s.inputs:
         body_parts.append("<h2>Inputs</h2>")
         body_parts.append("<table>")
@@ -260,7 +280,12 @@ def render_child_html(
         )
         body_parts.append("</tbody></table>")
 
-    return _wrap_document(title=title, sha=sha, body="\n".join(body_parts))
+    return _wrap_document(
+        title=title,
+        sha=sha,
+        body="\n".join(body_parts),
+        include_mermaid_js=bool(mermaid_chunks),
+    )
 
 
 def render_overview_html(
@@ -365,12 +390,27 @@ def extract_banner_sha(text: str) -> str | None:
 # ─── internals ─────────────────────────────────────────────────────────
 
 
-def _wrap_document(*, title: str, sha: str, body: str) -> str:
+def _wrap_document(*, title: str, sha: str, body: str, include_mermaid_js: bool = False) -> str:
     """Wrap the section markup in the full HTML5 document scaffold.
 
     The SHA goes into both a `<meta>` (machine-readable, for the
     publisher's idempotency check) and an HTML comment (a survival
-    backup if the meta tag ever moves)."""
+    backup if the meta tag ever moves).
+
+    When `include_mermaid_js` is true, the Mermaid CDN bundle is loaded
+    in `<head>` and `mermaid.initialize({startOnLoad: true})` runs at
+    page load — every `<pre class="mermaid">` in the body gets
+    rendered as a diagram. The CDN is pinned to a specific minor for
+    determinism; bump it in sync with whatever syntax the renderer
+    emits (today: `graph TD` + node shapes — supported on every
+    Mermaid 10/11 release).
+    """
+    mermaid_head = (
+        '<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>\n'
+        '<script>document.addEventListener("DOMContentLoaded", () => mermaid.initialize({ startOnLoad: true }));</script>\n'
+        if include_mermaid_js
+        else ""
+    )
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n'
@@ -381,6 +421,7 @@ def _wrap_document(*, title: str, sha: str, body: str) -> str:
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{escape(title)} — iac-cartographer</title>\n"
         f"<style>{_BASE_CSS}</style>\n"
+        f"{mermaid_head}"
         "</head>\n"
         '<body>\n<div class="container">\n'
         f"{body}\n"

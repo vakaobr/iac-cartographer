@@ -223,6 +223,38 @@ def test_compute_inventory_sha_changes_when_backend_type_changes() -> None:
     assert compute_inventory_sha(s3, **_SHA_KWARGS) != compute_inventory_sha(local_b, **_SHA_KWARGS)
 
 
+def test_compute_inventory_sha_changes_when_max_nodes_per_graph_changes() -> None:
+    """Threshold change triggers re-render (different chunk count → different
+    rendered page), so the SHA must invalidate."""
+    inv = _inventory()
+    sha_default = compute_inventory_sha(inv, **_SHA_KWARGS, max_nodes_per_graph=25)
+    sha_overridden = compute_inventory_sha(inv, **_SHA_KWARGS, max_nodes_per_graph=5)
+    assert sha_default != sha_overridden
+
+
+def test_child_page_emits_mermaid_block_when_resources_present() -> None:
+    """Smoke check that the ADF child page actually contains a `codeBlock`
+    with `language: "mermaid"` when the inventory has resources."""
+    inv = _inventory()  # the fixture has 2 resources
+    _, doc = build_child(inv, sha="abcdef12", updated_at=datetime(2026, 6, 2, tzinfo=UTC))
+    code_blocks = [b for b in doc["content"] if b.get("type") == "codeBlock"]
+    assert any(b.get("attrs", {}).get("language") == "mermaid" for b in code_blocks)
+
+
+def test_child_page_omits_mermaid_block_when_no_resources() -> None:
+    """No resources → no graph → no `codeBlock` of language `mermaid`."""
+    from iac_cartographer.models import TerraformSummary
+
+    empty = RepoInventory(
+        meta=_inventory().meta,
+        summary=TerraformSummary(),
+        narrative=_inventory().narrative,
+    )
+    _, doc = build_child(empty, sha="abcdef12", updated_at=datetime(2026, 6, 2, tzinfo=UTC))
+    code_blocks = [b for b in doc["content"] if b.get("type") == "codeBlock"]
+    assert not any(b.get("attrs", {}).get("language") == "mermaid" for b in code_blocks)
+
+
 # ─── build_banner + extract_banner_sha ──────────────────────────────────
 
 

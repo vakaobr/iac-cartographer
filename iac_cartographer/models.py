@@ -311,6 +311,24 @@ from iac_cartographer.secrets.config import SecretsConfig  # noqa: E402
 # ─── Config (assembled from each subsystem's section) ──────────────────────
 
 
+class GraphConfig(_Strict):
+    """Mermaid resource-dependency-graph rendering knobs.
+
+    A single global threshold for now (chunking); follow-up issues
+    (e.g. `depends_on` edge inference) can extend this block without
+    breaking compatibility — every field has a default so omitted
+    YAML sections still validate.
+    """
+
+    # Per-diagram resource-node cap. A single Mermaid diagram with
+    # hundreds of nodes is unreadable; the renderer splits into chunks
+    # of <= this many resources, with whole providers kept together
+    # within a chunk (a single oversized provider ships as its own
+    # chunk rather than splitting its resources). 25 was the threshold
+    # called out on issue #95.
+    max_nodes_per_graph: int = 25
+
+
 class AppConfig(_Strict):
     # `populate_by_name=True` lets the canonical YAML key be `json_output:`
     # while still accepting the deprecated `json:` alias (see the
@@ -370,6 +388,11 @@ class AppConfig(_Strict):
     # opt-in: add a `notifications:` list when you need a second
     # destination, otherwise leave it empty.
     notifications: list[NotificationConfig] = Field(default_factory=list)
+    # `graph:` controls the Mermaid resource-dependency diagram embedded
+    # on each child page. The only knob today is the chunking threshold;
+    # additional knobs (whether to render `depends_on` edges, etc.) can
+    # extend this block in follow-up issues without touching `AppConfig`.
+    graph: GraphConfig = Field(default_factory=lambda: GraphConfig())
 
 
 # Public surface of this module: the shared domain models + `AppConfig`,
@@ -393,6 +416,7 @@ __all__ = [
     "GiteaCredentials",
     "GithubCredentials",
     "GitlabCredentials",
+    "GraphConfig",
     "HtmlConfig",
     "JsonConfig",
     "LLMConfig",

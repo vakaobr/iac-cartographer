@@ -790,6 +790,7 @@ def _build_publisher(
             "--output-dir is ignored for publisher.kind=%s (only markdown/html/json honour it)",
             kind,
         )
+    max_nodes_per_graph = config.graph.max_nodes_per_graph
     if kind == "confluence":
         if parent_id is None:
             # Should never happen — preflight raises ConfigError before
@@ -802,11 +803,17 @@ def _build_publisher(
                 "(check the iac-cartographer/confluence secret)"
             )
         client = ConfluenceClient(config.confluence.site, secrets.confluence)
-        return ConfluencePublisher(client, config.confluence, parent_id)
+        return ConfluencePublisher(client, config.confluence, parent_id, max_nodes_per_graph=max_nodes_per_graph)
     if kind == "markdown":
-        return LocalMarkdownPublisher(output_dir=output_dir_override or config.markdown.output_dir)
+        return LocalMarkdownPublisher(
+            output_dir=output_dir_override or config.markdown.output_dir,
+            max_nodes_per_graph=max_nodes_per_graph,
+        )
     if kind == "html":
-        return LocalHtmlPublisher(output_dir=output_dir_override or config.html.output_dir)
+        return LocalHtmlPublisher(
+            output_dir=output_dir_override or config.html.output_dir,
+            max_nodes_per_graph=max_nodes_per_graph,
+        )
     if kind == "json":
         return LocalJsonPublisher(output_dir=output_dir_override or config.json_output.output_dir)
     if kind == "notion":
@@ -831,6 +838,7 @@ def _build_publisher(
             repo=config.github_wiki.repo,
             commit_author_name=config.github_wiki.commit_author_name,
             commit_author_email=config.github_wiki.commit_author_email,
+            max_nodes_per_graph=max_nodes_per_graph,
         )
     raise ConfigError(f"unknown publisher.kind: {kind!r}")
 
@@ -1356,6 +1364,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                         inv,
                         model_id=config.llm.model_id,
                         system_prompt_version=config.llm.system_prompt_version,
+                        max_nodes_per_graph=config.graph.max_nodes_per_graph,
                     )
                     try:
                         result = await publisher.publish_child(
@@ -1378,6 +1387,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                     inventories,
                     model_id=config.llm.model_id,
                     system_prompt_version=config.llm.system_prompt_version,
+                    max_nodes_per_graph=config.graph.max_nodes_per_graph,
                 )
                 try:
                     overview_result = await publisher.publish_overview(

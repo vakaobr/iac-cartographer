@@ -289,7 +289,7 @@ def test_overview_bullets_alphabetically_sorted() -> None:
 def test_text_helper_truncates_content_above_1900_chars() -> None:
     """Notion caps each block's text at 2000 chars; the renderer
     truncates aggressively at 1900 so the API doesn't reject
-    pathologically long content. Test the helper directly — no
+    pathologically int content. Test the helper directly — no
     BedrockNarrative field allows > 1900 chars (purpose is capped
     at 600 by the model), so a render-path test couldn't reach
     this branch."""

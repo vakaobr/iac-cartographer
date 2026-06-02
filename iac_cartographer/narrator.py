@@ -82,8 +82,8 @@ def summarize(
     config: BedrockConfig,
     backend: LLMBackend,
 ) -> tuple[BedrockNarrative | None, int, int]:
-    """Invoke the configured LLM backend; return (narrative-or-None,
-    tokens_in, tokens_out).
+    """Invoke the configured LLM backend; return narrative-or-None,
+    tokens_in, tokens_out.
 
     Never raises — backend errors (throttling, auth, network) are caught
     and surfaced as `(None, 0, 0)` so the orchestrator continues with the

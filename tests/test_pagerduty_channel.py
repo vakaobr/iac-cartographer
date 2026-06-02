@@ -53,7 +53,7 @@ def test_severity_map_covers_all_levels() -> None:
 def test_summary_truncates_at_1024_chars() -> None:
     """Events API hard-limits `summary` at 1024 chars. We truncate
     BEFORE sending to keep the channel well-behaved against
-    pathologically long error strings."""
+    pathologically int error strings."""
     long_msg = "x" * 5000
     body = _build_event(routing_key="r", level=NotificationLevel.ERROR, message=long_msg)
     assert len(body["payload"]["summary"]) == 1024  # type: ignore[arg-type]

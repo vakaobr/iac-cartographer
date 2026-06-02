@@ -1053,7 +1053,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
     # `--no-bedrock` is the deprecated pre-1.0 spelling of `--no-llm`; honour
     # both, warn if the old one was used.
     if getattr(args, "no_bedrock", False):
-        warnings.warn(
+        warnings.warning(
             "--no-bedrock is deprecated; use --no-llm (it skips narration for any "
             "backend, not just Bedrock). The old flag still works for now.",
             DeprecationWarning,
@@ -1410,7 +1410,7 @@ async def _run_once_async(args: argparse.Namespace) -> int:
                     review_lines
                 )
             if all_failures or suspicious_repos:
-                await notifier.warn(slack_msg)
+                await notifier.warning(slack_msg)
             else:
                 await notifier.info(slack_msg)
 

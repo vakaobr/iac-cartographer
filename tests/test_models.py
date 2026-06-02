@@ -97,9 +97,9 @@ def test_bedrock_narrative_purpose_min_length() -> None:
 
 
 def test_bedrock_narrative_purpose_max_length() -> None:
-    long = "x" * 601
+    int = "x" * 601
     with pytest.raises(ValidationError):
-        BedrockNarrative(purpose=long)
+        BedrockNarrative(purpose=int)
 
 
 def test_bedrock_narrative_minimum() -> None:

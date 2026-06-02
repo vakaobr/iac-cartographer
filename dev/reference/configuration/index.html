@@ -1388,6 +1388,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#live_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        live_state
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#slack-legacy-single-channel-deprecated" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1699,6 +1710,17 @@
     <span class="md-ellipsis">
       
         graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#live_state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        live_state
       
     </span>
   </a>
@@ -2373,6 +2395,89 @@ files render too.</p>
 <p>Changing the threshold invalidates banner-SHAs (the rendered chunk
 count is part of the page input), so the next run republishes every
 page. Tune it once and leave it.</p>
+<h2 id="live_state"><code>live_state</code><a class="headerlink" href="#live_state" title="Permanent link">&para;</a></h2>
+<p>Read-only overlay that layers external workspace info (Terraform Cloud
+/ HCP Terraform / Terraform Enterprise) onto each repo's rendered
+page — current run status, last successful apply, drift, live
+resource count — plus a <code>warn</code>-level notification for any workspace
+that's been in <code>errored</code> state longer than the staleness threshold.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend</code></td>
+<td><code>"none" \| "tfc"</code></td>
+<td><code>"none"</code></td>
+<td>No-op default; flip to <code>tfc</code> to enable the TFC / HCP / TFE overlay.</td>
+</tr>
+<tr>
+<td><code>organization</code></td>
+<td><code>str</code></td>
+<td><code>""</code></td>
+<td>TFC / HCP / TFE organisation name. Required when <code>backend != "none"</code>.</td>
+</tr>
+<tr>
+<td><code>hostname</code></td>
+<td><code>str</code></td>
+<td><code>"app.terraform.io"</code></td>
+<td>API hostname. Covers TFC + HCP Terraform with the default; override for self-hosted Terraform Enterprise (e.g. <code>tfe.acme.internal</code>).</td>
+</tr>
+<tr>
+<td><code>workspace_mapping</code></td>
+<td><code>list[{repo, workspace}]</code></td>
+<td><code>[]</code></td>
+<td>Explicit per-repo → per-workspace mappings; both fields are <code>fnmatch</code>-style patterns, first-match wins. Empty falls back to the default heuristic (workspace name = last <code>/</code> segment of <code>repo.full_name</code>).</td>
+</tr>
+<tr>
+<td><code>staleness.enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Toggle stale failed-apply alerts.</td>
+</tr>
+<tr>
+<td><code>staleness.threshold_days</code></td>
+<td><code>int</code></td>
+<td><code>2</code></td>
+<td>Days a workspace must sit in <code>errored</code> state before an alert fires.</td>
+</tr>
+<tr>
+<td><code>staleness.acknowledged_stale</code></td>
+<td><code>list[str]</code></td>
+<td><code>[]</code></td>
+<td><code>fnmatch</code> patterns matched against workspace names to mute alerts (deferred work, decommissioning queue).</td>
+</tr>
+</tbody>
+</table>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">live_state</span><span class="p">:</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tfc</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">organization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">acme-org</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">workspace_mapping</span><span class="p">:</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;acme-org/prod-*&quot;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">workspace</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;prod-app&quot;</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">staleness</span><span class="p">:</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">threshold_days</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">acknowledged_stale</span><span class="p">:</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;legacy-*&quot;</span>
+</span></code></pre></div>
+<p>Requires the <code>iac-cartographer/tfc</code> secret as <code>{"token": "..."}</code> — a
+read-scoped team or user API token; the overlay only ever issues GETs.</p>
+<p>The overlay's data is <strong>excluded from the banner-SHA</strong> by design —
+workspace state changes between iac-cartographer runs without any
+change to the repo being indexed, and we don't want every page
+republished on every run for that reason. The page reads as
+ephemeral status, not "did the repo's structural facts change?".</p>
+<p>Stale-apply alerts route through the configured <code>notifications:</code>
+channels at <code>warn</code> level; an alert fires only when the most-recent
+apply attempt errored, no newer apply is in flight (operator is on
+it), and the workspace isn't matched by <code>acknowledged_stale</code>.</p>
 <h2 id="slack-legacy-single-channel-deprecated"><code>slack</code> (legacy single-channel — deprecated)<a class="headerlink" href="#slack-legacy-single-channel-deprecated" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2396,9 +2501,9 @@ at all three severities. Existing single-Slack deployments keep
 working — but this path is <strong>deprecated</strong> as of the 1.0 track and
 emits a <code>DeprecationWarning</code>; it will be removed in 2.0. Migrate to an
 explicit <code>notifications:</code> list with a <code>kind: slack</code> entry:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">notifications</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span><span class="w">   </span><span class="c1"># same channel, now explicit</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#alerts&quot;</span><span class="w">   </span><span class="c1"># same channel, now explicit</span>
 </span></code></pre></div>
 <h2 id="notifications-multi-channel-preferred"><code>notifications</code> (multi-channel — preferred)<a class="headerlink" href="#notifications-multi-channel-preferred" title="Permanent link">&para;</a></h2>
 <p>A list of channel entries. Each entry has a <code>kind</code> discriminator
@@ -2466,14 +2571,14 @@ and channel-specific config; every entry carries an optional
 </tbody>
 </table>
 <p>Example with three channels:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">notifications</span><span class="p">:</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#infra-info&quot;</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="c1"># levels defaults to [info, warn, error]</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">teams</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                    </span><span class="c1"># pager-style escalation</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">stream</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stderr</span><span class="w">                     </span><span class="c1"># CI log capture</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">notifications</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">slack</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="nt">channel</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;#infra-info&quot;</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="c1"># levels defaults to [info, warn, error]</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">teams</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">levels</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">error</span><span class="p p-Indicator">]</span><span class="w">                    </span><span class="c1"># pager-style escalation</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stdout</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">    </span><span class="nt">stream</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stderr</span><span class="w">                     </span><span class="c1"># CI log capture</span>
 </span></code></pre></div>
 <p>Dispatcher behaviour:</p>
 <ul>

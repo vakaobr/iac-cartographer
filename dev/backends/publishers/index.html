@@ -515,6 +515,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#what-appears-on-a-rendered-child-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What appears on a rendered child page
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#confluence" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1463,6 +1474,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#what-appears-on-a-rendered-child-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What appears on a rendered child page
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#confluence" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1685,18 +1707,42 @@
 </tr>
 <tr>
 <td><code>html</code></td>
-<td>You want <strong>self-contained HTML files</strong> with no build step — open in a browser, zip-and-email to a stakeholder, upload to S3 + CloudFront / GitHub Pages, print to PDF for an audit. Embedded CSS, no JS, no external fonts.</td>
+<td>You want <strong>self-contained HTML files</strong> with no build step — open in a browser, zip-and-email to a stakeholder, upload to S3 + CloudFront / GitHub Pages, print to PDF for an audit. Embedded CSS, no JS unless a resource graph is present (Mermaid CDN).</td>
 </tr>
 <tr>
 <td><code>json</code></td>
 <td>You want a <strong>machine-readable feed</strong> for Backstage catalog imports, internal CMDBs, dashboards, or custom drift-detection tooling. <code>index.json</code> carries one row per repo + aggregates; per-repo files carry the full inventory.</td>
 </tr>
+<tr>
+<td><code>notion</code></td>
+<td>You already have Notion; you want the inventory as sub-pages under a parent you control. Compact bullet-list style (no tables).</td>
+</tr>
+<tr>
+<td><code>github_wiki</code></td>
+<td>You want the inventory committed to a repo's wiki — searchable via GitHub's search, accessible to anyone with repo read.</td>
+</tr>
 </tbody>
 </table>
-<p>All four use the same banner-SHA idempotency contract: on the next run
-we compare the embedded SHA against the freshly-computed value and skip
-the write when they match. Repos that change get rewritten; repos that
-don't, don't.</p>
+<p>All publishers use the same banner-SHA idempotency contract: on the next
+run we compare the embedded SHA against the freshly-computed value and
+skip the write when they match. Repos that change get rewritten; repos
+that don't, don't.</p>
+<h2 id="what-appears-on-a-rendered-child-page">What appears on a rendered child page<a class="headerlink" href="#what-appears-on-a-rendered-child-page" title="Permanent link">&para;</a></h2>
+<p>The per-repo deep-dive page is the same shape across every publisher
+(allowing for format-specific rendering — tables in Confluence /
+Markdown / HTML, bullet lists in Notion):</p>
+<ol>
+<li><strong>Banner-SHA callout</strong> — idempotency anchor + "auto-generated, do not edit" warning + the timestamp of the run.</li>
+<li><strong>Purpose</strong> — one-paragraph LLM narrative explaining what the repo provisions (placeholder when <code>--no-llm</code> was passed).</li>
+<li><strong>Environments</strong> / <strong>Owning team (guess)</strong> / <strong>Notable patterns</strong> — additional LLM-derived sections when available.</li>
+<li><strong>Module layout</strong> — relative paths of every directory containing <code>*.tf</code> files (multi-module repos surface their <code>env/dev</code> + <code>env/prod</code> shape here).</li>
+<li><strong>State backend</strong> <em>(since 1.0)</em> — backend type (<code>s3</code> / <code>gcs</code> / <code>azurerm</code> / <code>remote</code> / <code>local</code> / etc.) plus precomputed posture signals: encryption status, KMS / customer-managed key, state locking (DynamoDB / <code>use_lockfile</code> / native), auth method. <code>local</code> backends surface a <code>[CRIT]</code> signal — see the <code>iac_cartographer.state_backend</code> module for the full per-type checklist.</li>
+<li><strong>Providers</strong> / <strong>Modules</strong> / <strong>Resources by type</strong> — structural facts from terraform-docs.</li>
+<li><strong>Resource graph</strong> <em>(since 1.0)</em> — a Mermaid <code>graph TD</code> diagram with provider nodes (stadium shape) and resource nodes (rectangles), grouped by provider via explicit edges. Chunked into multiple diagrams when the resource count exceeds <code>graph.max_nodes_per_graph</code> (default 25). Confluence + GitHub-flavoured Markdown render Mermaid natively; the HTML publisher loads the Mermaid CDN bundle in <code>&lt;head&gt;</code> only when a graph is present.</li>
+<li><strong>Inputs</strong> / <strong>Outputs</strong> — terraform-docs-derived variable + output tables.</li>
+</ol>
+<p>The overview page lists every repo with cross-links to its child page,
+plus aggregate stats (top providers, total resource count, etc.).</p>
 <h2 id="confluence">Confluence<a class="headerlink" href="#confluence" title="Permanent link">&para;</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">publisher</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">confluence</span>
@@ -1705,8 +1751,10 @@ don't, don't.</p>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">site</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;acme.atlassian.net&quot;</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">space_key</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;DOCS&quot;</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">parent_page_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;123456789&quot;</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="c1"># or, for AWS deployments that store the ID in SSM:</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="c1"># parent_page_id_ssm_path: &quot;/iac-cartographer/confluence-parent-id&quot;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="c1"># or, for backend-stored references (AWS SSM path / Vault path / env var):</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="c1"># parent_page_id_ref: &quot;/iac-cartographer/confluence-parent-id&quot;</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="c1"># (pre-1.0 spelling `parent_page_id_ssm_path` still works for the 1.x line —</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="c1">#  deprecated; removed in 2.0)</span>
 </span></code></pre></div>
 <p>Requires the <code>iac-cartographer/confluence</code> secret:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span><span class="nt">&quot;email&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bot@example.com&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;api_token&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ATATT...&quot;</span><span class="p">}</span>

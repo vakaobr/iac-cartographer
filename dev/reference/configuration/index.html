@@ -1189,6 +1189,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#10-api-stability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.0 API stability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#top-level-shape" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1207,6 +1218,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Deprecations (pre-1.0 → 1.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-config-naming-intentionally-kept-distinct" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI ↔ config naming intentionally kept distinct
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1479,6 +1507,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#10-api-stability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.0 API stability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#top-level-shape" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1497,6 +1536,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Deprecations (pre-1.0 → 1.0)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli-config-naming-intentionally-kept-distinct" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI ↔ config naming intentionally kept distinct
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1702,6 +1758,23 @@ lives in <a href="https://github.com/vakaobr/iac-cartographer/blob/main/iac_cart
 this page tracks it.</p>
 <p>For a working example with every field commented, see
 <a href="https://github.com/vakaobr/iac-cartographer/blob/main/examples/config.example.yaml"><code>examples/config.example.yaml</code></a>.</p>
+<h2 id="10-api-stability">1.0 API stability<a class="headerlink" href="#10-api-stability" title="Permanent link">&para;</a></h2>
+<p><strong>Every YAML key and CLI flag documented on this page is part of the
+1.0 stable surface unless explicitly listed in the <a href="#deprecations-pre-10--10">Deprecations</a>
+table below.</strong> That means:</p>
+<ul>
+<li>Renaming any of them post-1.0 requires a deliberate major version
+  bump (2.0), with an alias kept for at least the full 1.x line.</li>
+<li>Adding new YAML keys / CLI flags / <code>notifications[].kind</code> values
+  is additive and lands in any minor (1.x) release.</li>
+<li>Validation is strict (Pydantic <code>extra="forbid"</code>): an unknown key in
+  config fails loud rather than silently ignored — so you can't
+  accidentally rely on a key the schema doesn't actually expose.</li>
+</ul>
+<p>The pre-1.0 aliases below still work through every 1.x release; they
+are <strong>removed in 2.0</strong>. Migrate at any time during the 1.x window —
+all aliases emit a <code>DeprecationWarning</code> so you can grep your logs for
+them.</p>
 <h2 id="top-level-shape">Top-level shape<a class="headerlink" href="#top-level-shape" title="Permanent link">&para;</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">discovery</span><span class="p">:</span><span class="w">     </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># where to find repos</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">secrets</span><span class="p">:</span><span class="w">       </span><span class="p p-Indicator">{</span><span class="nv">...</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># where credentials + opaque parameters come from</span>
@@ -1726,9 +1799,11 @@ alias so the migration is non-breaking.</p>
 <table>
 <thead>
 <tr>
-<th>Deprecated</th>
+<th>Deprecated form</th>
 <th>Replace with</th>
 <th>Where</th>
+<th>Deprecated since</th>
+<th>Removed in</th>
 </tr>
 </thead>
 <tbody>
@@ -1736,24 +1811,46 @@ alias so the migration is non-breaking.</p>
 <td><code>json:</code> (YAML key)</td>
 <td><code>json_output:</code></td>
 <td>top-level config section</td>
+<td>pre-1.0</td>
+<td>2.0</td>
 </tr>
 <tr>
 <td><code>confluence.parent_page_id_ssm_path</code></td>
 <td><code>confluence.parent_page_id_ref</code></td>
 <td><code>confluence</code> section</td>
+<td>pre-1.0</td>
+<td>2.0</td>
 </tr>
 <tr>
-<td>legacy <code>slack:</code> block + empty <code>notifications:</code></td>
+<td>legacy <code>slack:</code> block with empty <code>notifications:</code></td>
 <td>a <code>notifications:</code> list with a <code>kind: slack</code> entry</td>
-<td>notifications</td>
+<td>notification dispatch</td>
+<td>pre-1.0</td>
+<td>2.0</td>
 </tr>
 <tr>
 <td><code>--no-bedrock</code> (CLI flag)</td>
 <td><code>--no-llm</code></td>
 <td>command line</td>
+<td>pre-1.0</td>
+<td>2.0</td>
 </tr>
 </tbody>
 </table>
+<h3 id="cli-config-naming-intentionally-kept-distinct">CLI ↔ config naming intentionally kept distinct<a class="headerlink" href="#cli-config-naming-intentionally-kept-distinct" title="Permanent link">&para;</a></h3>
+<p>A note on <code>--model</code> and <code>llm.model_id</code>: the CLI flag is short
+(matches the conventional <code>--model</code> shorthand other tools use); the
+YAML key is the field shape the schema documents
+(<code>llm.model_id: str</code>). They name the same value but live in different
+surfaces — neither is "wrong" or "deprecated". <code>--model</code> overrides
+<code>llm.model_id</code> for the current invocation only and applies to whichever
+backend is active, not just Bedrock.</p>
+<p>The pre-1.0 <code>bedrock.model_id</code> YAML key was renamed to <code>llm.model_id</code>
+when the codebase grew beyond Bedrock — the <code>bedrock:</code> block name had
+already been renamed to <code>llm:</code> pre-1.0, so anyone migrating from an
+ancient config touches both renames in the same pass. No alias for
+the section name; <code>extra="forbid"</code> rejects a stray <code>bedrock:</code> block
+with a clear error.</p>
 <h2 id="discovery"><code>discovery</code><a class="headerlink" href="#discovery" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2359,12 +2456,12 @@ and channel-specific config; every entry carries an optional
 <tr>
 <td><code>discord</code></td>
 <td><code>iac-cartographer/discord</code> URL</td>
-<td><code>username: str \| None</code>, <code>avatar_url: str \| None</code></td>
+<td><code>username: str \| None</code>, <code>avatar_url: str \| None</code>, <code>thread_id: str \| None</code> <em>(post into a specific thread)</em></td>
 </tr>
 <tr>
 <td><code>stdout</code></td>
 <td>none</td>
-<td><code>stream: "stdout" \| "stderr"</code> <em>(default <code>"stdout"</code>)</em></td>
+<td><code>stream: "stdout" \| "stderr"</code> <em>(default <code>"stdout"</code>)</em>, <code>format: "jsonl" \| "text"</code> <em>(default <code>"jsonl"</code>)</em></td>
 </tr>
 </tbody>
 </table>

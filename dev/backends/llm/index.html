@@ -1880,10 +1880,11 @@ that adds bearer-token / mTLS auth, pass the headers via
 </tbody>
 </table>
 <h2 id="skipping-the-llm-entirely">Skipping the LLM entirely<a class="headerlink" href="#skipping-the-llm-entirely" title="Permanent link">&para;</a></h2>
-<p><code>--no-bedrock</code> (named historically; it applies to either backend) swaps
-in a placeholder narrative for every repo:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>iac-cartographer<span class="w"> </span>--once<span class="w"> </span>--no-bedrock<span class="w"> </span>--config<span class="w"> </span>/path/to/config.yaml
+<p><code>--no-llm</code> swaps in a placeholder narrative for every repo:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>iac-cartographer<span class="w"> </span>--once<span class="w"> </span>--no-llm<span class="w"> </span>--config<span class="w"> </span>/path/to/config.yaml
 </span></code></pre></div>
+<p>(The pre-1.0 spelling <code>--no-bedrock</code> still works for the 1.x line; see
+the <a href="../../reference/configuration/#deprecations-pre-10--10">Deprecations table</a>.)</p>
 <p>Useful for:</p>
 <ul>
 <li><strong>Dry-run validation</strong> of discovery + extraction + publishing without
@@ -1892,7 +1893,7 @@ in a placeholder narrative for every repo:</p>
   still carry every structural fact (providers, modules, resources,
   inputs, outputs) — just with a placeholder where the prose would be.</li>
 <li><strong>The bundled demo</strong> (see <a href="../../quickstart/">Quick start</a>) — runs
-  <code>--no-bedrock</code> so no API keys are needed.</li>
+  <code>--no-llm</code> so no API keys are needed.</li>
 </ul>
 <p>The narrator also short-circuits to a placeholder on a real Bedrock /
 Anthropic failure (rate limit, validation error, prompt-injection

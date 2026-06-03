@@ -697,7 +697,7 @@ def test_check_live_state_terrakube_ok_reports_hostname() -> None:
     )
     assert r.status == Status.OK
     assert "terrakube" in r.detail and "acme" in r.detail
-    assert "terrakube.example.com" in r.detail
+    assert "hostname=terrakube.example.com" in r.detail
 
 
 def test_check_secrets_required_terrakube_active_when_live_state_backend_is_terrakube() -> None:

@@ -10,6 +10,13 @@ Going forward, entries are generated automatically by
 [Conventional Commits](https://www.conventionalcommits.org/) on `main`. The
 section below records everything that shipped before automation was wired up.
 
+## [1.2.0](https://github.com/vakaobr/iac-cartographer/compare/v1.1.0...v1.2.0) (2026-06-03)
+
+
+### Added
+
+* **overlays:** Terrakube live-state overlay ([#99](https://github.com/vakaobr/iac-cartographer/issues/99)) ([#123](https://github.com/vakaobr/iac-cartographer/issues/123)) ([45e3d3f](https://github.com/vakaobr/iac-cartographer/commit/45e3d3f7e77367a45e48f74587216ca379f895a5))
+
 ## [1.1.0](https://github.com/vakaobr/iac-cartographer/compare/v1.0.0...v1.1.0) (2026-06-02)
 
 

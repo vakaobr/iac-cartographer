@@ -338,6 +338,8 @@
       
         
       
+        
+      
     
     
     
@@ -754,6 +756,34 @@
     
   
     Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../terrakube/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terrakube live-state overlay
   
 
     
@@ -1737,7 +1767,7 @@ Markdown / HTML, bullet lists in Notion):</p>
 <li><strong>Environments</strong> / <strong>Owning team (guess)</strong> / <strong>Notable patterns</strong> — additional LLM-derived sections when available.</li>
 <li><strong>Module layout</strong> — relative paths of every directory containing <code>*.tf</code> files (multi-module repos surface their <code>env/dev</code> + <code>env/prod</code> shape here).</li>
 <li><strong>State backend</strong> <em>(since 1.0)</em> — backend type (<code>s3</code> / <code>gcs</code> / <code>azurerm</code> / <code>remote</code> / <code>local</code> / etc.) plus precomputed posture signals: encryption status, KMS / customer-managed key, state locking (DynamoDB / <code>use_lockfile</code> / native), auth method. <code>local</code> backends surface a <code>[CRIT]</code> signal — see the <code>iac_cartographer.state_backend</code> module for the full per-type checklist.</li>
-<li><strong>Live state</strong> <em>(since 1.1, optional)</em> — present only when <code>live_state.backend != "none"</code>. Workspace name + URL, current run status, last successful apply timestamp, drift, live resource count (with a <code>⚠ declared=N</code> divergence marker when the platform-reported count doesn't match what terraform-docs parsed). Backed by the read-only Terraform Cloud / HCP / TFE overlay (<code>iac_cartographer.overlays.live_state</code>). Excluded from the banner-SHA so external state changes don't republish the page on every run.</li>
+<li><strong>Live state</strong> <em>(since 1.1, optional)</em> — present only when <code>live_state.backend != "none"</code>. Workspace name + URL, current run status, last successful apply timestamp, drift, live resource count (with a <code>⚠ declared=N</code> divergence marker when the platform-reported count doesn't match what terraform-docs parsed). Backed by the read-only <code>iac_cartographer.overlays.live_state</code> overlay — currently with <a href="../../reference/configuration/#live_state">Terraform Cloud / HCP / TFE</a> and <a href="../terrakube/">Terrakube</a> backends. Excluded from the banner-SHA so external state changes don't republish the page on every run.</li>
 <li><strong>Providers</strong> / <strong>Modules</strong> / <strong>Resources by type</strong> — structural facts from terraform-docs.</li>
 <li><strong>Resource graph</strong> <em>(since 1.0)</em> — a Mermaid <code>graph TD</code> diagram with provider nodes (stadium shape) and resource nodes (rectangles), grouped by provider via explicit edges. Chunked into multiple diagrams when the resource count exceeds <code>graph.max_nodes_per_graph</code> (default 25). Confluence + GitHub-flavoured Markdown render Mermaid natively; the HTML publisher loads the Mermaid CDN bundle in <code>&lt;head&gt;</code> only when a graph is present.</li>
 <li><strong>Inputs</strong> / <strong>Outputs</strong> — terraform-docs-derived variable + output tables.</li>

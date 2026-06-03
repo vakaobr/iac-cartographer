@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://iac-cartographer.andersonleite.me/dev/operations/observability/">
+        <link rel="canonical" href="https://iac-cartographer.andersonleite.me/dev/backends/terrakube/">
       
       
-        <link rel="prev" href="../releases/">
+        <link rel="prev" href="../notifications/">
       
       
-        <link rel="next" href="../docs-deploy/">
+        <link rel="next" href="../../operations/runtime/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Observability (logs + metrics) - iac-cartographer</title>
+        <title>Terrakube live-state overlay - iac-cartographer</title>
       
     
     
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#observability" class="md-skip">
+        <a href="#live-state-overlay-terrakube" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Observability (logs + metrics)
+              Terrakube live-state overlay
             
           </span>
         </div>
@@ -317,6 +317,8 @@
       
   
   
+    
+  
   
   
     
@@ -324,260 +326,6 @@
       
         
           
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-        
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
-        
-          
-          <div class="md-nav__link md-nav__container">
-            <a href="../../backends/" class="md-nav__link ">
-              
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Backends
-  
-
-    
-  </span>
-  
-  
-
-            </a>
-            
-              
-              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
-                <span class="md-nav__icon md-icon"></span>
-              </label>
-            
-          </div>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Backends
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../backends/discovery/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Discovery sources
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../backends/llm/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    LLM providers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../backends/publishers/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Publishers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../backends/secrets/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Secrets providers
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../backends/notifications/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Notifications
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../backends/terrakube/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Terrakube live-state overlay
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-    
-  
-  
-  
-    
-    
-      
         
       
         
@@ -605,17 +353,18 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
     
   
-    Operations
+    Backends
   
 
     
@@ -623,35 +372,43 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Operations
+    Backends
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
               
+            
+              
                 
   
   
   
   
     <li class="md-nav__item">
-      <a href="../runtime/" class="md-nav__link">
+      <a href="../discovery/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Running on a schedule
+    Discovery sources
   
 
     
@@ -672,14 +429,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../diagnose/" class="md-nav__link">
+      <a href="../llm/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Pre-flight self-test (--diagnose)
+    LLM providers
   
 
     
@@ -700,14 +457,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../diff/" class="md-nav__link">
+      <a href="../publishers/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Between-run diff (--diff)
+    Publishers
   
 
     
@@ -728,14 +485,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../lint/" class="md-nav__link">
+      <a href="../secrets/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Lint mode (--lint)
+    Secrets providers
   
 
     
@@ -756,14 +513,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../releases/" class="md-nav__link">
+      <a href="../notifications/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Cutting a release
+    Notifications
   
 
     
@@ -800,7 +557,7 @@
   <span class="md-ellipsis">
     
   
-    Observability (logs + metrics)
+    Terrakube live-state overlay
   
 
     
@@ -818,7 +575,7 @@
   <span class="md-ellipsis">
     
   
-    Observability (logs + metrics)
+    Terrakube live-state overlay
   
 
     
@@ -844,44 +601,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#structured-json-logging" class="md-nav__link">
+  <a href="#setup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Structured JSON logging
+        Setup
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#opentelemetry-metrics-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenTelemetry metrics (optional)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="OpenTelemetry metrics (optional)">
+    <nav class="md-nav" aria-label="Setup">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#metrics-emitted" class="md-nav__link">
+  <a href="#credential" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Metrics emitted
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rollback" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rollback
+        Credential
       
     </span>
   </a>
@@ -890,6 +625,61 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-overlay-surfaces-on-each-child-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the overlay surfaces on each child page
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stale-failed-apply-alerts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale failed-apply alerts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#-diagnose-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --diagnose integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#version-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations-vs-the-tfc-overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations vs the TFC overlay
+      
+    </span>
+  </a>
   
 </li>
       
@@ -902,6 +692,81 @@
 
               
             
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operations
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operations
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
               
                 
   
@@ -909,7 +774,175 @@
   
   
     <li class="md-nav__item">
-      <a href="../docs-deploy/" class="md-nav__link">
+      <a href="../../operations/runtime/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running on a schedule
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/diagnose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pre-flight self-test (--diagnose)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/diff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Between-run diff (--diff)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/lint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lint mode (--lint)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/releases/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cutting a release
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability (logs + metrics)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../operations/docs-deploy/" class="md-nav__link">
         
   
   
@@ -1366,44 +1399,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#structured-json-logging" class="md-nav__link">
+  <a href="#setup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Structured JSON logging
+        Setup
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#opentelemetry-metrics-optional" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        OpenTelemetry metrics (optional)
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="OpenTelemetry metrics (optional)">
+    <nav class="md-nav" aria-label="Setup">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#metrics-emitted" class="md-nav__link">
+  <a href="#credential" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Metrics emitted
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#rollback" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Rollback
+        Credential
       
     </span>
   </a>
@@ -1412,6 +1423,61 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-the-overlay-surfaces-on-each-child-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the overlay surfaces on each child page
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stale-failed-apply-alerts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stale failed-apply alerts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#-diagnose-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --diagnose integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#version-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Version compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations-vs-the-tfc-overlay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations vs the TFC overlay
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1432,7 +1498,7 @@
 
 
   
-    <a href="https://github.com/vakaobr/iac-cartographer/edit/main/docs/operations/observability.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/vakaobr/iac-cartographer/edit/main/docs/backends/terrakube.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1440,82 +1506,157 @@
   
 
 
-<h1 id="observability">Observability<a class="headerlink" href="#observability" title="Permanent link">&para;</a></h1>
-<p>iac-cartographer runs as a scheduled batch job, so its observability surface
-is built for "did the last run succeed, how long did it take, what did it
-cost" — not request-rate dashboards. Two opt-in mechanisms cover non-AWS
-deployments without changing the defaults.</p>
-<h2 id="structured-json-logging">Structured JSON logging<a class="headerlink" href="#structured-json-logging" title="Permanent link">&para;</a></h2>
-<p>By default, logs are human-readable text. Set <code>IAC_CARTOGRAPHER_LOG_FORMAT=json</code>
-to emit one JSON object per log line instead — suitable for shipping to Loki,
-CloudWatch Logs Insights, Datadog, etc.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">IAC_CARTOGRAPHER_LOG_FORMAT</span><span class="o">=</span>json<span class="w"> </span>iac-cartographer<span class="w"> </span>--once<span class="w"> </span>--config<span class="w"> </span>./config.yaml
+<h1 id="live-state-overlay-terrakube">Live-state overlay: Terrakube<a class="headerlink" href="#live-state-overlay-terrakube" title="Permanent link">&para;</a></h1>
+<p><a href="https://docs.terrakube.io/">Terrakube</a> is a self-hostable, open-source
+Terraform / OpenTofu state-and-runs platform. The Terrakube overlay
+layers workspace info from a Terrakube instance on top of the static
+inventory iac-cartographer builds — same shape as the
+<a href="../../reference/configuration/#live_state">Terraform Cloud overlay</a>,
+different backend.</p>
+<p>Opt-in via <code>live_state.backend: terrakube</code>. Default is <code>none</code>; no
+credential, no API calls, no behaviour change.</p>
+<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">live_state</span><span class="p">:</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">terrakube</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">organization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">acme</span><span class="w">                       </span><span class="c1"># Terrakube org NAME</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">terrakube.example.com</span><span class="w">          </span><span class="c1"># your install</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="c1"># workspace_mapping + staleness use the same shape as the TFC overlay.</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">workspace_mapping</span><span class="p">:</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;acme-org/main-cluster&quot;</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">      </span><span class="nt">workspace</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;prod-platform&quot;</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="nt">staleness</span><span class="p">:</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="nt">threshold_days</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">acknowledged_stale</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </span></code></pre></div>
-<p>Each line carries <code>ts</code> (ISO-8601 UTC), <code>level</code>, <code>logger</code>, <code>msg</code>, any
-structured <code>extra=</code> fields attached at the call site (repo names, durations,
-counts), and <code>exc</code> for exceptions. The same secret-redaction filter that
-applies to text logs applies to JSON — credentials never reach either sink.</p>
-<p><code>IAC_CARTOGRAPHER_LOG_FORMAT</code> unset or set to anything other than <code>json</code>
-keeps the text formatter. Switching back is a one-env-var rollback.</p>
-<h2 id="opentelemetry-metrics-optional">OpenTelemetry metrics (optional)<a class="headerlink" href="#opentelemetry-metrics-optional" title="Permanent link">&para;</a></h2>
-<p>AWS deployments already get metrics via CloudWatch (the <code>put_metric_data</code>
-path, unchanged). For GCP / Azure / on-prem, an optional OTLP exporter sends
-the same signals to any OpenTelemetry collector.</p>
-<p>It's <strong>off by default</strong> and gated two ways:</p>
-<ol>
-<li>Install the extra: <code>pip install 'iac-cartographer[otel]'</code></li>
-<li>Set an endpoint: <code>IAC_CARTOGRAPHER_OTEL_EXPORTER_OTLP_ENDPOINT</code>
-   (or the standard <code>OTEL_EXPORTER_OTLP_ENDPOINT</code>).</li>
-</ol>
-<p>When the endpoint is unset OR the <code>[otel]</code> extra isn't installed, every
-metric call is a silent no-op (the OTel SDK is imported lazily; a missing
-dep logs once at DEBUG and falls back to the null exporter). The CloudWatch
-path is unaffected either way — OTLP is purely additive.</p>
-<h3 id="metrics-emitted">Metrics emitted<a class="headerlink" href="#metrics-emitted" title="Permanent link">&para;</a></h3>
+<p><code>organization</code> is the human-readable Terrakube organisation NAME (the
+overlay resolves it to the internal UUID at first lookup and caches it
+for the rest of the run). <code>hostname</code> is the bare host — the overlay
+constructs <code>https://&lt;hostname&gt;/api/v1/...</code> from it.</p>
+<h3 id="credential">Credential<a class="headerlink" href="#credential" title="Permanent link">&para;</a></h3>
+<p>A Terrakube Personal Access Token with read access to the configured
+organisation. Stored under the logical name <code>iac-cartographer/terrakube</code>
+via whichever <a href="../secrets/">secrets backend</a> you're using:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># env backend</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">IAC_CARTOGRAPHER_SECRET_TERRAKUBE</span><span class="o">=</span><span class="s1">&#39;{&quot;token&quot;:&quot;&lt;terrakube-pat&gt;&quot;}&#39;</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># AWS Secrets Manager (default backend)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>aws<span class="w"> </span>secretsmanager<span class="w"> </span>create-secret<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>--name<span class="w"> </span>iac-cartographer/terrakube<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span>--secret-string<span class="w"> </span><span class="s1">&#39;{&quot;token&quot;:&quot;&lt;terrakube-pat&gt;&quot;}&#39;</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># HashiCorp Vault</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>vault<span class="w"> </span>kv<span class="w"> </span>put<span class="w"> </span>secret/iac-cartographer/terrakube<span class="w"> </span><span class="nv">token</span><span class="o">=</span>&lt;terrakube-pat&gt;
+</span></code></pre></div>
+<p>The overlay only ever issues GET requests — no write or admin scopes
+required.</p>
+<h2 id="what-the-overlay-surfaces-on-each-child-page">What the overlay surfaces on each child page<a class="headerlink" href="#what-the-overlay-surfaces-on-each-child-page" title="Permanent link">&para;</a></h2>
+<p>For every rendered repo, the overlay looks up the corresponding Terrakube
+workspace and renders these fields on the child page (under "Live state"):</p>
 <table>
 <thead>
 <tr>
-<th>Metric</th>
-<th>Type</th>
-<th>Labels</th>
-<th>Meaning</th>
+<th>Field</th>
+<th>Source</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>iac_cartographer.runs</code></td>
-<td>counter</td>
+<td>Workspace name + URL</td>
+<td><code>/organization/{orgId}/workspace</code></td>
+<td>URL points at the workspace in the Terrakube UI.</td>
+</tr>
+<tr>
+<td>Current run</td>
+<td>most-recent job from <code>/workspace/{wsId}/job</code></td>
+<td>One of <code>pending</code>, <code>waitingApproval</code>, <code>approved</code>, <code>queue</code>, <code>running</code>, <code>completed</code>, <code>noChanges</code>, <code>notExecuted</code>, <code>rejected</code>, <code>cancelled</code>, <code>failed</code>, <code>unknown</code>.</td>
+</tr>
+<tr>
+<td>Last successful apply</td>
+<td>first job with <code>status ∈ {completed, noChanges}</code></td>
+<td>Timestamp from <code>updatedDate</code>.</td>
+</tr>
+<tr>
+<td>Drift</td>
 <td>—</td>
-<td>Pipeline run heartbeat (one per <code>--once</code>).</td>
+<td>Terrakube has no workspace-level drift attribute. The renderer always shows <code>not configured</code>.</td>
 </tr>
 <tr>
-<td><code>iac_cartographer.repo.duration</code></td>
-<td>histogram</td>
+<td>Live resource count</td>
 <td>—</td>
-<td>Per-repo clone + extract + narrate seconds.</td>
-</tr>
-<tr>
-<td><code>iac_cartographer.llm.tokens</code></td>
-<td>counter</td>
-<td><code>backend</code>, direction</td>
-<td>LLM token usage by backend.</td>
-</tr>
-<tr>
-<td><code>iac_cartographer.publish.outcomes</code></td>
-<td>counter</td>
-<td><code>outcome</code></td>
-<td>Publish results (created / updated / unchanged / failed).</td>
+<td>Terrakube has no <code>/workspaces/{id}/resources</code> total-count endpoint. The renderer omits the divergence row.</td>
 </tr>
 </tbody>
 </table>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;iac-cartographer[otel]&#39;</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OTEL_EXPORTER_OTLP_ENDPOINT</span><span class="o">=</span><span class="s2">&quot;http://otel-collector:4318&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>iac-cartographer<span class="w"> </span>--once<span class="w"> </span>--config<span class="w"> </span>./config.yaml
-</span></code></pre></div>
-<h3 id="rollback">Rollback<a class="headerlink" href="#rollback" title="Permanent link">&para;</a></h3>
-<p>Unset the endpoint env var (or uninstall the <code>[otel]</code> extra) and metrics
-silently stop exporting — no code change, no restart logic. The run itself
-is unaffected; observability is never on the critical path.</p>
+<p>The default repo → workspace mapping is "last segment of <code>repo.full_name</code>":
+<code>acme-org/main-cluster</code> → <code>main-cluster</code>. Override via the
+<code>workspace_mapping</code> list (first match wins, fnmatch-style globs).</p>
+<h2 id="stale-failed-apply-alerts">Stale failed-apply alerts<a class="headerlink" href="#stale-failed-apply-alerts" title="Permanent link">&para;</a></h2>
+<p>Same sub-feature as the TFC overlay: when the most-recent attempted
+apply has <code>status: failed</code> for more than <code>staleness.threshold_days</code>,
+the overlay raises a <code>warn</code>-level alert through the
+<a href="../notifications/">notifications dispatcher</a>. Suppressed when:</p>
+<ul>
+<li>A newer job is in flight (<code>pending</code>, <code>waitingApproval</code>, <code>approved</code>,
+  <code>queue</code>, <code>running</code>) — the operator is already on it.</li>
+<li>A newer job succeeded (<code>completed</code>, <code>noChanges</code>) — the workspace
+  recovered.</li>
+<li>The workspace name matches an <code>acknowledged_stale</code> fnmatch pattern.</li>
+</ul>
+<p>Set <code>staleness.enabled: false</code> to disable the alert path entirely
+without touching the rest of the overlay.</p>
+<h2 id="-diagnose-integration"><code>--diagnose</code> integration<a class="headerlink" href="#-diagnose-integration" title="Permanent link">&para;</a></h2>
+<p><code>iac-cartographer --diagnose</code> emits two rows for the Terrakube path:</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Offline</th>
+<th><code>--live</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>live-state</code></td>
+<td>validates <code>organization</code> + <code>hostname</code> non-default</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>secrets.terrakube</code></td>
+<td>marked <code>ok — required by live_state.backend=terrakube</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>live-state-live</code></td>
+<td>—</td>
+<td><code>GET /api/v1/organization?filter[organization]=name==&lt;org&gt;</code> — confirms the PAT is valid AND the configured organisation is visible to it</td>
+</tr>
+</tbody>
+</table>
+<h2 id="version-compatibility">Version compatibility<a class="headerlink" href="#version-compatibility" title="Permanent link">&para;</a></h2>
+<p>Tested against the v2.27 OpenAPI spec
+(<a href="https://github.com/terrakube-io/terrakube/blob/main/openapi-spec/v2_27_0.yml">openapi-spec/v2_27_0.yml</a>).
+Older versions that don't expose the workspace-jobs endpoint
+(<code>/workspace/{wsId}/job</code>) degrade gracefully: the overlay logs a
+<code>debug</code>-level line, returns a <code>LiveStateInfo</code> with workspace name + URL
+but no run info, and skips the stale-apply check. The static inventory
+on the rendered page is unaffected.</p>
+<h2 id="limitations-vs-the-tfc-overlay">Limitations vs the TFC overlay<a class="headerlink" href="#limitations-vs-the-tfc-overlay" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>No drift detection</strong> — Terrakube doesn't expose a workspace-level
+  drift attribute. If a future Terrakube release adds one,
+  <code>TerrakubeOverlay._drift_status_from_workspace</code> is the single
+  integration point.</li>
+<li><strong>No live resource count</strong> — there is no equivalent of TFC's
+  <code>/workspaces/{id}/resources</code> total-count endpoint. The state-history
+  endpoint exists but parsing snapshots to count resources is non-trivial
+  and version-dependent; we'd rather omit the field than fabricate it.</li>
+</ul>
+<p>Everything else — workspace mapping, stale-apply alerts, the
+<code>LiveStateOverlay</code> protocol surface — is identical to the TFC overlay,
+so a team switching state platforms doesn't need to relearn the
+config.</p>
 
 
 

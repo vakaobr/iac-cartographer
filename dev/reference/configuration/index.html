@@ -336,6 +336,8 @@
       
         
       
+        
+      
     
     
     
@@ -517,6 +519,34 @@
     
   
     Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../backends/terrakube/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terrakube live-state overlay
   
 
     
@@ -1396,6 +1426,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="live_state">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend-specific-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend-specific notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1724,6 +1771,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="live_state">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend-specific-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend-specific notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2396,11 +2460,18 @@ files render too.</p>
 count is part of the page input), so the next run republishes every
 page. Tune it once and leave it.</p>
 <h2 id="live_state"><code>live_state</code><a class="headerlink" href="#live_state" title="Permanent link">&para;</a></h2>
-<p>Read-only overlay that layers external workspace info (Terraform Cloud
-/ HCP Terraform / Terraform Enterprise) onto each repo's rendered
-page — current run status, last successful apply, drift, live
+<p>Read-only overlay that layers external workspace info onto each repo's
+rendered page — current run status, last successful apply, drift, live
 resource count — plus a <code>warn</code>-level notification for any workspace
-that's been in <code>errored</code> state longer than the staleness threshold.</p>
+that's been in a failed-apply state longer than the staleness
+threshold.</p>
+<p>Two backends ship today:</p>
+<ul>
+<li><code>tfc</code> — Terraform Cloud / HCP Terraform / Terraform Enterprise.</li>
+<li><code>terrakube</code> — self-hosted <a href="../../backends/terrakube/">Terrakube</a>.</li>
+</ul>
+<p>Both backends use the same config block; only <code>backend</code>, <code>hostname</code>,
+and the required credential differ.</p>
 <table>
 <thead>
 <tr>
@@ -2413,21 +2484,21 @@ that's been in <code>errored</code> state longer than the staleness threshold.</
 <tbody>
 <tr>
 <td><code>backend</code></td>
-<td><code>"none" \| "tfc"</code></td>
+<td><code>"none" \| "tfc" \| "terrakube"</code></td>
 <td><code>"none"</code></td>
-<td>No-op default; flip to <code>tfc</code> to enable the TFC / HCP / TFE overlay.</td>
+<td>No-op default; flip to <code>tfc</code> or <code>terrakube</code> to enable the overlay.</td>
 </tr>
 <tr>
 <td><code>organization</code></td>
 <td><code>str</code></td>
 <td><code>""</code></td>
-<td>TFC / HCP / TFE organisation name. Required when <code>backend != "none"</code>.</td>
+<td>Organisation name on the chosen platform. Required when <code>backend != "none"</code>. Terrakube resolves the name to its internal UUID at startup.</td>
 </tr>
 <tr>
 <td><code>hostname</code></td>
 <td><code>str</code></td>
 <td><code>"app.terraform.io"</code></td>
-<td>API hostname. Covers TFC + HCP Terraform with the default; override for self-hosted Terraform Enterprise (e.g. <code>tfe.acme.internal</code>).</td>
+<td>API hostname. The default covers TFC + HCP Terraform; override for TFE (e.g. <code>tfe.acme.internal</code>) <strong>or</strong> Terrakube (e.g. <code>terrakube.acme.internal</code>). The overlay constructs <code>https://&lt;hostname&gt;/api/v2/...</code> for TFC and <code>https://&lt;hostname&gt;/api/v1/...</code> for Terrakube.</td>
 </tr>
 <tr>
 <td><code>workspace_mapping</code></td>
@@ -2445,7 +2516,7 @@ that's been in <code>errored</code> state longer than the staleness threshold.</
 <td><code>staleness.threshold_days</code></td>
 <td><code>int</code></td>
 <td><code>2</code></td>
-<td>Days a workspace must sit in <code>errored</code> state before an alert fires.</td>
+<td>Days a workspace must sit in a failed-apply state before an alert fires. (TFC: <code>errored</code>; Terrakube: <code>failed</code>.)</td>
 </tr>
 <tr>
 <td><code>staleness.acknowledged_stale</code></td>
@@ -2455,20 +2526,36 @@ that's been in <code>errored</code> state longer than the staleness threshold.</
 </tr>
 </tbody>
 </table>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">live_state</span><span class="p">:</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tfc</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">organization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">acme-org</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">workspace_mapping</span><span class="p">:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;acme-org/prod-*&quot;</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">workspace</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;prod-app&quot;</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">staleness</span><span class="p">:</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">threshold_days</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">acknowledged_stale</span><span class="p">:</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;legacy-*&quot;</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># TFC / HCP / TFE</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">live_state</span><span class="p">:</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tfc</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">organization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">acme-org</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">workspace_mapping</span><span class="p">:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;acme-org/prod-*&quot;</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">workspace</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;prod-app&quot;</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">staleness</span><span class="p">:</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">threshold_days</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="nt">acknowledged_stale</span><span class="p">:</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;legacy-*&quot;</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># Terrakube</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="nt">live_state</span><span class="p">:</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="w">  </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">terrakube</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">  </span><span class="nt">organization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">acme-org</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">  </span><span class="nt">hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">terrakube.acme.internal</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">  </span><span class="nt">workspace_mapping</span><span class="p">:</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;acme-org/prod-*&quot;</span>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="w">      </span><span class="nt">workspace</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;prod-app&quot;</span>
 </span></code></pre></div>
-<p>Requires the <code>iac-cartographer/tfc</code> secret as <code>{"token": "..."}</code> — a
-read-scoped team or user API token; the overlay only ever issues GETs.</p>
+<p>The required credential depends on <code>backend</code>:</p>
+<ul>
+<li><code>tfc</code> → <code>iac-cartographer/tfc</code> as <code>{"token": "..."}</code> — read-scoped
+  team or user API token.</li>
+<li><code>terrakube</code> → <code>iac-cartographer/terrakube</code> as <code>{"token": "..."}</code> — a
+  Terrakube PAT with read access to the organisation.</li>
+</ul>
+<p>Both overlays only ever issue GETs.</p>
 <p>The overlay's data is <strong>excluded from the banner-SHA</strong> by design —
 workspace state changes between iac-cartographer runs without any
 change to the repo being indexed, and we don't want every page
@@ -2476,8 +2563,21 @@ republished on every run for that reason. The page reads as
 ephemeral status, not "did the repo's structural facts change?".</p>
 <p>Stale-apply alerts route through the configured <code>notifications:</code>
 channels at <code>warn</code> level; an alert fires only when the most-recent
-apply attempt errored, no newer apply is in flight (operator is on
-it), and the workspace isn't matched by <code>acknowledged_stale</code>.</p>
+apply attempt failed, no newer apply is in flight (operator is on it),
+and the workspace isn't matched by <code>acknowledged_stale</code>.</p>
+<h3 id="backend-specific-notes">Backend-specific notes<a class="headerlink" href="#backend-specific-notes" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Terrakube has no workspace-level drift attribute</strong> — the "Drift"
+  cell on the rendered page always shows "not configured" for
+  Terrakube workspaces. If a future Terrakube release surfaces drift,
+  the overlay picks it up with no config change.</li>
+<li><strong>Terrakube has no <code>/workspaces/{id}/resources</code> total-count
+  endpoint</strong> — <code>Live resource count</code> is omitted for Terrakube
+  workspaces.</li>
+<li>See <a href="../../backends/terrakube/">Terrakube overlay</a> for the full
+  Terrakube setup walkthrough, job-status mappings, and version
+  compatibility notes.</li>
+</ul>
 <h2 id="slack-legacy-single-channel-deprecated"><code>slack</code> (legacy single-channel — deprecated)<a class="headerlink" href="#slack-legacy-single-channel-deprecated" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

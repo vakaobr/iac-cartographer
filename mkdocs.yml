@@ -77,6 +77,7 @@ nav:
       - Publishers: backends/publishers.md
       - Secrets providers: backends/secrets.md
       - Notifications: backends/notifications.md
+      - Terrakube live-state overlay: backends/terrakube.md
   - Operations:
       - Running on a schedule: operations/runtime.md
       - Pre-flight self-test (--diagnose): operations/diagnose.md

@@ -471,7 +471,14 @@ def check_live_state(config: AppConfig) -> CheckResult:
             name="live-state",
             status=Status.FAIL,
             detail=f"live_state.backend={ls.backend} but live_state.organization is unset",
-            hint="set live_state.organization to the TFC / HCP / TFE organisation name",
+            hint="set live_state.organization to the platform organisation name",
+        )
+    if ls.backend == "terrakube" and (not ls.hostname or ls.hostname == "app.terraform.io"):
+        return CheckResult(
+            name="live-state",
+            status=Status.FAIL,
+            detail="live_state.backend=terrakube but live_state.hostname is unset or still the TFC default",
+            hint="set live_state.hostname to your Terrakube install (e.g. terrakube.acme.internal)",
         )
     detail = f"{ls.backend} → org={ls.organization} hostname={ls.hostname}"
     if ls.staleness.enabled:
@@ -536,11 +543,20 @@ def check_secrets_required(config: AppConfig) -> list[CheckResult]:
     # Publisher credentials.
     out.append(_row("confluence", reason="publisher.kind=confluence" if publisher_kind == "confluence" else None))
     out.append(_row("notion", reason="publisher.kind=notion" if publisher_kind == "notion" else None))
-    # Live-state overlay credential. Loaded only when `live_state.backend != "none"`.
+    # Live-state overlay credentials. Each is loaded only when the
+    # matching backend is selected — the other is silently skipped.
     out.append(
         _row(
             "tfc",
             reason=f"live_state.backend={config.live_state.backend}" if config.live_state.backend == "tfc" else None,
+        )
+    )
+    out.append(
+        _row(
+            "terrakube",
+            reason=(
+                f"live_state.backend={config.live_state.backend}" if config.live_state.backend == "terrakube" else None
+            ),
         )
     )
 
@@ -665,6 +681,7 @@ def check_secrets_live(config: AppConfig) -> tuple[CheckResult, LoadedSecrets | 
             need_discord="discord" in notification_kinds,
             need_notion=config.publisher.kind == "notion",
             need_tfc=config.live_state.backend == "tfc",
+            need_terrakube=config.live_state.backend == "terrakube",
         )
     except CartographerError as exc:
         return (
@@ -869,6 +886,9 @@ def check_live_state_live(config: AppConfig, secrets: LoadedSecrets) -> CheckRes
 
       * `tfc` — `GET /api/v2/account/details` (the standard TFC token
         check; no workspace data fetched).
+      * `terrakube` — `GET /api/v1/organization?filter[organization]=name==<org>`
+        (resolves the configured organisation to a UUID, doubles as a
+        token + connectivity probe).
 
     Any HTTP / network failure becomes a FAIL with an actionable hint;
     the orchestrator continues without the overlay rather than crashing
@@ -932,11 +952,85 @@ def check_live_state_live(config: AppConfig, secrets: LoadedSecrets) -> CheckRes
             status=Status.OK,
             detail=f"tfc reachable at {config.live_state.hostname} as {username}",
         )
+    if config.live_state.backend == "terrakube":
+        if secrets.terrakube is None:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail="live_state.backend=terrakube but no TerrakubeCredentials were loaded",
+                hint='populate the iac-cartographer/terrakube secret with `{"token": "..."}`',
+            )
+        hostname = config.live_state.hostname.rstrip("/")
+        url = f"https://{hostname}/api/v1/organization"
+        try:
+            resp = httpx.get(
+                url,
+                params={
+                    "filter[organization]": f"name=={config.live_state.organization}",
+                    "page[limit]": "1",
+                },
+                headers={
+                    "Authorization": f"Bearer {secrets.terrakube.token}",
+                    "Accept": "application/vnd.api+json",
+                },
+                timeout=_LIVE_HTTP_TIMEOUT_S,
+            )
+        except httpx.HTTPError as exc:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail=f"terrakube probe failed: {type(exc).__name__}: {str(exc)[:140]}",
+                hint=(
+                    f"confirm live_state.hostname ({hostname}) is reachable and "
+                    "the iac-cartographer/terrakube PAT is valid"
+                ),
+            )
+        if resp.status_code == 401:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail="terrakube returned 401 Unauthorized — the PAT is invalid or expired",
+                hint="rotate iac-cartographer/terrakube; the overlay needs a read-scoped PAT",
+            )
+        if resp.status_code >= 400:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail=f"terrakube /organization returned HTTP {resp.status_code}",
+                hint="check live_state.hostname and that the PAT can list organisations",
+            )
+        try:
+            data = resp.json().get("data") or []
+        except ValueError:
+            data = []
+        match = next(
+            (
+                e
+                for e in data
+                if isinstance(e, dict) and ((e.get("attributes") or {}).get("name") == config.live_state.organization)
+            ),
+            None,
+        )
+        if match is None:
+            return CheckResult(
+                name="live-state-live",
+                status=Status.FAIL,
+                detail=(
+                    f"terrakube reachable at {hostname} but organisation "
+                    f"{config.live_state.organization!r} is not visible to this PAT"
+                ),
+                hint="confirm the organisation name + that the PAT has access",
+            )
+        return CheckResult(
+            name="live-state-live",
+            status=Status.OK,
+            detail=(f"terrakube reachable at {hostname}; organisation {config.live_state.organization!r} resolved"),
+        )
     return CheckResult(
         name="live-state-live",
         status=Status.FAIL,
         detail=f"unknown live_state.backend: {config.live_state.backend!r}",
-        hint="supported backends: `tfc` (or `none` to disable)",
+        hint="supported backends: `tfc`, `terrakube` (or `none` to disable)",
     )
 
 

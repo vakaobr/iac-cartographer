@@ -23,7 +23,10 @@ structural facts with [`terraform-docs`](https://terraform-docs.io)
 asks an LLM to write a short purpose summary for each repo, and
 publishes a parent + child page hierarchy to your chosen output
 (Confluence Cloud, Notion, GitHub Wiki, Markdown, HTML, or JSON).
-Pages republish only when the underlying content changes (banner-SHA
+Optionally layers live workspace info — current run, last
+successful apply, drift, stale-apply alerts — from Terraform Cloud /
+HCP / TFE or Terrakube on top of each rendered page. Pages
+republish only when the underlying content changes (banner-SHA
 short-circuit), so it's safe to run as often as you like.
 
 ```
@@ -491,6 +494,7 @@ Plus the Phase 3 distribution + onboarding wins:
 * **`iac-cartographer --lint <path>` subcommand** — IaC hygiene linter (undeclared providers, unpinned providers / modules) with text / JSON / GitHub-Actions-annotation output. Ships a `.pre-commit-hooks.yaml` for pre-commit users. CI-gating-friendly exit codes. See [`docs/operations/lint.md`](docs/operations/lint.md).
 * **`iac-cartographer --diagnose` pre-flight self-test** — offline checklist over the active config: `terraform-docs` version, optional-deps for the configured backends, discovery sources, LLM config consistency, publisher write target, notification routing. No live API calls; sub-second; CI-gating exit codes (0 ok / 1 warn / 2 fail). Add `--live` to also verify real reachability (fetch the required secret bundle, authenticate each discovery source, probe the LLM endpoint, reach the publisher target) — needs credentials, and the LLM probe stays cost-safe (never runs a completion). Add `--probe-llm` on top of `--live` for one opt-in bounded `max_tokens=1` completion (true inference confidence, a fraction of a cent of real spend). See [`docs/operations/diagnose.md`](docs/operations/diagnose.md).
 * **Observability for non-AWS deployments** — opt-in structured JSON logging (`IAC_CARTOGRAPHER_LOG_FORMAT=json`) and an optional OpenTelemetry metrics exporter (`pip install iac-cartographer[otel]` + an OTLP endpoint env var) emitting run / per-repo-duration / LLM-token / publish-outcome signals. Both default-off; the existing CloudWatch path is unchanged. See [`docs/operations/observability.md`](docs/operations/observability.md).
+* **Live-state overlay** — read-only `LiveStateOverlay` protocol with two implementations: **Terraform Cloud / HCP / Terraform Enterprise** ([#98](https://github.com/vakaobr/iac-cartographer/issues/98)) and **Terrakube** ([#99](https://github.com/vakaobr/iac-cartographer/issues/99)). When configured, each rendered child page gains a Live-state section (workspace name + URL, current run status, last successful apply, drift, live resource count). Free sub-feature: a `warn`-level **stale failed-apply alert** for any workspace stuck in an errored / failed state past a configurable threshold (default 2 days) — routed through the same `notifications:` dispatcher and dispatched once per run. Default backend is `none` so existing deployments see zero change. See [`docs/reference/configuration.md#live_state`](docs/reference/configuration.md#live_state) and [`docs/backends/terrakube.md`](docs/backends/terrakube.md).
 
 ### Coming next
 
@@ -513,8 +517,6 @@ Right now the tool is named **iac-cartographer** but only really understands Ter
 **Different paradigms, different page templates:**
 
 * **Ansible.** Different shape from Terraform — no resource graph; instead: hosts / groups targeted, role + task summary, packages / services managed, secrets touched. The interesting question is **Ansible Vault**: surface the **key names** present in each vault file (via `ansible-vault view` against a decrypt key mounted as a CI secret) without ever logging or rendering values. Different page template entirely. Worth doing once one person actively asks for it.
-* **Terraform Cloud / HCP overlay.** Read workspace runs / state / drift via the TFC API and layer "last applied at", "drift detected", "current run status" on top of the static inventory. Powerful for orgs already on TFC; needs the TFC token in scope. Same API-overlay shape as the Terrakube item below — the two should share an `LiveStateOverlay` abstraction so adding a third backend later costs days, not weeks.
-* **Terrakube support.** Open-source, self-hostable TF / OpenTofu state-and-runs backend — increasingly relevant since the HashiCorp acquisition by IBM, as teams look for non-TFC alternatives they can run themselves. Same `LiveStateOverlay` surface as the TFC item: workspaces, last applied, drift, current run. Building Terrakube and TFC together also gives the project a clear story for the "state backend posture" use case beyond what static HCL parsing alone can tell you.
 
 **Considered, not currently planned:**
 
@@ -535,7 +537,6 @@ Concrete examples where help is especially welcome:
 
 * **Terragrunt** ([#96](https://github.com/vakaobr/iac-cartographer/issues/96)) — the maintainer has no Terragrunt in their own infrastructure, so even a clean implementation can't be validated end-to-end without a contributor's live monorepo.
 * **Ansible** ([#97](https://github.com/vakaobr/iac-cartographer/issues/97)) — different page shape, Vault key surfacing has real safety constraints; someone running Ansible in production today would catch design holes the maintainer wouldn't.
-* **Terrakube** ([#99](https://github.com/vakaobr/iac-cartographer/issues/99)) — happy to design the abstraction and ship the TFC side; the Terrakube implementation really wants someone who's already running it.
 * **Pulumi** (deliberately not on the active roadmap) — open if you'd own the parser long-term.
 
 What "collaboration" means here:

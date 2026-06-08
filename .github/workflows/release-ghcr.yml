@@ -58,7 +58,7 @@ jobs:
         # The qemu-user-static binaries are registered with binfmt_misc
         # so buildx can transparently emulate the foreign arch during
         # the RUN steps (apt-get + curl terraform-docs).
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
